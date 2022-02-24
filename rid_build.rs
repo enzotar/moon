@@ -25,11 +25,11 @@ fn main() {
                 // NOTE: Remove any of the below platforms that you don't support
 
                 // Mobile
-                FlutterPlatform::ios(),
-                FlutterPlatform::android(),
+                //FlutterPlatform::ios(),
+                //FlutterPlatform::android(),
                 // Desktop
                 FlutterPlatform::macos(),
-                FlutterPlatform::linux(),
+                //FlutterPlatform::linux(),
             ],
         }),
         lib_name,
