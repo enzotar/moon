@@ -29,23 +29,24 @@ class EventListener extends HookConsumerWidget {
 
     return Listener(
       behavior: HitTestBehavior.translucent,
-      // onPointerSignal: (ev) {
-      //   if (ev is PointerScrollEvent) {
-      //     final inputProperties = {
-      //       "runtimeType": ev.runtimeType.toString(),
-      //       "mouseScrollDeltaX": ev.scrollDelta.dx,
-      //       "mouseScrollDeltaY": ev.scrollDelta.dy,
-      //       "mouseScrollX": ev.position.dx,
-      //       "mouseScrollY": ev.position.dy,
-      //       "localPositionX": ev.localPosition.dx,
-      //       "localPositionY": ev.localPosition.dy,
-      //       "timestampMs": DateTime.now().millisecondsSinceEpoch,
-      //     };
-      //     String inputEvent =
-      //         JsonMapper.serialize(InputProperties(inputProperties));
-      //     store.store.msgSendEvent(inputEvent);
-      //   }
-      // },
+      onPointerSignal: (ev) {
+        if (ev is PointerScrollEvent) {
+          final inputProperties = {
+            "runtimeType": ev.runtimeType.toString(),
+            "mouseScrollDeltaX": ev.scrollDelta.dx,
+            "mouseScrollDeltaY": ev.scrollDelta.dy,
+            "mouseScrollX": ev.position.dx,
+            "mouseScrollY": ev.position.dy,
+            "localPositionX": ev.localPosition.dx,
+            "localPositionY": ev.localPosition.dy,
+            "timestampMs": DateTime.now().millisecondsSinceEpoch,
+          };
+          // String inputEvent =
+          // JsonMapper.serialize(InputProperties(inputProperties));
+          // store.store.msgMouseEvent(inputEvent);
+          print(inputProperties);
+        }
+      },
       onPointerDown: (ev) {
         // print(ev.position.dx.toInt());
         final inputProperties = {
