@@ -1,7 +1,7 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
-import 'package:rheetah/providers/store_provider.dart';
+import 'package:moon/providers/store_provider.dart';
 
 class GraphSelection extends HookConsumerWidget {
   late final List<rid.GraphEntry> graphList;

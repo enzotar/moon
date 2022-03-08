@@ -5,9 +5,9 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
 import 'package:flutter/material.dart';
 import 'package:recase/recase.dart';
-import 'package:rheetah/providers/store_provider.dart';
-import 'package:rheetah/serialization/input_mapping.dart';
-import 'package:rheetah/widgets/block.dart';
+import 'package:moon/providers/store_provider.dart';
+import 'package:moon/serialization/input_mapping.dart';
+import 'package:moon/widgets/block.dart';
 
 /// Must call ApplyCommand in two places
 ///

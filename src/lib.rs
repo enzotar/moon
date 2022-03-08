@@ -105,7 +105,7 @@ impl RidStore<Msg> for Store {
                 }
 
                 let event: InitializeEvent = serde_json::from_str(&ev).unwrap();
-                let db_path = "SUNSHINE_DB".to_owned();
+                let db_path = event.db_path;//"SUNSHINE_DB".to_owned();
                 assert!(self.state.is_none());
                 self.state = Some(State::new(
                     db_path.clone(),

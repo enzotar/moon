@@ -6,8 +6,8 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
 import 'package:recase/recase.dart';
-import 'package:rheetah/commands/const.dart';
-import 'package:rheetah/providers/store_provider.dart';
+import 'package:moon/commands/const.dart';
+import 'package:moon/providers/store_provider.dart';
 
 class JsonTextField extends HookConsumerWidget {
   JsonTextField({Key? key, required this.treeNode}) : super(key: key);

@@ -6,10 +6,10 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:recase/recase.dart';
-import 'package:rheetah/logger.dart';
-import 'package:rheetah/providers/store_provider.dart';
+import 'package:moon/logger.dart';
+import 'package:moon/providers/store_provider.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
-import 'package:rheetah/serialization/input_mapping.dart';
+import 'package:moon/serialization/input_mapping.dart';
 
 import 'event_listener.dart';
 import 'package:file_picker/file_picker.dart';

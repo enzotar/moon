@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
-import 'package:rheetah/providers/store_provider.dart';
+import 'package:moon/providers/store_provider.dart';
 
 import './logger.dart';
 

@@ -1,4 +1,4 @@
-name: rheetah
+name: moon
 description: A new Flutter project.
 
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -16,13 +16,11 @@ dependencies:
   dart_json_mapper_flutter:
   flutter_hooks: ^0.18.0
   hooks_riverpod: ^1.0.0
-  bloc: ^7.1.0
-  flutter_bloc: ^7.2.0
   path_provider: ^2.0.9
   screenshot: ^1.2.3
   recase: ^4.0.0
   flutter_form_builder: ^7.1.1
-  json_schema: ^4.0.0
+  # json_schema: ^4.0.0
 
   plugin:
     path: plugin

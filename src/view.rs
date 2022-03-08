@@ -14,7 +14,7 @@ use crate::model::{GraphEntry, SolanaNet};
     TxtCommand,
     EdgeView,
     GraphEntry,
-    BookmarkView
+    BookmarkView,
 )]
 #[rid::enums(SolanaNet)]
 pub struct View {
@@ -33,7 +33,7 @@ pub struct View {
     pub solana_net: SolanaNet,
 }
 
-#[derive(rid::Config, Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
 #[rid::model]
 pub struct Ratio {
     pub numer: i64,

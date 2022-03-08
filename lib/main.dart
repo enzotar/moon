@@ -4,12 +4,12 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:plugin/generated/rid_api.dart';
-import 'package:rheetah/layout.dart';
+import 'package:moon/layout.dart';
 import 'package:dart_json_mapper/dart_json_mapper.dart';
 
-import 'package:rheetah/rid/messaging.dart';
-import 'package:rheetah/serialization/input_mapping.dart';
-import 'package:rheetah/serialization/main.mapper.g.dart';
+import 'package:moon/rid/messaging.dart';
+import 'package:moon/serialization/input_mapping.dart';
+import 'package:moon/serialization/main.mapper.g.dart';
 import 'package:path_provider/path_provider.dart';
 
 void main() async {
