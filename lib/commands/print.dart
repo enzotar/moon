@@ -1,32 +1,65 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
+import 'package:rheetah/providers/store_provider.dart';
 
 class Print extends HookConsumerWidget {
-  Print({
-    Key? key,
-    required this.node,
-    required this.selected,
-    required this.inputs,
-    required this.outputs,
-  })  : this.input = "",
+  Print({Key? key, required this.treeNode})
+      : this.input = "",
         super(key: key);
 
   final String input;
-  final MapEntry<String, rid.NodeView> node;
-  final bool selected;
-  final List<Widget> inputs;
-  final List<Widget> outputs;
+  final TreeNode treeNode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Positioned(
-      // height: node.value.height.toDouble(),
-      // width: node.value.width.toDouble(),
-      // left: node.value.x.toDouble(),
-      // top: node.value.y.toDouble(),
-      child: Card(
+    Future<void> _copyToClipboard(text) async {
+      await Clipboard.setData(ClipboardData(text: text));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Copied to clipboard', textAlign: TextAlign.center),
+      ));
+      // Scaffold.of(context).showSnackBar(snackbar)
+    }
+
+    return Container(
+      child: Center(
+        child: treeNode.node.value.success == "success"
+            ? ListTile(
+                trailing: IconButton(
+                    icon: Icon(Icons.copy),
+                    onPressed: () {
+                      _copyToClipboard(treeNode.node.value.printOutput);
+                    }),
+                title: SelectableText(
+                  treeNode.node.value.printOutput,
+                  textAlign: TextAlign.right,
+                  style: TextStyle(fontSize: 18),
+                ),
+              )
+            : treeNode.node.value.success == "fail"
+                ? ListTile(
+                    trailing: IconButton(
+                        icon: Icon(Icons.copy),
+                        onPressed: () {
+                          _copyToClipboard(treeNode.node.value.printOutput);
+                        }),
+                    title: SelectableText(
+                      treeNode.node.value.error,
+                      textAlign: TextAlign.right,
+                      style: TextStyle(fontSize: 18),
+                    ),
+                  )
+                : null,
+      ),
+    );
+  }
+}
+
+
+/*
+Card(
         color: node.value.success == "success"
             ? Color(Colors.green.value)
             : Color(0xFFF5F5F5),
@@ -106,6 +139,5 @@ class Print extends HookConsumerWidget {
           ),
         ),
       ),
-    );
-  }
-}
+
+ */

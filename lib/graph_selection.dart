@@ -1,7 +1,7 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
-import 'package:moon/providers/store_provider.dart';
+import 'package:rheetah/providers/store_provider.dart';
 
 class GraphSelection extends HookConsumerWidget {
   late final List<rid.GraphEntry> graphList;
@@ -10,12 +10,13 @@ class GraphSelection extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // AsyncValue<rid.Store> nodeProvider = ref.watch(storeStreamProvider);
-    final store = ref.watch(storeRepoProvider);
+    final provider = ref.watch(widgetTreeController);
+    final store = ref.read(storeRepoProvider).store;
 
     final graphs = graphList.map((graph_id) {
       return GestureDetector(
         onTap: () {
-          store.store.msgLoadGraph(graph_id.id);
+          store.msgLoadGraph(graph_id.id);
         },
         child: Container(
           child: Text(graph_id.name),
@@ -57,10 +58,12 @@ class AddNewGraph extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final store = ref.watch(storeRepoProvider);
+    final provider = ref.watch(widgetTreeController);
+    final store = ref.read(storeRepoProvider).store;
+
     return GestureDetector(
       onTap: () {
-        store.store.msgLoadGraph("new");
+        store.msgLoadGraph("new");
       },
       child: Container(
         child: Text("add graph"),

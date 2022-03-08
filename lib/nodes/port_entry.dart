@@ -3,34 +3,39 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:plugin/generated/rid_api.dart' as rid;
-import 'package:moon/providers/store_provider.dart';
+import 'package:rheetah/nodes/add_port.dart';
+import 'package:rheetah/providers/store_provider.dart';
 import 'package:tuple/tuple.dart';
+import 'package:recase/recase.dart';
 
 HookConsumerWidget PortEntry(
+  port_type,
   inputType,
   nodeEntry,
 ) {
   HookConsumerWidget? _widget;
 
   switch (inputType) {
+    // case "String":
+    //   {
+    //     _widget = TextEntry(port_type, inputType, nodeEntry);
+    //   }
+    //   break;
     case "String":
-      {
-        _widget = TextEntry(inputType, nodeEntry);
-      }
-      break;
+
     case "Number":
     case "wait":
     case "Pubkey":
       {
-        _widget = BasicPort(inputType, nodeEntry);
+        _widget = BasicPort(port_type, inputType, nodeEntry);
       }
       break;
 
     default:
       {
-        _widget = BasicPort(inputType, nodeEntry);
+        _widget = BasicPort(port_type, inputType, nodeEntry);
       }
-      print(inputType);
+    // print(inputType);
   }
 
   return _widget as HookConsumerWidget;
@@ -38,6 +43,7 @@ HookConsumerWidget PortEntry(
 
 class TextEntry extends HookConsumerWidget {
   TextEntry(
+    this.port_type,
     this.inputType,
     this.nodeEntry, {
     Key? key,
@@ -45,6 +51,7 @@ class TextEntry extends HookConsumerWidget {
 
   final Tuple2<String, rid.NodeView> nodeEntry;
   final String inputType;
+  final PortType port_type;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -56,23 +63,36 @@ class TextEntry extends HookConsumerWidget {
     final textEditingController = useTextEditingController();
 
     final textFieldFocusNode = useFocusNode();
+    ReCase rc = ReCase(nodeEntry.item2.text);
 
-    return Expanded(
-      child: Padding(
-          padding: const EdgeInsets.fromLTRB(5, 0, 0, 0),
-          child: TextField(
-            focusNode: textFieldFocusNode,
-            // autofocus: true,
-            decoration: InputDecoration(
-              focusedBorder: UnderlineInputBorder(),
-              enabledBorder: InputBorder.none,
-              labelText: nodeEntry.item2.text,
+    return port_type == PortType.input
+        ? Expanded(
+            child: Padding(
+                padding: const EdgeInsets.fromLTRB(5, 0, 0, 0),
+                child: TextField(
+                  focusNode: textFieldFocusNode,
+                  // autofocus: true,
+                  decoration: InputDecoration(
+                    focusedBorder: UnderlineInputBorder(),
+                    enabledBorder: InputBorder.none,
+                    labelText: rc.sentenceCase,
+                  ),
+                  controller: textEditingController,
+                  style: TextStyle(),
+                  maxLines: 1,
+                )),
+          )
+        : Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(0, 0, 5, 0),
+              child: Text(
+                "${rc.sentenceCase}", //${inputName}",
+                style: TextStyle(), textAlign: TextAlign.end,
+                maxLines: 2,
+                softWrap: true,
+              ),
             ),
-            controller: textEditingController,
-            style: TextStyle(),
-            maxLines: 1,
-          )),
-    );
+          );
   }
 }
 
@@ -144,6 +164,7 @@ class TextEntry extends HookConsumerWidget {
 
 class BasicPort extends HookConsumerWidget {
   BasicPort(
+    this.port_type,
     this.inputType,
     this.nodeEntry, {
     Key? key,
@@ -151,19 +172,33 @@ class BasicPort extends HookConsumerWidget {
 
   final Tuple2<String, rid.NodeView> nodeEntry;
   final String inputType;
+  final PortType port_type;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(5, 0, 0, 0),
-        child: Text(
-          "${nodeEntry.item2.text}", //${inputName}",
-          style: TextStyle(),
-          maxLines: 2,
-          softWrap: true,
-        ),
-      ),
-    );
+    ReCase rc = ReCase(nodeEntry.item2.text);
+    return port_type == PortType.input
+        ? Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(5, 0, 0, 0),
+              child: Text(
+                "${rc.sentenceCase}", //${inputName}",
+                style: TextStyle(),
+                maxLines: 2,
+                softWrap: true,
+              ),
+            ),
+          )
+        : Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(0, 0, 5, 0),
+              child: Text(
+                "${rc.sentenceCase}", //${inputName}",
+                style: TextStyle(), textAlign: TextAlign.end,
+                maxLines: 2,
+                softWrap: true,
+              ),
+            ),
+          );
   }
 }

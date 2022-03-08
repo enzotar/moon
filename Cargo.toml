@@ -1,5 +1,5 @@
 [package]
-name = "moon"
+name = "rheetah"
 version = "0.1.0"
 authors = [""]
 edition = "2021"
@@ -27,11 +27,22 @@ sunshine_core = { path="../libraries/sunshine_flow/sunshine_core", version = "0.
 sunshine_solana = { path="../libraries/sunshine_flow/sunshine_solana", version = "0.1.0" }
 dashmap = "5.1.0"
 tiny-bip39 = "0.8.2"
-
+chrono = "0.4.19"
 # sunshine_dgraph = { path="../libraries/sunshine_dgraph", version = "0.1.0" }
+
+
+#[dependencies.solana-client]
+#git = "https://github.com/solana-labs/solana/"
+#rev = "2b0f16e7c378c14c8320b194d0963836343e52d2"
+# [dependencies.solana-remote-wallet]
+# version = "1.9.9"
+# default-features = false
 
 [dependencies.input-core]
 path = "../libraries/sunshine/input-core"
 
 [dependencies.input-more]
 path = "../libraries/sunshine/input-more"
+
+[dependencies.parse]
+path = "../libraries/sunshine/parse"

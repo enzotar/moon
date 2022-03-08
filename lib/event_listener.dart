@@ -4,15 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
-import 'package:moon/canvas.dart';
-import 'package:moon/serialization/input_mapping.dart';
-import 'package:moon/providers/store_provider.dart';
+import 'package:rheetah/canvas.dart';
+import 'package:rheetah/serialization/input_mapping.dart';
+import 'package:rheetah/providers/store_provider.dart';
+import 'package:screenshot/screenshot.dart';
 
 class EventListener extends HookConsumerWidget {
   EventListener({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final ScreenshotController screenshotControl =
+        ref.read(screenshotController);
     // @override
     // void dispose() {
     //   super.dispose();
@@ -21,90 +24,108 @@ class EventListener extends HookConsumerWidget {
     // }
 
     FocusNode focusNode = useFocusNode();
-    print(focusNode);
+    // print(focusNode);
 
     // FocusNodeManager.instance.addNode('main', FocusNode());
     // final mainNode = FocusNodeManager.instance.getNode('main');
     final store = ref.watch(storeRepoProvider);
+    // final changes = ref.watch(viewportController);
+    final rejectList = ref.watch(focusRejectController);
+    print("rebuilding event listener");
 
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerSignal: (ev) {
-        if (ev is PointerScrollEvent) {
-          final inputProperties = {
-            "runtimeType": ev.runtimeType.toString(),
-            "mouseScrollDeltaX": ev.scrollDelta.dx,
-            "mouseScrollDeltaY": ev.scrollDelta.dy,
-            "mouseScrollX": ev.position.dx,
-            "mouseScrollY": ev.position.dy,
-            "localPositionX": ev.localPosition.dx,
-            "localPositionY": ev.localPosition.dy,
-            "timestampMs": DateTime.now().millisecondsSinceEpoch,
-          };
-          // String inputEvent =
-          // JsonMapper.serialize(InputProperties(inputProperties));
-          // store.store.msgMouseEvent(inputEvent);
-          print(inputProperties);
+        final rejectList = ref.read(focusRejectProvider).rects;
+        if (!rejectList.single.contains(ev.position)) {
+          if (ev is PointerScrollEvent) {
+            final inputProperties = {
+              "buttons": ev.buttons,
+              "device": ev.device,
+              "kind": ev.kind.toString(),
+              "scrollDeltaX": ev.scrollDelta.dx,
+              "scrollDeltaY": ev.scrollDelta.dy,
+              "positionX": (ev.localPosition.dx).toDouble(),
+              "positionY": (ev.localPosition.dy).toDouble(),
+              "runtimeType": ev.runtimeType.toString(),
+              "timestampMs": DateTime.now().millisecondsSinceEpoch,
+            };
+            String inputEvent =
+                JsonMapper.serialize(InputProperties(inputProperties));
+            store.store.msgMouseEvent(inputEvent);
+          }
+          // print(inputEvent);
         }
       },
       onPointerDown: (ev) {
-        // print(ev.position.dx.toInt());
-        final inputProperties = {
-          "buttons": ev.buttons,
-          "device": ev.device,
-          "kind": ev.kind.toString(),
-          // "positionX": (ev.position.dx.toInt()).toInt(),
-          // "positionY": (ev.position.dy).toInt(),
-          // "localPositionX": (ev.localPosition.dx).toInt(),
-          // "localPositionY": (ev.localPosition.dy).toInt(),
-          "positionX": (ev.localPosition.dx).toInt(),
-          "positionY": (ev.localPosition.dy).toInt(),
-          "runtimeType": ev.runtimeType.toString(),
-          "timestampMs": DateTime.now().millisecondsSinceEpoch,
-        };
-        String inputEvent =
-            JsonMapper.serialize(InputProperties(inputProperties));
-        store.store.msgMouseEvent(inputEvent);
+        // print("here");
+        print(ev.localPosition);
+        final rejectList = ref.read(focusRejectProvider).rects;
+        if (!rejectList.single.contains(ev.position)) {
+          // print(ev.position);
+          final inputProperties = {
+            "buttons": ev.buttons,
+            "device": ev.device,
+            "kind": ev.kind.toString(),
+            // "positionX": (ev.position.dx.toInt()).toInt(),
+            // "positionY": (ev.position.dy).toInt(),
+            // "localPositionX": (ev.localPosition.dx).toInt(),
+            // "localPositionY": (ev.localPosition.dy).toInt(),
+            "positionX": (ev.localPosition.dx).toDouble(),
+            "positionY": (ev.localPosition.dy).toDouble(),
+            "runtimeType": ev.runtimeType.toString(),
+            "timestampMs": DateTime.now().millisecondsSinceEpoch,
+          };
+          String inputEvent =
+              JsonMapper.serialize(InputProperties(inputProperties));
+          store.store.msgMouseEvent(inputEvent);
+        }
       },
       onPointerMove: (ev) {
         // print("button ${ev.buttons}");
 
-        final inputProperties = {
-          "buttons": ev.buttons,
-          "device": ev.device,
-          "kind": ev.kind.toString(),
-          // "positionX": (ev.position.dx.toInt()).toInt(),
-          // "positionY": (ev.position.dy).toInt(),
-          // "localPositionX": (ev.localPosition.dx).toInt(),
-          // "localPositionY": (ev.localPosition.dy).toInt(),
-          "positionX": (ev.localPosition.dx).toInt(),
-          "positionY": (ev.localPosition.dy).toInt(),
-          "runtimeType": ev.runtimeType.toString(),
-          "timestampMs": DateTime.now().millisecondsSinceEpoch,
-        };
-        String inputEvent =
-            JsonMapper.serialize(InputProperties(inputProperties));
+        final rejectList = ref.read(focusRejectProvider).rects;
+        if (!rejectList.single.contains(ev.position)) {
+          final inputProperties = {
+            "buttons": ev.buttons,
+            "device": ev.device,
+            "kind": ev.kind.toString(),
+            // "positionX": (ev.position.dx.toInt()).toInt(),
+            // "positionY": (ev.position.dy).toInt(),
+            // "localPositionX": (ev.localPosition.dx).toInt(),
+            // "localPositionY": (ev.localPosition.dy).toInt(),
+            "positionX": (ev.localPosition.dx).toDouble(),
+            "positionY": (ev.localPosition.dy).toDouble(),
+            "runtimeType": ev.runtimeType.toString(),
+            "timestampMs": DateTime.now().millisecondsSinceEpoch,
+          };
+          String inputEvent =
+              JsonMapper.serialize(InputProperties(inputProperties));
 
-        store.store.msgMouseEvent(inputEvent);
+          store.store.msgMouseEvent(inputEvent);
+        }
       },
       onPointerUp: (ev) {
-        final inputProperties = {
-          "buttons": ev.buttons,
-          "device": ev.device,
-          "kind": ev.kind.toString(),
-          // "positionX": (ev.position.dx.toInt()).toInt(),
-          // "positionY": (ev.position.dy).toInt(),
-          // "localPositionX": (ev.localPosition.dx).toInt(),
-          // "localPositionY": (ev.localPosition.dy).toInt(),
-          "positionX": (ev.localPosition.dx).toInt(),
-          "positionY": (ev.localPosition.dy).toInt(),
-          "runtimeType": ev.runtimeType.toString(),
-          "timestampMs": DateTime.now().millisecondsSinceEpoch,
-        };
-        String inputEvent =
-            JsonMapper.serialize(InputProperties(inputProperties));
+        final rejectList = ref.read(focusRejectProvider).rects;
+        if (!rejectList.single.contains(ev.position)) {
+          final inputProperties = {
+            "buttons": ev.buttons,
+            "device": ev.device,
+            "kind": ev.kind.toString(),
+            // "positionX": (ev.position.dx.toInt()).toInt(),
+            // "positionY": (ev.position.dy).toInt(),
+            // "localPositionX": (ev.localPosition.dx).toInt(),
+            // "localPositionY": (ev.localPosition.dy).toInt(),
+            "positionX": (ev.localPosition.dx).toDouble(),
+            "positionY": (ev.localPosition.dy).toDouble(),
+            "runtimeType": ev.runtimeType.toString(),
+            "timestampMs": DateTime.now().millisecondsSinceEpoch,
+          };
+          String inputEvent =
+              JsonMapper.serialize(InputProperties(inputProperties));
 
-        store.store.msgMouseEvent(inputEvent);
+          store.store.msgMouseEvent(inputEvent);
+        }
       },
       onPointerCancel: (ev) {
         // final inputProperties = {
@@ -132,8 +153,8 @@ class EventListener extends HookConsumerWidget {
           // "positionY": (ev.position.dy).toInt(),
           // "localPositionX": (ev.localPosition.dx).toInt(),
           // "localPositionY": (ev.localPosition.dy).toInt(),
-          "positionX": (ev.localPosition.dx).toInt(),
-          "positionY": (ev.localPosition.dy).toInt(),
+          "positionX": (ev.localPosition.dx).toDouble(),
+          "positionY": (ev.localPosition.dy).toDouble(),
           "runtimeType": ev.runtimeType.toString(),
           "timestampMs": DateTime.now().millisecondsSinceEpoch,
         };
@@ -146,7 +167,7 @@ class EventListener extends HookConsumerWidget {
         focusNode: focusNode,
         autofocus: false,
         onKeyEvent: (KeyEvent ev) {
-          print(focusNode);
+          // print(focusNode);
           // print("Keyboard $ev");
           final inputProperties = {
             "chars": ev.character,
@@ -167,7 +188,7 @@ class EventListener extends HookConsumerWidget {
                       ImmediateMultiDragGestureRecognizer>(
                 () => ImmediateMultiDragGestureRecognizer(),
                 (ImmediateMultiDragGestureRecognizer instance) {
-                  print("button handlestart ${instance.hashCode}");
+                  // print("button handlestart ${instance.hashCode}");
                   // instance.onStart = _handleStart;
                 },
               ),
@@ -362,8 +383,11 @@ class EventListener extends HookConsumerWidget {
               //     };
               // })
             },
-            child: CanvasLayout(
-              storedContext: context,
+            child: Screenshot(
+              controller: screenshotControl,
+              child: CanvasLayout(
+                storedContext: context,
+              ),
             )),
       ),
     );

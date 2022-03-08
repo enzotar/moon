@@ -1,7 +1,7 @@
 use std::str::FromStr;
 use std::sync::Arc;
 
-use crate::model::{Db, GraphId, NodeId};
+use crate::model::{Db, GraphId, NodeId, RunStatusEntry};
 use crate::Confirm;
 use dashmap::DashMap;
 use futures::executor::block_on;
@@ -38,7 +38,7 @@ enum Cmd {
 impl FlowContext {
     pub fn new(
         db: Arc<dyn Datastore>,
-        run_status: Arc<DashMap<NodeId, bool>>,
+        run_status: Arc<DashMap<NodeId, RunStatusEntry>>,
         req_id: Arc<Mutex<u64>>,
         graph_id: Arc<Mutex<GraphId>>,
     ) -> FlowContext {
@@ -109,20 +109,35 @@ impl FlowContext {
                                     .unwrap();
                                 let node_id = uuid::Uuid::from_str(node_id).unwrap();
 
-                                if run_status.contains_key(&NodeId(node_id)) {
-                                    continue;
-                                }
+                                let entry = RunStatusEntry {
+                                    success: node
+                                        .properties
+                                        .get("success")
+                                        .map(|s| s.as_bool().unwrap())
+                                        .unwrap_or(false),
+                                    error: node
+                                        .properties
+                                        .get("error")
+                                        .map(|e| e.as_str().unwrap().to_owned()),
+                                    print_output: node
+                                        .properties
+                                        .get("__print_output")
+                                        .map(|e| e.as_str().unwrap().to_owned()),
+                                    running: node.properties.contains_key("running"),
+                                };
 
-                                if let Some(success) = node.properties.get("success") {
-                                    let success = success.as_bool().unwrap();
-                                    run_status.insert(NodeId(node_id), success);
-
-                                    println!(
-                                        "run status: {:?}, {:?}",
-                                        node.properties.get("kind").unwrap(),
-                                        success
-                                    );
-
+                                if let Some(before) =
+                                    run_status.insert(NodeId(node_id), entry.clone())
+                                {
+                                    if before != entry {
+                                        changed = true;
+                                        println!(
+                                            "run status: {:?}, {:?}",
+                                            node.properties.get("kind").unwrap(),
+                                            entry
+                                        );
+                                    }
+                                } else {
                                     changed = true;
                                 }
                             }
@@ -130,8 +145,8 @@ impl FlowContext {
                     }
                     if changed {
                         let id = *req_id.lock().unwrap();
-                        println!("{}", id);
-                        rid::post(Confirm::Refresh(id));
+                        // println!("{}", id);
+                        rid::post(Confirm::RequestRefresh(id));
                     }
                 }
             });

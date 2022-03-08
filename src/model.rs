@@ -1,5 +1,8 @@
+use std::borrow::BorrowMut;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fmt;
+use std::hash::Hash;
 use std::sync::Arc;
 
 use futures::executor::block_on;
@@ -43,7 +46,10 @@ pub const DATA_MARKER: &str = "DATA_MARKER";
 pub const BLOCK_TO_CMD_EDGE_MARKER: &str = "BLOCK_TO_CMD_EDGE_MARKER";
 pub const FLOW_GRAPH_MARKER: &str = "FLOW_GRAPH_MARKER";
 pub const TEXT_MARKER: &str = "TEXT_MARKER";
+pub const ADDITIONAL_DATA_MARKER: &str = "ADDITIONAL_DATA_MARKER";
 pub const REQ_ID: &str = "REQ_ID";
+
+pub const INPUT_OFFSET: i64 = 50;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub struct GraphId(pub Uuid);
@@ -62,6 +68,9 @@ pub struct InputId(pub Uuid);
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub struct OutputId(pub Uuid);
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
+pub struct BookmarkId(pub Uuid);
 
 #[rid::model]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -90,9 +99,19 @@ pub struct Model {
     flow_edges: HashMap<EdgeId, FlowEdgeModel>,
     inputs: HashMap<InputId, InputModel>,
     outputs: HashMap<OutputId, OutputModel>,
+    pub bookmarks: HashMap<BookmarkId, BookmarkModel>,
     flow_context: FlowContext,
-    pub run_status: Arc<DashMap<NodeId, bool>>,
+    pub run_status: Arc<DashMap<NodeId, RunStatusEntry>>,
     pub req_id: Arc<Mutex<u64>>,
+    pub solana_net: SolanaNet,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RunStatusEntry {
+    pub success: bool,
+    pub error: Option<String>,
+    pub print_output: Option<String>,
+    pub running: bool,
 }
 
 impl fmt::Debug for Db {
@@ -115,16 +134,18 @@ pub struct WidgetNodeData {
     pub command_name: Option<String>,
     pub kind: WidgetKind,
     pub text: String,
+    pub additional_data: String,
 }
 
 impl WidgetNodeData {
     fn new_command(command_name: &str, kind: WidgetKind, width: i64, height: i64) -> Self {
         Self {
-            coords: Coords { x: 0, y: 0 },
+            coords: Coords { x: 0.0, y: 0.0 },
             dimensions: NodeDimensions { width, height },
             command_name: Some(command_name.to_owned()),
             kind,
             text: String::new(),
+            additional_data: String::new(),
         }
     }
 
@@ -166,12 +187,13 @@ impl WidgetNodeData {
             command_name: None,
             kind: WidgetKind::Basic(BasicWidgetKind::Block),
             text: String::new(),
+            additional_data: String::new(),
         }
     }
 
     fn new_text_input() -> Self {
         Self {
-            coords: Coords { x: 0, y: 0 },
+            coords: Coords { x: 0.0, y: 0.0 },
             dimensions: NodeDimensions {
                 height: 70,
                 width: 300,
@@ -179,6 +201,7 @@ impl WidgetNodeData {
             command_name: None,
             kind: WidgetKind::Basic(BasicWidgetKind::TextInput),
             text: String::new(),
+            additional_data: String::new(),
         }
     }
 }
@@ -186,7 +209,7 @@ impl WidgetNodeData {
 #[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
 pub struct DataNodeData {}
 
-#[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct NodeEdgeModel {
     pub from: NodeId,
     pub to: NodeId,
@@ -195,7 +218,7 @@ pub struct NodeEdgeModel {
 
 /// From, to coords needed to render the edges on Flutter side
 ///
-#[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct EdgeModelData {
     pub edge_type: EdgeType,
     pub from_coords: Option<Coords>,
@@ -229,7 +252,7 @@ pub struct FlowEdgeModel {
     pub db_edge_id: EdgeId,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct InputModel {
     pub parent_node_id: NodeId,
     pub command_id: NodeId,
@@ -238,13 +261,27 @@ pub struct InputModel {
     pub index: i64,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct OutputModel {
     pub parent_node_id: NodeId,
     pub command_id: NodeId,
     pub local_coords: Coords,
     pub label: String,
     pub index: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct BookmarkModel {
+    pub name: String,
+    pub nodes_ids: HashSet<NodeId>,
+}
+
+#[rid::model]
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
+pub enum SolanaNet {
+    Devnet,
+    Testnet,
+    Mainnet,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -329,10 +366,15 @@ impl Model {
 
         let context_node_id = NodeId(generate_uuid_v1());
 
-        let run_status = Arc::new(DashMap::new());
+        let run_status: Arc<DashMap<NodeId, RunStatusEntry>> = Arc::new(DashMap::new());
         let req_id = Arc::new(Mutex::new(u64::default()));
 
         let graph_id = Arc::new(Mutex::new(GraphId(graph_id)));
+
+        // let graph_entry = graph_list
+        //     .into_iter()
+        //     .find(|entry| entry.id == graph_id.lock().unwrap().0.to_string())
+        //     .unwrap();
 
         let mut model = Self {
             db: Db(db.clone()),
@@ -344,6 +386,7 @@ impl Model {
             inputs: HashMap::new(),
             outputs: HashMap::new(),
             graph_list,
+            bookmarks: HashMap::new(),
             flow_context: FlowContext::new(
                 db.clone(),
                 run_status.clone(),
@@ -352,6 +395,7 @@ impl Model {
             ),
             run_status,
             req_id,
+            solana_net: SolanaNet::Devnet,
         };
 
         model.read_graph(model.graph_id());
@@ -401,6 +445,14 @@ impl Model {
         *graph_id
     }
 
+    pub fn get_graph_entry(&self, graph_id: GraphId) -> GraphEntry {
+        self.graph_list
+            .iter()
+            .find(|entry| entry.id == graph_id.0.to_string())
+            .unwrap()
+            .clone()
+    }
+
     // pub fn save_req_id(&mut self, req_id: u64) {
     //     let mut props = Properties::new();
 
@@ -439,6 +491,133 @@ impl Model {
         // TODO: refresh ui
     }
 
+    pub fn change_solana_net(&mut self, solana_net: SolanaNet) {
+        let url = match solana_net {
+            SolanaNet::Devnet => "https://api.devnet.solana.com",
+            SolanaNet::Testnet => "https://api.testnet.solana.com",
+            SolanaNet::Mainnet => "https://api.mainnet-beta.solana.com",
+        };
+
+        let mut ctx_node = block_on(
+            self.db
+                .0
+                .execute(Action::Query(QueryKind::ReadNode(self.context_node_id.0))),
+        )
+        .unwrap()
+        .into_node()
+        .unwrap();
+
+        let mut ctx_cfg: solana::Config =
+            serde_json::from_value(ctx_node.properties.remove(CTX_MARKER).unwrap()).unwrap();
+
+        ctx_cfg.solana_url = url.to_owned();
+
+        ctx_node.properties.insert(
+            CTX_MARKER.to_owned(),
+            serde_json::to_value(&ctx_cfg).unwrap(),
+        );
+
+        block_on(self.db.0.execute(Action::Mutate(
+            self.graph_id().0,
+            MutateKind::UpdateNode((ctx_node.node_id, ctx_node.properties)),
+        )))
+        .unwrap();
+
+        self.solana_net = solana_net;
+    }
+
+    pub fn export(&self, path: String, filename: String) {
+        // get current graph entry
+        //
+        let graph = block_on(
+            self.db
+                .0
+                .execute(Action::Query(QueryKind::ReadGraph(self.graph_id().0))),
+        )
+        .unwrap()
+        .into_graph()
+        .unwrap();
+
+        let graph_id = self.graph_id().0.to_string();
+
+        // let graph_name = self
+        //     .graph_list
+        //     .iter()
+        //     .find(|entry| entry.id == graph_id)
+        //     .map(|entry| entry.name.clone())
+        //     .unwrap();
+
+        // let timestamp = chrono::offset::Utc::now().timestamp_millis();
+        dbg!(path.clone());
+        dbg!(filename.clone());
+        std::fs::write(
+            format!("{}.json", path),
+            serde_json::to_vec(&graph).unwrap(),
+        )
+        .unwrap();
+    }
+
+    pub fn import(&mut self, path: &str) {
+        let bytes = std::fs::read(path).unwrap();
+        let graph: Graph = serde_json::from_slice(&bytes).unwrap();
+
+        let properties = json!({
+            "name":&Self::random_name(),
+            FLOW_GRAPH_MARKER: true,
+        });
+
+        let properties = match properties {
+            JsonValue::Object(props) => props,
+            _ => unreachable!(),
+        };
+
+        let graph_id = block_on(self.db.0.execute(Action::CreateGraph(properties)))
+            .unwrap()
+            .as_id()
+            .unwrap();
+
+        let mut node_id_map = HashMap::new();
+
+        for node in graph
+            .nodes
+            .iter()
+            .filter(|node| !node.properties.contains_key("_state_id_prop"))
+        {
+            let new_node_id = generate_uuid_v1();
+
+            node_id_map.insert(node.node_id, new_node_id);
+
+            block_on(self.db.0.execute(Action::Mutate(
+                graph_id,
+                MutateKind::CreateNodeWithId((new_node_id, node.properties.clone())),
+            )))
+            .unwrap();
+        }
+
+        for edge in graph
+            .nodes
+            .into_iter()
+            .filter(|node| !node.properties.contains_key("_state_id_prop"))
+            .map(|node| node.outbound_edges.into_iter())
+            .flatten()
+        {
+            let properties = graph.edges.get(&edge.id).unwrap().clone();
+            //println!("{}", edge.to);
+
+            block_on(self.db.0.execute(Action::Mutate(
+                graph_id,
+                MutateKind::CreateEdge(CreateEdge {
+                    from: node_id_map[&edge.from],
+                    to: node_id_map[&edge.to],
+                    properties,
+                }),
+            )))
+            .unwrap();
+        }
+
+        self.read_graph(GraphId(graph_id));
+    }
+
     pub fn iter_widget_nodes(&self) -> impl Iterator<Item = (&NodeId, &WidgetNodeData)> {
         self.nodes.iter().filter_map(|(node_id, node)| match node {
             NodeModel::Widget(data) => Some((node_id, data)),
@@ -457,6 +636,15 @@ impl Model {
         let phrase = mnemonic.into_phrase();
 
         phrase.split(' ').next().unwrap().to_owned()
+    }
+
+    pub fn generate_seed() -> String {
+        use bip39::{Language, Mnemonic, MnemonicType};
+
+        let mnemonic = Mnemonic::new(MnemonicType::Words12, Language::English);
+        let phrase = mnemonic.into_phrase();
+
+        phrase
     }
 
     pub fn new_graph(&mut self) {
@@ -480,6 +668,11 @@ impl Model {
         create_wallet_and_context(self.db.clone(), GraphId(graph_id));
 
         self.read_graph(GraphId(graph_id));
+    }
+
+    pub fn read_graph(&mut self, graph_id: GraphId) {
+        self.undeploy();
+        self.run_status.clear();
 
         self.graph_list = block_on(self.db.0.execute(Action::Query(QueryKind::ListGraphs)))
             .unwrap()
@@ -492,11 +685,6 @@ impl Model {
                 name: properties.get("name").unwrap().as_str().unwrap().to_owned(),
             })
             .collect::<Vec<_>>();
-    }
-
-    pub fn read_graph(&mut self, graph_id: GraphId) {
-        self.undeploy();
-        self.run_status.clear();
 
         // get graph, nodes, and edges
         let graph = block_on(
@@ -541,8 +729,16 @@ impl Model {
 
         for node in graph.nodes.iter() {
             let kind = match get_widget_kind(&node.properties) {
-                Some(WidgetKind::Context(_)) => {
+                Some(WidgetKind::Context(ctx)) => {
                     self.context_node_id = NodeId(node.node_id);
+
+                    self.solana_net = match ctx.solana_url.as_str() {
+                        "https://api.devnet.solana.com" => SolanaNet::Devnet,
+                        "https://api.testnet.solana.com" => SolanaNet::Testnet,
+                        "https://api.mainnet-beta.solana.com" => SolanaNet::Mainnet,
+                        _ => unreachable!(),
+                    };
+
                     continue;
                 }
                 Some(widget_kind) => widget_kind,
@@ -578,6 +774,12 @@ impl Model {
             let text = node.properties.get(TEXT_MARKER).unwrap_or(&empty_text);
             let text = serde_json::from_value(text.clone()).unwrap();
 
+            let additional_data = node
+                .properties
+                .get(ADDITIONAL_DATA_MARKER)
+                .unwrap_or(&empty_text);
+            let additional_data = serde_json::from_value(additional_data.clone()).unwrap();
+
             let command_name = node.properties.get(COMMAND_NAME_MARKER).unwrap();
             let command_name = match command_name {
                 JsonValue::Null => None,
@@ -596,6 +798,7 @@ impl Model {
                     coords,
                     dimensions,
                     text,
+                    additional_data,
                 }),
             );
         }
@@ -614,6 +817,7 @@ impl Model {
                 .unwrap();
 
                 if props.get(BLOCK_TO_CMD_EDGE_MARKER).is_none() {
+                    // TODO update block to child
                     continue;
                 }
 
@@ -652,8 +856,8 @@ impl Model {
             let command_name = node.command_name.as_ref().unwrap(); // because it is command
 
             //get parent coords
-            let coords = Coords { x: 0, y: 0 };
-
+            let coords = Coords { x: 0.0, y: 0.0 };
+            dbg!(&node);
             let (_, edge) = self
                 .node_edges
                 .iter()
@@ -748,7 +952,6 @@ impl Model {
         parent: (NodeId, Coords),
         width: i64,
     ) -> (Vec<InputModel>, Vec<OutputModel>) {
-        const INPUT_OFFSET: i64 = 50;
         const Y_INPUT_OFFSET: i64 = 30; // offset for block title
         const X_INPUT_OFFSET: i64 = 0;
 
@@ -770,8 +973,8 @@ impl Model {
                 index,
                 parent_node_id: parent_id,
                 local_coords: Coords {
-                    x: X_INPUT_OFFSET, // - INPUT_OFFSET,
-                    y: y,
+                    x: X_INPUT_OFFSET as f64, // - INPUT_OFFSET,
+                    y: y as f64,
                 },
                 label: label.to_owned(),
                 command_id: node_id,
@@ -789,8 +992,8 @@ impl Model {
 
                 parent_node_id: parent_id,
                 local_coords: Coords {
-                    x: width - INPUT_OFFSET,
-                    y: y,
+                    x: (width - INPUT_OFFSET) as f64,
+                    y: y as f64,
                 },
                 label: label.to_owned(),
                 command_id: node_id,
@@ -804,11 +1007,19 @@ impl Model {
     }
 
     pub fn set_node_text(&mut self, node_id: &NodeId, text: String) {
-        let node = self.nodes.get_mut(node_id).unwrap();
-        let node = match node {
-            NodeModel::Widget(node) => node,
-        };
+        let node = self.nodes.get_mut(node_id).unwrap().data_mut();
+        // let node = match node {
+        //     NodeModel::Widget(node) => node,
+        // };
         node.text = text;
+
+        // update db
+    }
+
+    pub fn set_node_additional_data(&mut self, node_id: &NodeId, additional_data: String) {
+        let node = self.nodes.get_mut(node_id).unwrap().data_mut();
+
+        node.additional_data = additional_data;
 
         // update db
     }
@@ -839,11 +1050,30 @@ impl Model {
         .unwrap();
     }
 
-    pub fn update_const_command(&mut self, node_id: NodeId, text: &str) {
+    // pub fn update_command(&mut self, node_id: NodeId, input_id: InputId, text: &str) {
+    //     let command = 1;
+
+    //     match command {
+    //         Command::CreateMetadataAccounts {
+    //             match input_name {
+    //                 "fee_payer" => {
+    //                     command.fee_payer = Some(text.to_value().unwrap()),
+    //                 },
+
+    //             }
+
+    //         }
+    //     }
+    // }
+
+    pub fn update_const_in_db(&mut self, node_id: NodeId, text: &str) {
         // dbg!(text.clone());
         let cfg: SimpleCommand = match serde_json::from_str(text) {
             Ok(cfg) => cfg,
-            _ => return,
+            e => {
+                eprintln!("error while saving const: {:#?}", e);
+                return;
+            }
         };
 
         let cfg = CommandConfig::Simple(cfg);
@@ -865,6 +1095,34 @@ impl Model {
         //update 'text' key
         props
             .insert(TEXT_MARKER.into(), JsonValue::String(text.to_string()))
+            .unwrap();
+
+        dbg!(props.clone());
+
+        block_on(self.db.0.execute(Action::Mutate(
+            self.graph_id().0,
+            MutateKind::UpdateNode((node_id.0, props)),
+        )))
+        .unwrap();
+    }
+
+    pub fn update_const_additional_in_db(&mut self, node_id: NodeId, additional_data: &str) {
+        let mut props = block_on(
+            self.db
+                .0
+                .execute(Action::Query(QueryKind::ReadNode(node_id.0))),
+        )
+        .unwrap()
+        .into_node()
+        .unwrap()
+        .properties;
+
+        //update  key
+        props
+            .insert(
+                ADDITIONAL_DATA_MARKER.into(),
+                JsonValue::String(additional_data.to_string()),
+            )
             .unwrap();
 
         dbg!(props.clone());
@@ -935,6 +1193,10 @@ impl Model {
                         );
                         props.insert(START_NODE_MARKER.into(), JsonValue::Bool(true));
                         props.insert(TEXT_MARKER.into(), JsonValue::String(String::new()));
+                        props.insert(
+                            ADDITIONAL_DATA_MARKER.into(),
+                            JsonValue::String(String::new()),
+                        );
 
                         props
                     }
@@ -1009,44 +1271,108 @@ impl Model {
         node_id
     }
 
-    // TODO correct for nested commands
+    /// Remove node from model and db
     pub fn remove_node(&mut self, node_id: NodeId) {
-        // DELETE FROM MODEL
+        // Block > node_edge > Widget >
+        // if command, remove Flow edges
+        // Graph > node_edge > Block
 
         // node
-        self.nodes.remove_entry(&node_id);
+        let mut node_edges_to_remove = Vec::new();
+        let mut flow_edges_to_remove = HashSet::new();
+        let mut inputs_to_remove = Vec::new();
+        let mut outputs_to_remove = Vec::new();
+        let mut children_to_remove = Vec::new();
 
-        // TODO: remove all node where parent_node_id = node_id
-        // flow edges
-        self.flow_edges = self
-            .flow_edges
-            .drain()
-            .filter(|(_, edge)| {
-                let input = self.inputs.get(&edge.input_id).unwrap();
-                let output = self.outputs.get(&edge.output_id).unwrap();
-                input.parent_node_id != node_id && output.parent_node_id != node_id
-            })
-            .collect();
+        for (edge_id, edge) in self.node_edges.iter() {
+            if edge.from != node_id {
+                continue;
+            }
 
-        // node edges
-        self.node_edges = self
-            .node_edges
-            .drain()
-            .filter(|(_, node_edge_model)| {
-                let output = node_edge_model.from;
-                let input = node_edge_model.to;
-                input != node_id && output != node_id
-            })
-            .collect();
+            let child_id = edge.to;
+            let child = self.nodes.get(&edge.to).unwrap();
 
-        // DELETE FROM DB
+            children_to_remove.push(edge.to);
 
-        // node and all inbound/outbound edges
+            match child {
+                NodeModel::Widget(widget) => match widget.kind {
+                    WidgetKind::Basic(BasicWidgetKind::Block) => unreachable!(),
+                    WidgetKind::Basic(BasicWidgetKind::TextInput) => (),
+                    WidgetKind::Basic(BasicWidgetKind::Dummy) => unreachable!(),
+                    WidgetKind::Command(_) => {
+                        for (input_id, input) in self.inputs.iter() {
+                            if input.command_id != child_id {
+                                continue;
+                            }
+
+                            for (flow_edge_id, flow_edge) in self.flow_edges.iter() {
+                                if flow_edge.input_id == *input_id {
+                                    flow_edges_to_remove.insert(*flow_edge_id);
+                                }
+                            }
+
+                            inputs_to_remove.push(*input_id);
+                        }
+
+                        for (output_id, output) in self.outputs.iter() {
+                            if output.command_id != child_id {
+                                continue;
+                            }
+
+                            for (flow_edge_id, flow_edge) in self.flow_edges.iter() {
+                                if flow_edge.output_id == *output_id {
+                                    flow_edges_to_remove.insert(*flow_edge_id);
+                                }
+                            }
+
+                            outputs_to_remove.push(*output_id);
+                        }
+                    }
+                    WidgetKind::Context(_) => unreachable!(),
+                },
+            }
+
+            node_edges_to_remove.push(*edge_id);
+        }
+
+        // println!("Deleting node:{:#?}", node_id);
+        // println!("Deleting node_edges:{:#?}", node_edges_to_remove);
+        // println!("Deleting flow_edges:{:#?}", flow_edges_to_remove);
+        // println!("Deleting inputs:{:#?}", inputs_to_remove);
+        // println!("Deleting outputs:{:#?}", outputs_to_remove);
+        // println!("Deleting children nodes:{:#?}", children_to_remove);
+
+        for flow_edge_id in flow_edges_to_remove {
+            self.flow_edges.remove(&flow_edge_id).unwrap();
+        }
+
+        for node_edge_id in node_edges_to_remove {
+            self.node_edges.remove(&node_edge_id).unwrap();
+        }
+
+        for input_id in inputs_to_remove {
+            self.inputs.remove(&input_id).unwrap();
+        }
+
+        for output_id in outputs_to_remove {
+            self.outputs.remove(&output_id).unwrap();
+        }
+
+        for child_id in children_to_remove {
+            block_on(self.db.0.execute(Action::Mutate(
+                self.graph_id().0,
+                MutateKind::DeleteNode(child_id.0),
+            )))
+            .unwrap();
+            self.nodes.remove(&child_id).unwrap();
+        }
+
         block_on(self.db.0.execute(Action::Mutate(
             self.graph_id().0,
             MutateKind::DeleteNode(node_id.0),
         )))
         .unwrap();
+        self.nodes.remove(&node_id).unwrap();
     }
 
     // ADD INPUT OUTPUT EDGE
@@ -1225,6 +1551,27 @@ impl Model {
             MutateKind::UpdateNode((node_id.0, properties)),
         )))
         .unwrap();
+
+        //get block's outputs, and change their width
+        let outputs: HashMap<&OutputId, &mut OutputModel> = self
+            .outputs
+            .borrow_mut()
+            .into_iter()
+            .filter(|(_id, output_model)| output_model.parent_node_id == *node_id)
+            .collect();
+
+        for (_, output_model) in outputs {
+            *output_model = OutputModel {
+                parent_node_id: output_model.parent_node_id,
+                command_id: output_model.command_id,
+                local_coords: Coords {
+                    x: (dimensions.width - INPUT_OFFSET) as f64,
+                    y: output_model.local_coords.y,
+                },
+                label: output_model.label.clone(),
+                index: output_model.index,
+            }
+        }
     }
 
     /// CREATE WIDGET NODE and DATA NODE
@@ -1312,13 +1659,13 @@ impl Model {
             }
 
             let rect = Rect {
-                x1: node.coords.x,
-                x2: node.coords.x + node.dimensions.width,
-                y1: node.coords.y,
-                y2: node.coords.y + node.dimensions.height,
+                x1: node.coords.x as i64,
+                x2: node.coords.x as i64 + node.dimensions.width,
+                y1: node.coords.y as i64,
+                y2: node.coords.y as i64 + node.dimensions.height,
             };
 
-            rect.contains(coords.x, coords.y)
+            rect.contains(coords.x as i64, coords.y as i64)
         })
     }
 
@@ -1357,13 +1704,13 @@ impl Model {
                 // NodeModel::Data(_) => panic!(),
             };
             let rect = Rect {
-                x1: data.coords.x + input.local_coords.x,
-                x2: data.coords.x + input.local_coords.x + INPUT_SIZE,
-                y1: data.coords.y + input.local_coords.y,
-                y2: data.coords.y + input.local_coords.y + INPUT_SIZE,
+                x1: (data.coords.x + input.local_coords.x) as i64,
+                x2: (data.coords.x + input.local_coords.x) as i64 + INPUT_SIZE,
+                y1: (data.coords.y + input.local_coords.y) as i64,
+                y2: (data.coords.y + input.local_coords.y) as i64 + INPUT_SIZE,
             };
             // dbg!(rect.clone());
-            rect.contains(coords.x, coords.y)
+            rect.contains(coords.x as i64, coords.y as i64)
         })
     }
 
@@ -1378,13 +1725,13 @@ impl Model {
                 // NodeModel::Data(_) => panic!(),
             };
             let rect = Rect {
-                x1: data.coords.x + output.local_coords.x,
-                x2: data.coords.x + output.local_coords.x + INPUT_SIZE,
-                y1: data.coords.y + output.local_coords.y,
-                y2: data.coords.y + output.local_coords.y + INPUT_SIZE,
+                x1: (data.coords.x + output.local_coords.x) as i64,
+                x2: (data.coords.x + output.local_coords.x) as i64 + INPUT_SIZE,
+                y1: (data.coords.y + output.local_coords.y) as i64,
+                y2: (data.coords.y + output.local_coords.y) as i64 + INPUT_SIZE,
             };
             // dbg!(rect.clone());
-            rect.contains(coords.x, coords.y)
+            rect.contains(coords.x as i64, coords.y as i64)
         })
     }
 
@@ -1501,7 +1848,7 @@ pub fn create_wallet_and_context(db: Db, graph_id: GraphId) -> ContextConfig {
         .unwrap();
 
     let solana_context_config = solana::Config {
-        solana_url: "https://api.devnet.solana.com".into(),
+        solana_url: "https://api.mainnet-beta.solana.com".into(),
         wallet_graph: wallet_graph_id,
         solana_arweave_url: "https://arloader.io/".into(),
     };
@@ -1521,4 +1868,18 @@ pub fn create_wallet_and_context(db: Db, graph_id: GraphId) -> ContextConfig {
             .unwrap();
 
     solana_context_config
+}
+
+impl NodeModel {
+    pub fn data(&self) -> &WidgetNodeData {
+        match self {
+            Self::Widget(data) => data,
+        }
+    }
+
+    pub fn data_mut(&mut self) -> &mut WidgetNodeData {
+        match self {
+            Self::Widget(data) => data,
+        }
+    }
 }

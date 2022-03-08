@@ -36,20 +36,28 @@ pub struct State {
     model: Model,
     input: Input,
     pub ui_state: UiState,
-    selected_node_ids: HashSet<NodeId>,
+    pub selected_node_ids: HashSet<NodeId>,
     pub active_node: Option<NodeId>,
-    pub viewport: Viewport,
+    pub transform: Transform,
+    pub transform_screenshot: Transform,
+    pub canvas: Canvas,
     // pub req_id: u64,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Viewport {
+pub struct Transform {
     pub x: f64,
     pub y: f64,
     pub scale: f64,
 }
 
-impl Default for Viewport {
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Canvas {
+    pub width: u64,
+    pub height: u64,
+}
+
+impl Default for Transform {
     fn default() -> Self {
         Self {
             x: 0.0,
@@ -60,7 +68,7 @@ impl Default for Viewport {
 }
 
 impl State {
-    pub fn new(db_path: String) -> Self {
+    pub fn new(db_path: String, canvas_width: u64, canvas_height: u64) -> Self {
         let mut model = Model::new(db_path);
 
         Self {
@@ -69,7 +77,12 @@ impl State {
             ui_state: UiState::Default,
             selected_node_ids: HashSet::new(),
             active_node: None,
-            viewport: Viewport::default(), // req_id: u64::default(),
+            transform: Transform::default(), // req_id: u64::default(),
+            transform_screenshot: Transform::default(), // req_id: u64::default(),
+            canvas: Canvas {
+                width: canvas_width,
+                height: canvas_height,
+            },
         }
     }
 
@@ -122,6 +135,20 @@ impl State {
         dbg!(&self.selected_node_ids, self.active_node);
     }
 
+    pub fn add_or_remove_from_selection(&mut self, node_id: NodeId) {
+        if self.selected_node_ids.contains(&node_id) {
+            self.selected_node_ids.remove(&node_id);
+            if self.active_node == Some(node_id) {
+                self.active_node = None;
+            }
+            dbg!(&self.selected_node_ids, self.active_node);
+        } else {
+            self.selected_node_ids.insert(node_id);
+            self.active_node = Some(node_id);
+            dbg!(&self.selected_node_ids, self.active_node);
+        }
+    }
+
     /*pub fn update_active_node(&mut self, node_id: NodeId) {
         self.active_node = Some(node_id);
     }*/
@@ -134,6 +161,7 @@ impl State {
             msg,
             Context {
                 model: &self.model,
+                transform: self.transform,
                 ui_state: &self.ui_state,
                 selected_node_ids: &self.selected_node_ids,
             },
@@ -148,6 +176,7 @@ impl State {
             msg,
             Context {
                 model: &self.model,
+                transform: self.transform,
                 ui_state: &self.ui_state,
                 selected_node_ids: &self.selected_node_ids,
             },
@@ -207,9 +236,9 @@ pub enum UiState {
     Default,
     MaybeSelection(Coords),
     Selection(Coords, Coords),
-    MaybeViewportMove(Coords),
-    ViewportMove(Coords, Coords),
-    MaybeNodeMove(Coords),
+    MaybeTransformMove(Coords),
+    TransformMove(Coords),
+    MaybeNodeMove(NodeId, Coords),
     NodeMove(Coords, Coords),
     MaybeEdge(PortId),
     Edge(PortId, Coords),

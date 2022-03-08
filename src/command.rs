@@ -2,6 +2,7 @@ use std::cmp;
 use std::collections::HashMap;
 
 use sunshine_solana::commands::simple::http_request;
+use sunshine_solana::commands::simple::ipfs_nft_upload;
 use sunshine_solana::commands::simple::ipfs_upload;
 use sunshine_solana::commands::simple::json_extract;
 use sunshine_solana::commands::solana;
@@ -56,6 +57,7 @@ pub const COMMANDS: &'static [&'static dyn DynCommand] = &[
     &JsonExtractCommand,
     &HttpRequestCommand,
     &IpfsUploadCommand,
+    &IpfsNftUploadCommand,
     // Solana
     &CreateTokenCommand,
     &AddPubkeyCommand,
@@ -93,6 +95,8 @@ fn calculate_node_height(command: impl DynCommand) -> i64 {
 pub struct CommandInput {
     pub name: &'static str,
     pub acceptable_types: &'static [&'static str],
+    // command_type
+    // inputtable
 }
 
 impl CommandInput {
@@ -176,6 +180,9 @@ pub struct HttpRequestCommand;
 
 #[derive(Copy, Clone, Debug)]
 pub struct IpfsUploadCommand;
+
+#[derive(Copy, Clone, Debug)]
+pub struct IpfsNftUploadCommand;
 
 // SOLANA
 
@@ -355,6 +362,36 @@ impl Command for IpfsUploadCommand {
     }
 }
 
+impl Command for IpfsNftUploadCommand {
+    const COMMAND_NAME: &'static str = "ipfs_nft_upload";
+    const WIDGET_NAME: &'static str = "IpfsNftUpload";
+    const INPUTS: &'static [CommandInput] = &[
+        CommandInput::new("pinata_url", &["String"]),
+        CommandInput::new("pinata_jwt", &["String"]),
+        CommandInput::new("metadata", &["NftMetadata"]),
+    ];
+    const OUTPUTS: &'static [CommandOutput] = &[
+        CommandOutput::new("metadata_cid", "String"),
+        CommandOutput::new("metadata", "NftMetadata"),
+        CommandOutput::new("metadata_url", "String"),
+    ];
+    fn dimensions() -> NodeDimensions {
+        NodeDimensions {
+            height: calculate_node_height(Self),
+            width: 300,
+        }
+    }
+    fn config() -> CommandConfig {
+        CommandConfig::Simple(SimpleCommand::IpfsNftUpload(
+            ipfs_nft_upload::IpfsNftUpload {
+                pinata_url: None,
+                pinata_jwt: None,
+                metadata: None,
+            },
+        ))
+    }
+}
+
 impl Command for CreateTokenCommand {
     const COMMAND_NAME: &'static str = "create_token";
     const WIDGET_NAME: &'static str = "CreateToken";
@@ -445,6 +482,7 @@ impl Command for GenerateKeypairCommand {
     const WIDGET_NAME: &'static str = "GenerateKeypair";
     const INPUTS: &'static [CommandInput] = &[
         CommandInput::new("seed_phrase", &["String"]),
+        CommandInput::new("base58_str", &["String"]),
         CommandInput::new("passphrase", &["String"]),
         CommandInput::new("save", &["String"]),
     ];
@@ -452,7 +490,6 @@ impl Command for GenerateKeypairCommand {
         CommandOutput::new("pubkey", "Pubkey"),
         CommandOutput::new("keypair", "Keypair"),
         CommandOutput::new("node_id", "NodeId"),
-        CommandOutput::new("empty", "Empty"), // conditional output
     ];
     fn dimensions() -> NodeDimensions {
         NodeDimensions {
@@ -466,6 +503,7 @@ impl Command for GenerateKeypairCommand {
                 seed_phrase: Arg::None,
                 passphrase: None,
                 save: Arg::None,
+                base58_str: Arg::None,
             },
         ))
     }
@@ -512,7 +550,7 @@ impl Command for TransferCommand {
         CommandInput::new("recipient", &["Pubkey"]),
         CommandInput::new("sender", &["Keypair"]),
         CommandInput::new("sender_owner", &["Keypair"]),
-        CommandInput::new("allow_unfunded", &["Bool"]),
+        CommandInput::new("allow_unfunded", &["Bool"]), //TODO update name to allow_unfunded_recipient
         CommandInput::new("fund_recipient", &["Bool"]),
         CommandInput::new("memo", &["String"]),
     ];
@@ -534,7 +572,7 @@ impl Command for TransferCommand {
             recipient: None,
             sender: None,
             sender_owner: None,
-            allow_unfunded_recipient: None,
+            allow_unfunded: None,
             fund_recipient: None,
             memo: None,
         }))

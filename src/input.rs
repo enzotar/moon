@@ -1,6 +1,12 @@
+// TODO:
+// - all any timed_data (click, dbl_click, etc.)
+// - allow specify event with modifiers that should not be overriden by events with more modifiers
+//   for example cancel selection, cancel edge and other cancel events
+
 use core::fmt::Debug;
 use core::hash::Hash;
 use std::collections::{HashMap, HashSet};
+use std::num::Wrapping;
 
 use input_core::*;
 use input_more::*;
@@ -9,8 +15,10 @@ use serde::Deserialize;
 use crate::{
     event::{Coords, Event},
     model::{Model, NodeId, PortId},
-    state::UiState,
+    state::{Transform, UiState},
 };
+
+const MOUSE_SCROLL_DELTA_MULT: f64 = 257.0_f64 / 256.0; // zoom multiplier per one scroll delta
 
 //type DurationMs = i64;
 type TimestampMs = i64;
@@ -28,14 +36,14 @@ pub struct KeyboardSwitch(pub String);
 pub struct MouseSwitch(pub &'static str);
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct KeyboardTrigger(&'static str);
+pub struct KeyboardTrigger(pub &'static str);
 
 //#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 //pub struct KeyboardCoords; // ADDED
 pub type KeyboardCoords = (); // ADDED
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct MouseTrigger(&'static str);
+pub struct MouseTrigger(pub &'static str);
 
 impl From<KeyboardSwitch> for Switch {
     fn from(switch: KeyboardSwitch) -> Self {
@@ -54,7 +62,7 @@ pub enum BasicAppEventBuilder {
     Unselect,
     RemoveNodes,
     CancelSelection,
-    CancelViewportMove,
+    CancelTransformMove,
     CancelNodeMove,
     CancelEdge,
     //StartCommandInput,
@@ -67,7 +75,7 @@ pub enum BasicAppEventBuilder {
 pub enum PointerAppEventBuilder {
     Unselect,
     SelectNode,
-    AddNodeToSelection,
+    AddOrRemoveNodeFromSelection,
     CreateNode,
     EditNode,
     RemoveNodes,
@@ -79,12 +87,12 @@ pub enum PointerAppEventBuilder {
     CancelSelection,
     ContinueSelection,
     //
-    MaybeStartViewportMove,
-    NotAViewportMove,
-    StartViewportMove,
-    EndViewportMove,
-    CancelViewportMove,
-    ContinueViewportMove,
+    MaybeStartTransformMove,
+    NotATransformMove,
+    StartTransformMove,
+    EndTransformMove,
+    CancelTransfromMove,
+    ContinueTransformMove,
     //
     MaybeStartNodeMove,
     NotANodeMove,
@@ -100,6 +108,7 @@ pub enum PointerAppEventBuilder {
     CancelEdge,
     ContinueEdge,
     //
+    Zoom,
     //StartCommandInput,
     //ApplyCommandInput,
     //ModifyCommandInput,
@@ -122,12 +131,12 @@ fn filter_by_priority(events: Vec<Event>) -> impl Iterator<Item = Event> {
     let mut is_cancel_selection_used = false;
     let mut is_continue_selection_used = false;
 
-    let mut is_maybe_start_viewport_move_used = false;
-    let mut is_not_a_viewport_move_used = false;
-    let mut is_start_viewport_move_used = false;
-    let mut is_end_viewport_move_used = false;
-    let mut is_cancel_viewport_move_used = false;
-    let mut is_continue_viewport_move_used = false;
+    let mut is_maybe_start_transform_move_used = false;
+    let mut is_not_a_transform_move_used = false;
+    let mut is_start_transform_move_used = false;
+    let mut is_end_transform_move_used = false;
+    let mut is_cancel_transform_move_used = false;
+    let mut is_continue_transform_move_used = false;
 
     let mut is_maybe_start_node_move_used = false;
     let mut is_not_a_node_move_used = false;
@@ -148,11 +157,13 @@ fn filter_by_priority(events: Vec<Event>) -> impl Iterator<Item = Event> {
     let mut is_modify_command_input_used = false;
     let mut is_cancel_command_input_used = false;
 
+    let mut is_zoom_used = false;
+
     for event in &events {
         match event {
             Event::Unselect => is_unselect_used = true,
             Event::SelectNode(_) => is_select_node_used = true,
-            Event::AddNodeToSelection(_) => is_add_node_to_selection_used = true,
+            Event::AddOrRemoveNodeToSelection(_) => is_add_node_to_selection_used = true,
             Event::CreateNode(_) => is_create_node_used = true,
             Event::EditNode(_) => is_edit_node_used = true,
             Event::RemoveNodes(_) => is_remove_nodes_used = true,
@@ -164,16 +175,16 @@ fn filter_by_priority(events: Vec<Event>) -> impl Iterator<Item = Event> {
             Event::CancelSelection => is_cancel_selection_used = true,
             Event::ContinueSelection(_, _) => is_continue_selection_used = true,
             //
-            Event::MaybeStartViewportMove(_) => is_maybe_start_viewport_move_used = true,
-            Event::NotAViewportMove => is_not_a_viewport_move_used = true,
-            Event::StartViewportMove(_, _) => is_start_viewport_move_used = true,
-            Event::EndViewportMove(_, _) => is_end_viewport_move_used = true,
-            Event::CancelViewportMove => is_cancel_viewport_move_used = true,
-            Event::ContinueViewportMove(_, _) => is_continue_viewport_move_used = true,
+            Event::MaybeStartTransformMove(_) => is_maybe_start_transform_move_used = true,
+            Event::NotATransformMove => is_not_a_transform_move_used = true,
+            Event::StartTransformMove(_, _) => is_start_transform_move_used = true,
+            Event::EndTransformMove(_, _) => is_end_transform_move_used = true,
+            Event::CancelTransformMove => is_cancel_transform_move_used = true,
+            Event::ContinueTransformMove(_, _) => is_continue_transform_move_used = true,
             //
             Event::MaybeStartNodeMove(_, _) => is_maybe_start_node_move_used = true,
             Event::NotANodeMove => is_not_a_node_move_used = true,
-            Event::StartNodeMove(_, _) => is_start_node_move_used = true,
+            Event::StartNodeMove(_, _, _) => is_start_node_move_used = true,
             Event::EndNodeMove(_, _) => is_end_node_move_used = true,
             Event::CancelNodeMove => is_cancel_node_move_used = true,
             Event::ContinueNodeMove(_, _) => is_continue_node_move_used = true,
@@ -184,6 +195,8 @@ fn filter_by_priority(events: Vec<Event>) -> impl Iterator<Item = Event> {
             Event::EndEdge(_, _) => is_end_edge_used = true,
             Event::CancelEdge(_) => is_cancel_edge_used = true,
             Event::ContinueEdge(_, _) => is_continue_edge_used = true,
+            //
+            Event::Zoom(_, _, _) => is_zoom_used = true,
             //
             //Event::StartCommandInput(_) => is_start_command_input_used = true,
             //Event::ApplyCommandInput(_) => is_apply_command_input_used = true,
@@ -206,10 +219,11 @@ fn filter_by_priority(events: Vec<Event>) -> impl Iterator<Item = Event> {
             !command_input
                 && !is_create_node_used
                 && !is_select_node_used
+                && !is_add_node_to_selection_used
                 && !is_end_or_cancel_move_or_selection
         }
         Event::SelectNode(_) => !command_input && !is_create_node_used,
-        Event::AddNodeToSelection(_) => !command_input && !is_create_node_used,
+        Event::AddOrRemoveNodeToSelection(_) => !command_input && !is_create_node_used,
         Event::CreateNode(_) => {
             !command_input && !is_edit_node_used && !is_end_or_cancel_move_or_selection
         }
@@ -223,7 +237,7 @@ fn filter_by_priority(events: Vec<Event>) -> impl Iterator<Item = Event> {
                 && !is_create_node_used
                 && !is_edit_node_used
         }
-        Event::MaybeStartViewportMove(_) => {
+        Event::MaybeStartTransformMove(_) => {
             !command_input
                 && !is_maybe_start_node_move_used
                 && !is_maybe_start_edge_used
@@ -245,14 +259,14 @@ fn filter_by_priority(events: Vec<Event>) -> impl Iterator<Item = Event> {
                 && !is_create_node_used
                 && !is_edit_node_used
         }
-        Event::StartViewportMove(_, _) => {
+        Event::StartTransformMove(_, _) => {
             !command_input
                 && !is_start_node_move_used
                 && !is_start_edge_used
                 && !is_create_node_used
                 && !is_edit_node_used
         }
-        Event::StartNodeMove(_, _) => {
+        Event::StartNodeMove(_, _, _) => {
             !command_input && !is_start_edge_used && !is_create_node_used && !is_edit_node_used
         }
         Event::StartEdge(_, _) => !command_input && !is_create_node_used && !is_edit_node_used,
@@ -261,10 +275,10 @@ fn filter_by_priority(events: Vec<Event>) -> impl Iterator<Item = Event> {
         | Event::EndSelection(_, _)
         | Event::CancelSelection
         | Event::ContinueSelection(_, _)
-        | Event::NotAViewportMove
-        | Event::EndViewportMove(_, _)
-        | Event::CancelViewportMove
-        | Event::ContinueViewportMove(_, _)
+        | Event::NotATransformMove
+        | Event::EndTransformMove(_, _)
+        | Event::CancelTransformMove
+        | Event::ContinueTransformMove(_, _)
         | Event::NotANodeMove
         | Event::CancelNodeMove
         | Event::ContinueNodeMove(_, _)
@@ -272,7 +286,8 @@ fn filter_by_priority(events: Vec<Event>) -> impl Iterator<Item = Event> {
         | Event::NotAEdge
         | Event::CancelEdge(_)
         | Event::ContinueEdge(_, _)
-        | Event::EndEdge(_, _) => true,
+        | Event::EndEdge(_, _)
+        | Event::Zoom(_, _, _) => true,
         //
         //Event::StartCommandInput(_) => true,
         //Event::ApplyCommandInput(_) => true,
@@ -374,25 +389,35 @@ pub enum Device {
     Mouse(u32),
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct DeviceState {
     pub buttons: u32,
-    pub x: i64,
-    pub y: i64,
+    pub x: f64,
+    pub y: f64,
 }
 
 #[derive(Clone, Copy)]
 pub struct Context<'a> {
     pub model: &'a Model,
     pub ui_state: &'a UiState,
+    pub transform: Transform,
     pub selected_node_ids: &'a HashSet<NodeId>,
+}
+
+#[derive(Clone, Copy)]
+pub struct EventContext<'a> {
+    pub model: &'a Model,
+    pub ui_state: &'a UiState,
+    pub selected_node_ids: &'a HashSet<NodeId>,
+    pub last_scroll_dx: f64, // FIXME
+    pub last_scroll_dy: f64, // FIXME
 }
 
 pub trait CapturedLifetime<'a> {}
 impl<'a, T> CapturedLifetime<'a> for T {}
 
 fn bindings_into_events<'a, Bi, Co>(
-    context: Context<'a>,
+    context: EventContext<'a>,
 ) -> impl CapturedLifetime<'a> + (FnMut((FilteredBindings<Switch, Bi>, Co)) -> Vec<Event>)
 where
     Bi: BuildAppEvent<Co>,
@@ -413,7 +438,7 @@ fn timeout_bindings_into_events<'a>(
         PointerAppEventBuilder,
         Coords,
     >,
-    context: Context<'a>,
+    context: EventContext<'a>,
 ) -> impl Iterator<Item = Event> {
     let events = result
         .keyboard_long_press
@@ -444,7 +469,7 @@ fn timeout_bindings_into_events<'a>(
 
 fn event_bindings_into_events<'a, Ti, Li, Bi, Co>(
     result: GlobalStateWithEventResult<Ti, Li>,
-    context: Context<'a>,
+    context: EventContext<'a>,
 ) -> impl CapturedLifetime<'a> + Iterator<Item = Event>
 where
     Li: IntoIterator<Item = (FilteredBindings<'a, Switch, Bi>, Co)>,
@@ -473,6 +498,14 @@ impl Default for Input {
             kind: TimedReleaseEventKind::Click,
             num_possible_clicks: 2,
         });
+
+        let shift_modifiers = {
+            let mut modifiers = Modifiers::new();
+            modifiers
+                .on_press_event(Switch::Keyboard(KeyboardSwitch("Shift Left".to_owned())))
+                .unwrap();
+            modifiers
+        };
 
         let keyboard_mapping = KeyboardMapping::new(
             [
@@ -536,7 +569,15 @@ impl Default for Input {
                 }),*/
                 Binding::Release(SwitchBinding {
                     switch: KeyboardSwitch("Delete".into()),
-                    modifiers: Modifiers::new(),
+                    modifiers: {
+                        let mut modifiers = Modifiers::new();
+                        modifiers
+                            .on_press_event(Switch::Keyboard(KeyboardSwitch(
+                                "Control Left".to_owned(),
+                            )))
+                            .unwrap();
+                        modifiers
+                    },
                     timed_data: dbl_click, // FIXME
                     pointer_data: None,
                     event: BasicAppEventBuilder::RemoveNodes,
@@ -564,18 +605,10 @@ impl Default for Input {
                 //
                 Binding::Release(SwitchBinding {
                     switch: lmb,
-                    modifiers: {
-                        let mut modifiers = Modifiers::new();
-                        modifiers
-                            .on_press_event(Switch::Keyboard(KeyboardSwitch(
-                                "Shift Left".to_owned(),
-                            )))
-                            .unwrap();
-                        modifiers
-                    },
+                    modifiers: shift_modifiers.clone(),
                     timed_data: click,
                     pointer_data: None,
-                    event: PointerAppEventBuilder::AddNodeToSelection,
+                    event: PointerAppEventBuilder::AddOrRemoveNodeFromSelection,
                 }),
                 // CREATE NODE
                 Binding::Release(SwitchBinding {
@@ -619,44 +652,88 @@ impl Default for Input {
                 //
                 Binding::Release(SwitchBinding {
                     switch: lmb,
-                    modifiers: Modifiers::new(),
+                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
                     timed_data: None,
                     pointer_data: None,
                     event: PointerAppEventBuilder::NotASelection,
                 }),
                 Binding::Release(SwitchBinding {
                     switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: click, // FIXME
+                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                    timed_data: click,           // FIXME
                     pointer_data: None,
                     event: PointerAppEventBuilder::NotASelection,
                 }),
                 Binding::Release(SwitchBinding {
                     switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: dbl_click, // FIXME
+                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                    timed_data: dbl_click,       // FIXME
                     pointer_data: None,
                     event: PointerAppEventBuilder::NotASelection,
                 }),
                 //
                 Binding::Release(SwitchBinding {
                     switch: lmb,
-                    modifiers: Modifiers::new(),
+                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
                     timed_data: None,
                     pointer_data: None,
                     event: PointerAppEventBuilder::CancelSelection,
                 }),
                 Binding::Release(SwitchBinding {
                     switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: click, // FIXME
+                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                    timed_data: click,           // FIXME
                     pointer_data: None,
                     event: PointerAppEventBuilder::CancelSelection,
                 }),
                 Binding::Release(SwitchBinding {
                     switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: dbl_click, // FIXME
+                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                    timed_data: dbl_click,       // FIXME
+                    pointer_data: None,
+                    event: PointerAppEventBuilder::CancelSelection,
+                }),
+                //
+                Binding::Release(SwitchBinding {
+                    switch: lmb,
+                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                    timed_data: None,
+                    pointer_data: None,
+                    event: PointerAppEventBuilder::NotASelection,
+                }),
+                Binding::Release(SwitchBinding {
+                    switch: lmb,
+                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                    timed_data: click,                  // FIXME
+                    pointer_data: None,
+                    event: PointerAppEventBuilder::NotASelection,
+                }),
+                Binding::Release(SwitchBinding {
+                    switch: lmb,
+                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                    timed_data: dbl_click,              // FIXME
+                    pointer_data: None,
+                    event: PointerAppEventBuilder::NotASelection,
+                }),
+                //
+                Binding::Release(SwitchBinding {
+                    switch: lmb,
+                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                    timed_data: None,
+                    pointer_data: None,
+                    event: PointerAppEventBuilder::CancelSelection,
+                }),
+                Binding::Release(SwitchBinding {
+                    switch: lmb,
+                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                    timed_data: click,                  // FIXME
+                    pointer_data: None,
+                    event: PointerAppEventBuilder::CancelSelection,
+                }),
+                Binding::Release(SwitchBinding {
+                    switch: lmb,
+                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                    timed_data: dbl_click,              // FIXME
                     pointer_data: None,
                     event: PointerAppEventBuilder::CancelSelection,
                 }),
@@ -682,13 +759,13 @@ impl Default for Input {
                     pointer_data: Some(PointerChangeEventData::DragEnd),
                     event: PointerAppEventBuilder::EndSelection,
                 }),
-                // VIEWPORT MOVE
+                // TRANSFORM MOVE
                 Binding::Press(SwitchBinding {
                     switch: rmb,
                     modifiers: Modifiers::new(),
                     timed_data: (),
                     pointer_data: (),
-                    event: PointerAppEventBuilder::MaybeStartViewportMove,
+                    event: PointerAppEventBuilder::MaybeStartTransformMove,
                 }),
                 Binding::Coords(CoordsBinding {
                     pointer_data: PointerMoveEventData {
@@ -696,7 +773,7 @@ impl Default for Input {
                         kind: PointerMoveEventKind::DragStart,
                     },
                     modifiers: Modifiers::new(),
-                    event: PointerAppEventBuilder::StartViewportMove,
+                    event: PointerAppEventBuilder::StartTransformMove,
                 }),
                 Binding::Coords(CoordsBinding {
                     pointer_data: PointerMoveEventData {
@@ -704,51 +781,95 @@ impl Default for Input {
                         kind: PointerMoveEventKind::DragMove,
                     },
                     modifiers: Modifiers::new(),
-                    event: PointerAppEventBuilder::ContinueViewportMove,
+                    event: PointerAppEventBuilder::ContinueTransformMove,
                 }),
                 //
                 Binding::Release(SwitchBinding {
                     switch: rmb,
-                    modifiers: Modifiers::new(),
+                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
                     timed_data: None,
                     pointer_data: None,
-                    event: PointerAppEventBuilder::NotAViewportMove,
+                    event: PointerAppEventBuilder::NotATransformMove,
                 }),
                 Binding::Release(SwitchBinding {
                     switch: rmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: click, // FIXME
+                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                    timed_data: click,           // FIXME
                     pointer_data: None,
-                    event: PointerAppEventBuilder::NotAViewportMove,
+                    event: PointerAppEventBuilder::NotATransformMove,
                 }),
                 Binding::Release(SwitchBinding {
                     switch: rmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: dbl_click, // FIXME
+                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                    timed_data: dbl_click,       // FIXME
                     pointer_data: None,
-                    event: PointerAppEventBuilder::NotAViewportMove,
+                    event: PointerAppEventBuilder::NotATransformMove,
                 }),
                 //
                 Binding::Release(SwitchBinding {
                     switch: rmb,
-                    modifiers: Modifiers::new(),
+                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
                     timed_data: None,
                     pointer_data: None,
-                    event: PointerAppEventBuilder::CancelViewportMove,
+                    event: PointerAppEventBuilder::CancelTransfromMove,
                 }),
                 Binding::Release(SwitchBinding {
                     switch: rmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: click, // FIXME
+                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                    timed_data: click,           // FIXME
                     pointer_data: None,
-                    event: PointerAppEventBuilder::CancelViewportMove,
+                    event: PointerAppEventBuilder::CancelTransfromMove,
                 }),
                 Binding::Release(SwitchBinding {
                     switch: rmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: dbl_click, // FIXME
+                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                    timed_data: dbl_click,       // FIXME
                     pointer_data: None,
-                    event: PointerAppEventBuilder::CancelViewportMove,
+                    event: PointerAppEventBuilder::CancelTransfromMove,
+                }),
+                //
+                Binding::Release(SwitchBinding {
+                    switch: rmb,
+                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                    timed_data: None,
+                    pointer_data: None,
+                    event: PointerAppEventBuilder::NotATransformMove,
+                }),
+                Binding::Release(SwitchBinding {
+                    switch: rmb,
+                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                    timed_data: click,                  // FIXME
+                    pointer_data: None,
+                    event: PointerAppEventBuilder::NotATransformMove,
+                }),
+                Binding::Release(SwitchBinding {
+                    switch: rmb,
+                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                    timed_data: dbl_click,              // FIXME
+                    pointer_data: None,
+                    event: PointerAppEventBuilder::NotATransformMove,
+                }),
+                //
+                Binding::Release(SwitchBinding {
+                    switch: rmb,
+                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                    timed_data: None,
+                    pointer_data: None,
+                    event: PointerAppEventBuilder::CancelTransfromMove,
+                }),
+                Binding::Release(SwitchBinding {
+                    switch: rmb,
+                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                    timed_data: click,                  // FIXME
+                    pointer_data: None,
+                    event: PointerAppEventBuilder::CancelTransfromMove,
+                }),
+                Binding::Release(SwitchBinding {
+                    switch: rmb,
+                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                    timed_data: dbl_click,              // FIXME
+                    pointer_data: None,
+                    event: PointerAppEventBuilder::CancelTransfromMove,
                 }),
                 //
                 Binding::Release(SwitchBinding {
@@ -756,21 +877,21 @@ impl Default for Input {
                     modifiers: Modifiers::new(),
                     timed_data: None,
                     pointer_data: Some(PointerChangeEventData::DragEnd),
-                    event: PointerAppEventBuilder::EndViewportMove,
+                    event: PointerAppEventBuilder::EndTransformMove,
                 }),
                 Binding::Release(SwitchBinding {
                     switch: rmb,
                     modifiers: Modifiers::new(),
                     timed_data: click, // FIXME
                     pointer_data: Some(PointerChangeEventData::DragEnd),
-                    event: PointerAppEventBuilder::EndViewportMove,
+                    event: PointerAppEventBuilder::EndTransformMove,
                 }),
                 Binding::Release(SwitchBinding {
                     switch: rmb,
                     modifiers: Modifiers::new(),
                     timed_data: dbl_click, // FIXME
                     pointer_data: Some(PointerChangeEventData::DragEnd),
-                    event: PointerAppEventBuilder::EndViewportMove,
+                    event: PointerAppEventBuilder::EndTransformMove,
                 }),
                 // NODE MOVE
                 Binding::Press(SwitchBinding {
@@ -799,44 +920,88 @@ impl Default for Input {
                 //
                 Binding::Release(SwitchBinding {
                     switch: lmb,
-                    modifiers: Modifiers::new(),
+                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
                     timed_data: None,
                     pointer_data: None,
                     event: PointerAppEventBuilder::NotANodeMove,
                 }),
                 Binding::Release(SwitchBinding {
                     switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: click, // FIXME
+                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                    timed_data: click,           // FIXME
                     pointer_data: None,
                     event: PointerAppEventBuilder::NotANodeMove,
                 }),
                 Binding::Release(SwitchBinding {
                     switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: dbl_click, // FIXME
+                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                    timed_data: dbl_click,       // FIXME
                     pointer_data: None,
                     event: PointerAppEventBuilder::NotANodeMove,
                 }),
                 //
                 Binding::Release(SwitchBinding {
                     switch: lmb,
-                    modifiers: Modifiers::new(),
+                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
                     timed_data: None,
                     pointer_data: None,
                     event: PointerAppEventBuilder::CancelNodeMove,
                 }),
                 Binding::Release(SwitchBinding {
                     switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: click, // FIXME
+                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                    timed_data: click,           // FIXME
                     pointer_data: None,
                     event: PointerAppEventBuilder::CancelNodeMove,
                 }),
                 Binding::Release(SwitchBinding {
                     switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: dbl_click, // FIXME
+                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                    timed_data: dbl_click,       // FIXME
+                    pointer_data: None,
+                    event: PointerAppEventBuilder::CancelNodeMove,
+                }),
+                //
+                Binding::Release(SwitchBinding {
+                    switch: lmb,
+                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                    timed_data: None,
+                    pointer_data: None,
+                    event: PointerAppEventBuilder::NotANodeMove,
+                }),
+                Binding::Release(SwitchBinding {
+                    switch: lmb,
+                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                    timed_data: click,                  // FIXME
+                    pointer_data: None,
+                    event: PointerAppEventBuilder::NotANodeMove,
+                }),
+                Binding::Release(SwitchBinding {
+                    switch: lmb,
+                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                    timed_data: dbl_click,              // FIXME
+                    pointer_data: None,
+                    event: PointerAppEventBuilder::NotANodeMove,
+                }),
+                //
+                Binding::Release(SwitchBinding {
+                    switch: lmb,
+                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                    timed_data: None,
+                    pointer_data: None,
+                    event: PointerAppEventBuilder::CancelNodeMove,
+                }),
+                Binding::Release(SwitchBinding {
+                    switch: lmb,
+                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                    timed_data: click,                  // FIXME
+                    pointer_data: None,
+                    event: PointerAppEventBuilder::CancelNodeMove,
+                }),
+                Binding::Release(SwitchBinding {
+                    switch: lmb,
+                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                    timed_data: dbl_click,              // FIXME
                     pointer_data: None,
                     event: PointerAppEventBuilder::CancelNodeMove,
                 }),
@@ -933,6 +1098,50 @@ impl Default for Input {
                 //
                 Binding::Release(SwitchBinding {
                     switch: lmb,
+                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                    timed_data: None,
+                    pointer_data: None,
+                    event: PointerAppEventBuilder::NotAEdge,
+                }),
+                Binding::Release(SwitchBinding {
+                    switch: lmb,
+                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                    timed_data: click,                  // FIXME
+                    pointer_data: None,
+                    event: PointerAppEventBuilder::NotAEdge,
+                }),
+                Binding::Release(SwitchBinding {
+                    switch: lmb,
+                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                    timed_data: dbl_click,              // FIXME
+                    pointer_data: None,
+                    event: PointerAppEventBuilder::NotAEdge,
+                }),
+                //
+                Binding::Release(SwitchBinding {
+                    switch: lmb,
+                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                    timed_data: None,
+                    pointer_data: None,
+                    event: PointerAppEventBuilder::CancelEdge,
+                }),
+                Binding::Release(SwitchBinding {
+                    switch: lmb,
+                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                    timed_data: click,                  // FIXME
+                    pointer_data: None,
+                    event: PointerAppEventBuilder::CancelEdge,
+                }),
+                Binding::Release(SwitchBinding {
+                    switch: lmb,
+                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                    timed_data: dbl_click,              // FIXME
+                    pointer_data: None,
+                    event: PointerAppEventBuilder::CancelEdge,
+                }),
+                //
+                Binding::Release(SwitchBinding {
+                    switch: lmb,
                     modifiers: Modifiers::new(),
                     timed_data: None,
                     pointer_data: Some(PointerChangeEventData::DragEnd),
@@ -952,6 +1161,15 @@ impl Default for Input {
                     pointer_data: Some(PointerChangeEventData::DragEnd),
                     event: PointerAppEventBuilder::EndEdge,
                 }),
+                //
+                // FIXME: scoll should provide additions information,
+                // but event builder can not contain it,
+                // so event can not reach it.
+                Binding::Trigger(TriggerBinding {
+                    trigger: MouseTrigger("scroll"),
+                    modifiers: Modifiers::new(),
+                    event: PointerAppEventBuilder::Zoom,
+                }),
             ]
             .into_iter()
             .collect(),
@@ -966,7 +1184,7 @@ impl Default for Input {
         let global_state = GlobalState::new(
             Modifiers::default(),
             KeyboardCoordsState::with_coords(()),
-            MouseCoordsState::with_coords(Coords { x: 0, y: 0 }),
+            MouseCoordsState::with_coords(Coords { x: 0.0, y: 0.0 }),
             KeyboardTimedState::default(),
             MouseTimedState::default(),
             KeyboardLongPressScheduler::default(),
@@ -994,8 +1212,12 @@ pub struct FlutterPointerEvent {
     device: u32,
     kind: FlutterPointerKind,
     buttons: u32,
-    position_x: i64,
-    position_y: i64,
+    position_x: f64,
+    position_y: f64,
+    #[serde(default)]
+    scroll_delta_x: Option<f64>,
+    #[serde(default)]
+    scroll_delta_y: Option<f64>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -1035,18 +1257,32 @@ impl Input {
             FlutterPointerKind::Mouse => Device::Mouse(event.device),
         };
 
-        let x = event.position_x;
-        let y = event.position_y;
+        let x = event.position_x / context.transform.scale - context.transform.x;
+        let y = event.position_y / context.transform.scale - context.transform.y;
+        /*println!(
+            "Mouse {:10} {:10} : {:10} {:10}",
+            event.position_x, event.position_y, x, y
+        );*/
         let buttons = event.buttons;
+        // dbg!(x, y);
         // let timestamp_ms = event.timestamp_ms;
+
+        let context = EventContext {
+            model: context.model,
+            ui_state: context.ui_state,
+            selected_node_ids: context.selected_node_ids,
+            last_scroll_dx: event.scroll_delta_x.unwrap_or(0.0),
+            last_scroll_dy: event.scroll_delta_y.unwrap_or(0.0),
+        };
 
         let mut device_state =
             self.device_state
                 .entry(device)
                 .or_insert(DeviceState { buttons: 0, x, y });
 
-        let is_dragged =
-            |lhs: &Coords, rhs: &Coords| (lhs.x - rhs.x).pow(2) + (lhs.y - rhs.y).pow(2) >= 5 * 5;
+        let is_dragged = |lhs: &Coords, rhs: &Coords| {
+            (lhs.x - rhs.x).powi(2) + (lhs.y - rhs.y).powi(2) >= 5.0 * 5.0
+        };
 
         let bindings = self.global_state.with_timeout(
             event.timestamp_ms - 1000,
@@ -1062,6 +1298,15 @@ impl Input {
                     .with_mouse_coords_event(event, &self.mapping_cache, is_dragged);
             events.extend(event_bindings_into_events(bindings, context));
             //Self::handle_events(raw_event, store, req_id)
+        }
+
+        if context.last_scroll_dy != 0.0 {
+            // context.last_scroll_dy.abs() < 0.1
+            let event = MouseTriggerEvent::new(event.timestamp_ms, MouseTrigger("scroll"));
+            let bindings = self
+                .global_state
+                .with_mouse_trigger_event(event, &self.mapping_cache);
+            events.extend(event_bindings_into_events(bindings, context));
         }
 
         for (button, mask) in [
@@ -1105,6 +1350,14 @@ impl Input {
         msg: &str,
         context: Context<'a>,
     ) -> impl CapturedLifetime<'a> + Iterator<Item = Event> {
+        let context = EventContext {
+            model: context.model,
+            ui_state: context.ui_state,
+            selected_node_ids: context.selected_node_ids,
+            last_scroll_dx: 0.0,
+            last_scroll_dy: 0.0,
+        };
+
         let event: FlutterKeyboardEvent = serde_json::from_str(&msg).unwrap();
         println!("{:?} {:?}", context.ui_state, event);
         let switch = KeyboardSwitch(event.key_label);
@@ -1162,11 +1415,11 @@ impl Input {
 }
 
 pub trait BuildAppEvent<Co> {
-    fn build(&self, coords: &Co, context: Context<'_>) -> Option<Event>;
+    fn build(&self, coords: &Co, context: EventContext<'_>) -> Option<Event>;
 }
 
 impl BuildAppEvent<KeyboardCoords> for BasicAppEventBuilder {
-    fn build(&self, _: &KeyboardCoords, context: Context<'_>) -> Option<Event> {
+    fn build(&self, _: &KeyboardCoords, context: EventContext<'_>) -> Option<Event> {
         match self {
             Self::Unselect => {
                 if context.selected_node_ids.is_empty() {
@@ -1186,22 +1439,22 @@ impl BuildAppEvent<KeyboardCoords> for BasicAppEventBuilder {
                 UiState::Selection(_, _) => Some(Event::CancelSelection),
                 UiState::Default
                 | UiState::MaybeSelection(_)
-                | UiState::MaybeViewportMove(_)
-                | UiState::ViewportMove(_, _)
-                | UiState::MaybeNodeMove(_)
+                | UiState::MaybeTransformMove(_)
+                | UiState::TransformMove(_)
+                | UiState::MaybeNodeMove(_, _)
                 | UiState::NodeMove(_, _)
                 | UiState::MaybeEdge(_)
                 | UiState::Edge(_, _)
                 | UiState::UiInput
                 | UiState::CommandInput(_) => None,
             },
-            Self::CancelViewportMove => match context.ui_state {
-                UiState::ViewportMove(_, _) => Some(Event::CancelViewportMove),
+            Self::CancelTransformMove => match context.ui_state {
+                UiState::TransformMove(_) => Some(Event::CancelTransformMove),
                 UiState::Default
                 | UiState::Selection(_, _)
                 | UiState::MaybeSelection(_)
-                | UiState::MaybeViewportMove(_)
-                | UiState::MaybeNodeMove(_)
+                | UiState::MaybeTransformMove(_)
+                | UiState::MaybeNodeMove(_, _)
                 | UiState::NodeMove(_, _)
                 | UiState::MaybeEdge(_)
                 | UiState::Edge(_, _)
@@ -1212,10 +1465,10 @@ impl BuildAppEvent<KeyboardCoords> for BasicAppEventBuilder {
                 UiState::NodeMove(_, _) => Some(Event::CancelNodeMove),
                 UiState::Default
                 | UiState::MaybeSelection(_)
-                | UiState::MaybeViewportMove(_)
-                | UiState::ViewportMove(_, _)
+                | UiState::MaybeTransformMove(_)
+                | UiState::TransformMove(_)
                 | UiState::Selection(_, _)
-                | UiState::MaybeNodeMove(_)
+                | UiState::MaybeNodeMove(_, _)
                 | UiState::MaybeEdge(_)
                 | UiState::Edge(_, _)
                 | UiState::UiInput
@@ -1225,10 +1478,10 @@ impl BuildAppEvent<KeyboardCoords> for BasicAppEventBuilder {
                 UiState::Edge(port_id, _) => Some(Event::CancelEdge(*port_id)),
                 UiState::Default
                 | UiState::MaybeSelection(_)
-                | UiState::MaybeViewportMove(_)
-                | UiState::ViewportMove(_, _)
+                | UiState::MaybeTransformMove(_)
+                | UiState::TransformMove(_)
                 | UiState::Selection(_, _)
-                | UiState::MaybeNodeMove(_)
+                | UiState::MaybeNodeMove(_, _)
                 | UiState::NodeMove(_, _)
                 | UiState::MaybeEdge(_)
                 | UiState::UiInput
@@ -1240,7 +1493,7 @@ impl BuildAppEvent<KeyboardCoords> for BasicAppEventBuilder {
                 UiState::Default
                 | UiState::MaybeSelection(_)
                 | UiState::Selection(_, _)
-                | UiState::MaybeNodeMove(_)
+                | UiState::MaybeNodeMove(_, _)
                 | UiState::NodeMove(_, _)
                 | UiState::MaybeEdge(_)
                 | UiState::UiInput
@@ -1251,7 +1504,7 @@ impl BuildAppEvent<KeyboardCoords> for BasicAppEventBuilder {
                 UiState::Default
                 | UiState::MaybeSelection(_)
                 | UiState::Selection(_, _)
-                | UiState::MaybeNodeMove(_)
+                | UiState::MaybeNodeMove(_, _)
                 | UiState::NodeMove(_, _)
                 | UiState::MaybeEdge(_)
                 | UiState::UiInput
@@ -1262,7 +1515,7 @@ impl BuildAppEvent<KeyboardCoords> for BasicAppEventBuilder {
 }
 
 impl BuildAppEvent<Coords> for PointerAppEventBuilder {
-    fn build(&self, coords: &Coords, context: Context<'_>) -> Option<Event> {
+    fn build(&self, coords: &Coords, context: EventContext<'_>) -> Option<Event> {
         match self {
             Self::Unselect => {
                 // TODO: But we probably should cancel click after we handle press for selection
@@ -1277,10 +1530,10 @@ impl BuildAppEvent<Coords> for PointerAppEventBuilder {
                 .model
                 .next_movable_widget_node_at(coords)
                 .map(|(node_id, _)| Event::SelectNode(*node_id)),
-            Self::AddNodeToSelection => context
+            Self::AddOrRemoveNodeFromSelection => context
                 .model
                 .next_movable_widget_node_at(coords)
-                .map(|(node_id, _)| Event::AddNodeToSelection(*node_id)),
+                .map(|(node_id, _)| Event::AddOrRemoveNodeToSelection(*node_id)),
 
             // CREATE
             Self::CreateNode => Some(Event::CreateNode(*coords)),
@@ -1298,13 +1551,12 @@ impl BuildAppEvent<Coords> for PointerAppEventBuilder {
 
             // SELECTION
             Self::MaybeStartSelection => match context.ui_state {
-                UiState::Default | UiState::MaybeSelection(_) => {
-                    Some(Event::MaybeStartSelection(*coords))
-                }
+                UiState::Default
+                | UiState::MaybeSelection(_)
+                | UiState::MaybeTransformMove(_)
+                | UiState::MaybeNodeMove(_, _) => Some(Event::MaybeStartSelection(*coords)),
                 UiState::Selection(_, _)
-                | UiState::MaybeViewportMove(_)
-                | UiState::ViewportMove(_, _)
-                | UiState::MaybeNodeMove(_)
+                | UiState::TransformMove(_)
                 | UiState::NodeMove(_, _)
                 | UiState::MaybeEdge(_)
                 | UiState::Edge(_, _)
@@ -1315,9 +1567,9 @@ impl BuildAppEvent<Coords> for PointerAppEventBuilder {
                 UiState::MaybeSelection(_) => Some(Event::NotASelection),
                 UiState::Default
                 | UiState::Selection(_, _)
-                | UiState::MaybeViewportMove(_)
-                | UiState::ViewportMove(_, _)
-                | UiState::MaybeNodeMove(_)
+                | UiState::MaybeTransformMove(_)
+                | UiState::TransformMove(_)
+                | UiState::MaybeNodeMove(_, _)
                 | UiState::NodeMove(_, _)
                 | UiState::MaybeEdge(_)
                 | UiState::Edge(_, _)
@@ -1330,9 +1582,9 @@ impl BuildAppEvent<Coords> for PointerAppEventBuilder {
                 }
                 UiState::Default
                 | UiState::Selection(_, _)
-                | UiState::MaybeViewportMove(_)
-                | UiState::ViewportMove(_, _)
-                | UiState::MaybeNodeMove(_)
+                | UiState::MaybeTransformMove(_)
+                | UiState::TransformMove(_)
+                | UiState::MaybeNodeMove(_, _)
                 | UiState::NodeMove(_, _)
                 | UiState::MaybeEdge(_)
                 | UiState::Edge(_, _)
@@ -1345,9 +1597,9 @@ impl BuildAppEvent<Coords> for PointerAppEventBuilder {
                 }
                 UiState::Default
                 | UiState::MaybeSelection(_)
-                | UiState::MaybeViewportMove(_)
-                | UiState::ViewportMove(_, _)
-                | UiState::MaybeNodeMove(_)
+                | UiState::MaybeTransformMove(_)
+                | UiState::TransformMove(_)
+                | UiState::MaybeNodeMove(_, _)
                 | UiState::NodeMove(_, _)
                 | UiState::MaybeEdge(_)
                 | UiState::Edge(_, _)
@@ -1360,9 +1612,9 @@ impl BuildAppEvent<Coords> for PointerAppEventBuilder {
                 }
                 UiState::Default
                 | UiState::MaybeSelection(_)
-                | UiState::MaybeViewportMove(_)
-                | UiState::ViewportMove(_, _)
-                | UiState::MaybeNodeMove(_)
+                | UiState::MaybeTransformMove(_)
+                | UiState::TransformMove(_)
+                | UiState::MaybeNodeMove(_, _)
                 | UiState::NodeMove(_, _)
                 | UiState::MaybeEdge(_)
                 | UiState::Edge(_, _)
@@ -1373,9 +1625,9 @@ impl BuildAppEvent<Coords> for PointerAppEventBuilder {
                 UiState::Selection(_, _) => Some(Event::CancelSelection),
                 UiState::Default
                 | UiState::MaybeSelection(_)
-                | UiState::MaybeViewportMove(_)
-                | UiState::ViewportMove(_, _)
-                | UiState::MaybeNodeMove(_)
+                | UiState::MaybeTransformMove(_)
+                | UiState::TransformMove(_)
+                | UiState::MaybeNodeMove(_, _)
                 | UiState::NodeMove(_, _)
                 | UiState::MaybeEdge(_)
                 | UiState::Edge(_, _)
@@ -1383,86 +1635,85 @@ impl BuildAppEvent<Coords> for PointerAppEventBuilder {
                 | UiState::CommandInput(_) => None,
             },
 
-            // VIEWPORT MOVE
-            Self::MaybeStartViewportMove => match context.ui_state {
-                UiState::Default | UiState::MaybeViewportMove(_) => {
-                    Some(Event::MaybeStartViewportMove(*coords))
-                }
+            // TRANSFORM MOVE
+            Self::MaybeStartTransformMove => match context.ui_state {
+                UiState::Default
+                | UiState::MaybeTransformMove(_)
+                | UiState::MaybeSelection(_)
+                | UiState::MaybeNodeMove(_, _) => Some(Event::MaybeStartTransformMove(*coords)),
                 UiState::Selection(_, _)
-                | UiState::MaybeSelection(_)
-                | UiState::ViewportMove(_, _)
-                | UiState::MaybeNodeMove(_)
+                | UiState::TransformMove(_)
                 | UiState::NodeMove(_, _)
                 | UiState::MaybeEdge(_)
                 | UiState::Edge(_, _)
                 | UiState::UiInput
                 | UiState::CommandInput(_) => None,
             },
-            Self::NotAViewportMove => match context.ui_state {
-                UiState::MaybeViewportMove(_) => Some(Event::NotAViewportMove),
+            Self::NotATransformMove => match context.ui_state {
+                UiState::MaybeTransformMove(_) => Some(Event::NotATransformMove),
                 UiState::Default
                 | UiState::Selection(_, _)
                 | UiState::MaybeSelection(_)
-                | UiState::ViewportMove(_, _)
-                | UiState::MaybeNodeMove(_)
+                | UiState::TransformMove(_)
+                | UiState::MaybeNodeMove(_, _)
                 | UiState::NodeMove(_, _)
                 | UiState::MaybeEdge(_)
                 | UiState::Edge(_, _)
                 | UiState::UiInput
                 | UiState::CommandInput(_) => None,
             },
-            Self::StartViewportMove => match context.ui_state {
-                UiState::MaybeViewportMove(start_coords) => {
-                    Some(Event::StartViewportMove(*start_coords, *coords))
+            Self::StartTransformMove => match context.ui_state {
+                UiState::MaybeTransformMove(start_coords) => {
+                    Some(Event::StartTransformMove(*start_coords, *coords))
                 }
                 UiState::Default
                 | UiState::Selection(_, _)
                 | UiState::MaybeSelection(_)
-                | UiState::ViewportMove(_, _)
-                | UiState::MaybeNodeMove(_)
+                | UiState::TransformMove(_)
+                | UiState::MaybeNodeMove(_, _)
                 | UiState::NodeMove(_, _)
                 | UiState::MaybeEdge(_)
                 | UiState::Edge(_, _)
                 | UiState::UiInput
                 | UiState::CommandInput(_) => None,
             },
-            Self::ContinueViewportMove => match context.ui_state {
-                UiState::ViewportMove(start_coords, last_coords) => {
-                    Some(Event::ContinueViewportMove(*last_coords, *coords))
+            Self::ContinueTransformMove => match context.ui_state {
+                UiState::TransformMove(start_coords) => {
+                    Some(Event::ContinueTransformMove(*start_coords, *coords))
                 }
                 UiState::Default
                 | UiState::MaybeSelection(_)
                 | UiState::Selection(_, _)
-                | UiState::MaybeViewportMove(_)
-                | UiState::MaybeNodeMove(_)
+                | UiState::MaybeTransformMove(_)
+                | UiState::MaybeNodeMove(_, _)
                 | UiState::NodeMove(_, _)
                 | UiState::MaybeEdge(_)
                 | UiState::Edge(_, _)
                 | UiState::UiInput
                 | UiState::CommandInput(_) => None,
             },
-            Self::EndViewportMove => match context.ui_state {
-                UiState::ViewportMove(start_coords, last_coords) => {
-                    Some(Event::EndViewportMove(*last_coords, *coords))
+            Self::EndTransformMove => match context.ui_state {
+                UiState::TransformMove(start_coords) => {
+                    Some(Event::EndTransformMove(*start_coords, *coords))
                 }
                 UiState::Default
                 | UiState::MaybeSelection(_)
                 | UiState::Selection(_, _)
-                | UiState::MaybeViewportMove(_)
-                | UiState::MaybeNodeMove(_)
+                | UiState::MaybeTransformMove(_)
+                | UiState::MaybeNodeMove(_, _)
                 | UiState::NodeMove(_, _)
                 | UiState::MaybeEdge(_)
                 | UiState::Edge(_, _)
                 | UiState::UiInput
                 | UiState::CommandInput(_) => None,
             },
-            Self::CancelViewportMove => match context.ui_state {
-                UiState::ViewportMove(_, _) => Some(Event::CancelViewportMove),
+            Self::CancelTransfromMove => match context.ui_state {
+                UiState::TransformMove(_) => Some(Event::CancelTransformMove),
                 UiState::Default
                 | UiState::MaybeSelection(_)
                 | UiState::Selection(_, _)
-                | UiState::MaybeViewportMove(_)
-                | UiState::MaybeNodeMove(_)
+                | UiState::MaybeTransformMove(_)
+                | UiState::MaybeNodeMove(_, _)
                 | UiState::NodeMove(_, _)
                 | UiState::MaybeEdge(_)
                 | UiState::Edge(_, _)
@@ -1472,14 +1723,15 @@ impl BuildAppEvent<Coords> for PointerAppEventBuilder {
 
             // MOVE
             Self::MaybeStartNodeMove => match context.ui_state {
-                UiState::Default | UiState::MaybeNodeMove(_) => context
+                UiState::Default
+                | UiState::MaybeNodeMove(_, _)
+                | UiState::MaybeSelection(_)
+                | UiState::MaybeTransformMove(_) => context
                     .model
                     .next_movable_widget_node_at(coords)
                     .map(|(node_id, _)| Event::MaybeStartNodeMove(*node_id, *coords)),
-                UiState::MaybeSelection(_)
-                | UiState::Selection(_, _)
-                | UiState::MaybeViewportMove(_)
-                | UiState::ViewportMove(_, _)
+                UiState::Selection(_, _)
+                | UiState::TransformMove(_)
                 | UiState::NodeMove(_, _)
                 | UiState::MaybeEdge(_)
                 | UiState::Edge(_, _)
@@ -1487,12 +1739,12 @@ impl BuildAppEvent<Coords> for PointerAppEventBuilder {
                 | UiState::CommandInput(_) => None,
             },
             Self::NotANodeMove => match context.ui_state {
-                UiState::MaybeNodeMove(_) => Some(Event::NotANodeMove),
+                UiState::MaybeNodeMove(_, _) => Some(Event::NotANodeMove),
                 UiState::Default
                 | UiState::MaybeSelection(_)
                 | UiState::Selection(_, _)
-                | UiState::MaybeViewportMove(_)
-                | UiState::ViewportMove(_, _)
+                | UiState::MaybeTransformMove(_)
+                | UiState::TransformMove(_)
                 | UiState::NodeMove(_, _)
                 | UiState::MaybeEdge(_)
                 | UiState::Edge(_, _)
@@ -1500,14 +1752,14 @@ impl BuildAppEvent<Coords> for PointerAppEventBuilder {
                 | UiState::CommandInput(_) => None,
             },
             Self::StartNodeMove => match context.ui_state {
-                UiState::MaybeNodeMove(start_coords) => {
-                    Some(Event::StartNodeMove(*start_coords, *coords))
+                UiState::MaybeNodeMove(node_id, start_coords) => {
+                    Some(Event::StartNodeMove(*node_id, *start_coords, *coords))
                 }
                 UiState::Default
                 | UiState::MaybeSelection(_)
                 | UiState::Selection(_, _)
-                | UiState::MaybeViewportMove(_)
-                | UiState::ViewportMove(_, _)
+                | UiState::MaybeTransformMove(_)
+                | UiState::TransformMove(_)
                 | UiState::NodeMove(_, _)
                 | UiState::MaybeEdge(_)
                 | UiState::Edge(_, _)
@@ -1521,9 +1773,9 @@ impl BuildAppEvent<Coords> for PointerAppEventBuilder {
                 UiState::Default
                 | UiState::MaybeSelection(_)
                 | UiState::Selection(_, _)
-                | UiState::MaybeViewportMove(_)
-                | UiState::ViewportMove(_, _)
-                | UiState::MaybeNodeMove(_)
+                | UiState::MaybeTransformMove(_)
+                | UiState::TransformMove(_)
+                | UiState::MaybeNodeMove(_, _)
                 | UiState::MaybeEdge(_)
                 | UiState::Edge(_, _)
                 | UiState::UiInput
@@ -1536,9 +1788,9 @@ impl BuildAppEvent<Coords> for PointerAppEventBuilder {
                 UiState::Default
                 | UiState::MaybeSelection(_)
                 | UiState::Selection(_, _)
-                | UiState::MaybeViewportMove(_)
-                | UiState::ViewportMove(_, _)
-                | UiState::MaybeNodeMove(_)
+                | UiState::MaybeTransformMove(_)
+                | UiState::TransformMove(_)
+                | UiState::MaybeNodeMove(_, _)
                 | UiState::MaybeEdge(_)
                 | UiState::Edge(_, _)
                 | UiState::UiInput
@@ -1549,9 +1801,9 @@ impl BuildAppEvent<Coords> for PointerAppEventBuilder {
                 UiState::Default
                 | UiState::MaybeSelection(_)
                 | UiState::Selection(_, _)
-                | UiState::MaybeViewportMove(_)
-                | UiState::ViewportMove(_, _)
-                | UiState::MaybeNodeMove(_)
+                | UiState::MaybeTransformMove(_)
+                | UiState::TransformMove(_)
+                | UiState::MaybeNodeMove(_, _)
                 | UiState::MaybeEdge(_)
                 | UiState::Edge(_, _)
                 | UiState::UiInput
@@ -1566,9 +1818,9 @@ impl BuildAppEvent<Coords> for PointerAppEventBuilder {
                     .map(|port_id| Event::MaybeStartEdge(port_id)),
                 UiState::MaybeSelection(_)
                 | UiState::Selection(_, _)
-                | UiState::MaybeViewportMove(_)
-                | UiState::ViewportMove(_, _)
-                | UiState::MaybeNodeMove(_)
+                | UiState::MaybeTransformMove(_)
+                | UiState::TransformMove(_)
+                | UiState::MaybeNodeMove(_, _)
                 | UiState::NodeMove(_, _)
                 | UiState::Edge(_, _)
                 | UiState::UiInput
@@ -1579,9 +1831,9 @@ impl BuildAppEvent<Coords> for PointerAppEventBuilder {
                 UiState::Default
                 | UiState::MaybeSelection(_)
                 | UiState::Selection(_, _)
-                | UiState::MaybeViewportMove(_)
-                | UiState::ViewportMove(_, _)
-                | UiState::MaybeNodeMove(_)
+                | UiState::MaybeTransformMove(_)
+                | UiState::TransformMove(_)
+                | UiState::MaybeNodeMove(_, _)
                 | UiState::NodeMove(_, _)
                 | UiState::Edge(_, _)
                 | UiState::UiInput
@@ -1592,9 +1844,9 @@ impl BuildAppEvent<Coords> for PointerAppEventBuilder {
                 UiState::Default
                 | UiState::MaybeSelection(_)
                 | UiState::Selection(_, _)
-                | UiState::MaybeViewportMove(_)
-                | UiState::ViewportMove(_, _)
-                | UiState::MaybeNodeMove(_)
+                | UiState::MaybeTransformMove(_)
+                | UiState::TransformMove(_)
+                | UiState::MaybeNodeMove(_, _)
                 | UiState::NodeMove(_, _)
                 | UiState::Edge(_, _)
                 | UiState::UiInput
@@ -1605,9 +1857,9 @@ impl BuildAppEvent<Coords> for PointerAppEventBuilder {
                 UiState::Default
                 | UiState::MaybeSelection(_)
                 | UiState::Selection(_, _)
-                | UiState::MaybeViewportMove(_)
-                | UiState::ViewportMove(_, _)
-                | UiState::MaybeNodeMove(_)
+                | UiState::MaybeTransformMove(_)
+                | UiState::TransformMove(_)
+                | UiState::MaybeNodeMove(_, _)
                 | UiState::NodeMove(_, _)
                 | UiState::MaybeEdge(_)
                 | UiState::UiInput
@@ -1629,9 +1881,9 @@ impl BuildAppEvent<Coords> for PointerAppEventBuilder {
                 UiState::Default
                 | UiState::MaybeSelection(_)
                 | UiState::Selection(_, _)
-                | UiState::MaybeViewportMove(_)
-                | UiState::ViewportMove(_, _)
-                | UiState::MaybeNodeMove(_)
+                | UiState::MaybeTransformMove(_)
+                | UiState::TransformMove(_)
+                | UiState::MaybeNodeMove(_, _)
                 | UiState::NodeMove(_, _)
                 | UiState::MaybeEdge(_)
                 | UiState::UiInput
@@ -1642,38 +1894,44 @@ impl BuildAppEvent<Coords> for PointerAppEventBuilder {
                 UiState::Default
                 | UiState::MaybeSelection(_)
                 | UiState::Selection(_, _)
-                | UiState::MaybeViewportMove(_)
-                | UiState::ViewportMove(_, _)
-                | UiState::MaybeNodeMove(_)
+                | UiState::MaybeTransformMove(_)
+                | UiState::TransformMove(_)
+                | UiState::MaybeNodeMove(_, _)
                 | UiState::NodeMove(_, _)
                 | UiState::MaybeEdge(_)
                 | UiState::UiInput
                 | UiState::CommandInput(_) => None,
             },
-            // COMMAND
-            /*Self::StartCommandInput => Some(Event::StartCommandInput("".to_owned())),
-            Self::ApplyCommandInput => match context.ui_state {
-                UiState::CommandInput(command) => Some(Event::ApplyCommandInput(command.clone())),
-                UiState::Default
-                | UiState::MaybeSelection(_)
-                | UiState::Selection(_, _)
-                | UiState::MaybeNodeMove(_)
-                | UiState::NodeMove(_, _)
-                | UiState::MaybeEdge(_)
-                | UiState::UiInput
-                | UiState::Edge(_, _) => None,
-            },
-            Self::CancelCommandInput => match context.ui_state {
-                UiState::CommandInput(_) => Some(Event::CancelCommandInput),
-                UiState::Default
-                | UiState::MaybeSelection(_)
-                | UiState::Selection(_, _)
-                | UiState::MaybeNodeMove(_)
-                | UiState::NodeMove(_, _)
-                | UiState::MaybeEdge(_)
-                | UiState::UiInput
-                | UiState::Edge(_, _) => None,
-            },*/
+            Self::Zoom => Some(Event::Zoom(
+                coords.x as f64,
+                coords.y as f64,
+                MOUSE_SCROLL_DELTA_MULT.powf(-context.last_scroll_dy),
+            )),
         }
+        /*
+            Self::StartCommandInput => Some(Event::StartCommandInput("".to_owned())),
+            Self::ApplyCommandInput => match context.ui_state {
+            UiState::CommandInput(command) => Some(Event::ApplyCommandInput(command.clone())),
+            UiState::Default
+            | UiState::MaybeSelection(_)
+            | UiState::Selection(_, _)
+            | UiState::MaybeNodeMove(_, _)
+            | UiState::NodeMove(_, _)
+            | UiState::MaybeEdge(_)
+            | UiState::UiInput
+            | UiState::Edge(_, _) => None,
+        },
+        Self::CancelCommandInput => match context.ui_state {
+            UiState::CommandInput(_) => Some(Event::CancelCommandInput),
+            UiState::Default
+            | UiState::MaybeSelection(_)
+            | UiState::Selection(_, _)
+            | UiState::MaybeNodeMove(_, _)
+            | UiState::NodeMove(_, _)
+            | UiState::MaybeEdge(_)
+            | UiState::UiInput
+            | UiState::Edge(_, _) => None,
+        },
+        */
     }
 }

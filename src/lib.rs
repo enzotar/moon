@@ -2,8 +2,7 @@
 //  clear && ./sh/clean && cargo build && ./sh/bindgen && flutter run -d linux
 #![feature(result_option_inspect)]
 
-//  0% fixed edges not updated for the last node movement frame
-//  0% fixed doubleclick do not cancelled by movement while first click
+// TODO: fixed edges not updated for the last node movement frame
 
 mod api;
 mod command;
@@ -23,10 +22,12 @@ use api::Response;
 use futures::executor::block_on;
 use model::BasicWidgetKind;
 use model::GraphId;
+use model::SolanaNet;
 use model::WidgetKind;
 
 use serde::Deserialize;
 
+use serde_json::json;
 use sunshine_core::msg::Action;
 use sunshine_core::msg::QueryKind;
 use sunshine_core::store::Datastore;
@@ -42,11 +43,14 @@ use view::NodeView;
 use view::NodeViewType;
 use view::ViewEdgeType;
 use view::{
-    commands_view_map, generate_default_text_commands, Command, LastViewChanges, Selection, View,
+    commands_view_map, generate_default_text_commands, BookmarkView, Command, LastViewChanges,
+    Ratio, Selection, View,
 };
 
+use sunshine_indra::store::generate_uuid_v1;
+
 use crate::command::*;
-use crate::model::PortId;
+use crate::model::{BookmarkId, BookmarkModel, PortId};
 use crate::view::NodeChange;
 use crate::view::NodeViewType::{DummyEdgeHandle, WidgetBlock, WidgetTextInput};
 
@@ -72,6 +76,14 @@ struct InputEvent {
     text: String,
 }
 
+const MIN_SCROLL_ZOOM: f64 = 0.1; // zoom out
+const MAX_SCROLL_ZOOM: f64 = 10.0; // zoom in
+
+// Also valid for fit screen
+const MIN_BOOKMARK_ZOOM: f64 = 0.1;
+const MAX_BOOKMARK_ZOOM: f64 = 2.5;
+const BOOKMARK_MARGIN_MULT: f64 = 0.25; // if 0 then no margin
+
 impl RidStore<Msg> for Store {
     fn create() -> Self {
         Self {
@@ -83,18 +95,47 @@ impl RidStore<Msg> for Store {
 
     fn update(&mut self, req_id: u64, msg: Msg) {
         match msg {
-            Msg::Initialize(app_dir) => {
-                // TODO add app_dir for release
+            Msg::Initialize(ev) => {
+                #[derive(Clone, Debug, Deserialize)]
+                #[serde(rename_all = "camelCase")]
+                struct InitializeEvent {
+                    db_path: String,
+                    canvas_width: u64,
+                    canvas_height: u64,
+                }
+
+                let event: InitializeEvent = serde_json::from_str(&ev).unwrap();
                 let db_path = "SUNSHINE_DB".to_owned();
                 assert!(self.state.is_none());
-                self.state = Some(State::new(db_path.clone()));
+                self.state = Some(State::new(
+                    db_path.clone(),
+                    event.canvas_width,
+                    event.canvas_height,
+                ));
+                // TODO use event.db_path for release
                 self.update_graph_list();
                 self.refresh_ui();
 
                 rid::post(Confirm::Initialized(req_id, format!("{:?}", db_path,)));
             }
+            Msg::ResizeCanvas(ev) => {
+                #[derive(Clone, Debug, Deserialize)]
+                #[serde(rename_all = "camelCase")]
+                struct ResizeCanvasEvent {
+                    width: u64,
+                    height: u64,
+                }
+
+                let event: ResizeCanvasEvent = serde_json::from_str(&ev).unwrap();
+                let state = self.state.as_mut().unwrap();
+
+                state.canvas.width = event.width;
+                state.canvas.height = event.height;
+                rid::post(Confirm::ReceivedEvent(req_id, "".to_owned()));
+            }
             Msg::MouseEvent(ev) => {
                 let state = self.state.as_mut().unwrap();
+                // dbg!(&ev);
                 let events: Vec<_> = state.on_flutter_mouse_event(&ev).collect();
                 self.apply(events, req_id);
                 //rid::post(Confirm::ReceivedEvent(req_id, format!("{:?}", ev)));
@@ -102,6 +143,7 @@ impl RidStore<Msg> for Store {
             }
             Msg::KeyboardEvent(ev) => {
                 let state = self.state.as_mut().unwrap();
+                // dbg!(&ev);
                 let events: Vec<_> = state.on_flutter_keyboard_event(&ev).collect();
                 self.apply(events, req_id);
                 //rid::post(Confirm::ReceivedEvent(req_id, format!("{:?}", ev)));
@@ -110,16 +152,47 @@ impl RidStore<Msg> for Store {
             Msg::LoadGraph(ev) => {
                 let state = self.state.as_mut().unwrap();
                 let model = state.model_mut();
+                model.bookmarks.clear(); // FIXME: do this in new_graph and read_graph
                 if ev == "new" {
                     model.new_graph();
                 } else {
                     let graph_id = GraphId(Uuid::from_str(&ev).unwrap());
                     model.read_graph(graph_id);
                 }
+
                 state.reset();
                 self.refresh_ui();
 
                 rid::post(Confirm::LoadGraph(req_id, "".to_owned()));
+            }
+            Msg::ChangeSolanaNet(ev) => {
+                let model = self.state.as_mut().unwrap().model_mut();
+                let solana_net = match ev.as_str() {
+                    "Testnet" => SolanaNet::Testnet,
+                    "Devnet" => SolanaNet::Devnet,
+                    "Mainnet" => SolanaNet::Mainnet,
+                    _ => panic!(),
+                };
+                println!("Solana Net changed to {:?}", solana_net);
+                model.change_solana_net(solana_net);
+                rid::post(Confirm::ReceivedEvent(req_id, "".to_owned()));
+            }
+            Msg::Import(path) => {
+                let model = self.state.as_mut().unwrap().model_mut();
+                // let path = "axis_1645990336164.json";
+
+                model.import(&path);
+
+                let state = self.state.as_mut().unwrap();
+                state.reset();
+                self.refresh_ui();
+                rid::post(Confirm::LoadGraph(req_id, "".to_owned()));
+            }
+            Msg::Export(path, filename) => {
+                let model = self.state.as_ref().unwrap().model();
+
+                model.export(path, filename);
+                rid::post(Confirm::ReceivedEvent(req_id, "".to_owned()));
             }
             Msg::Debug(ev) => {
                 let model = self.state.as_ref().unwrap().model();
@@ -139,20 +212,24 @@ impl RidStore<Msg> for Store {
                 dbg!(self.state.as_ref().unwrap().model());
                 rid::post(Confirm::ReceivedEvent(req_id, "".to_owned()));
             }
-            Msg::StartInput(ev) => {
+            Msg::StartInput(_) => {
                 // when focus on textinput
                 let mut state = self.state.as_mut().unwrap();
                 state.ui_state = UiState::UiInput;
+
+                rid::post(Confirm::ReceivedEvent(req_id, "".to_owned()));
             }
-            Msg::CancelInput(ev) => {
-                // when we loose focus and do not want to apply smth (e.g. on Escape)
+            Msg::StopInput(_) => {
+                // when we loose focus
                 let mut state = self.state.as_mut().unwrap();
                 match &state.ui_state {
                     UiState::UiInput => state.ui_state = UiState::Default,
                     _ => {}
                 }
+
+                rid::post(Confirm::ReceivedEvent(req_id, "".to_owned()));
             }
-            Msg::ApplyInput(ev) => {
+            /*Msg::ApplyInput(ev) => {
                 // on textinput sumbit/enter
                 let mut state = self.state.as_mut().unwrap();
                 match state.ui_state {
@@ -165,7 +242,7 @@ impl RidStore<Msg> for Store {
                     }
                     _ => {}
                 }
-            }
+            }*/
             // Msg::SetText(ev) => {
             //     // set text but try to apply command
 
@@ -205,6 +282,79 @@ impl RidStore<Msg> for Store {
                     .model_mut()
                     .save_text_to_db(&node_id, &event.text);
 
+                //
+
+                // https://github.com/solana-labs/solana/blob/master/remote-wallet/Cargo.toml
+                // https://github.com/solana-labs/solana/commit/b635073829e41960c67556412edbb5315ff265e4
+                // https://github.com/solana-labs/solana/commit/d6f22433d07584625c17aa83819e2396591242cd
+
+                use serde::Serialize;
+
+                let mut parser = parse::BlockParser::new();
+                let lines = event.text.split("\n");
+                for line in lines {
+                    parser = parser.with(&line);
+                }
+
+                let blocks = parser.into_blocks();
+
+                #[derive(Serialize)]
+                struct Block {
+                    spans: Vec<Span>,
+                    children: Vec<Block>,
+                }
+
+                #[derive(Serialize)]
+                pub enum Span {
+                    Link(String),
+                    Url(Vec<Span>, String),
+                    Text(String),
+                    Char(char),
+                    Bold(Vec<Span>),
+                    Italics(Vec<Span>),
+                    Strikethrough(Vec<Span>),
+                }
+
+                impl From<parse::Block> for Block {
+                    fn from(block: parse::Block) -> Self {
+                        Self {
+                            spans: parse::parse(&block.span_text)
+                                .into_iter()
+                                .map(Into::into)
+                                .collect(),
+                            children: block.children.into_iter().map(Into::into).collect(),
+                        }
+                    }
+                }
+
+                impl From<parse::Span<'_>> for Span {
+                    fn from(span: parse::Span) -> Self {
+                        match span {
+                            parse::Span::Link(link) => Span::Link(link.0.to_owned()),
+                            parse::Span::Url(spans, name) => Span::Url(
+                                spans.into_iter().map(Into::into).collect(),
+                                name.to_owned(),
+                            ),
+                            parse::Span::Text(text) => Span::Text(text.to_owned()),
+                            parse::Span::Char(ch) => Span::Char(ch),
+                            parse::Span::Bold(spans) => {
+                                Span::Bold(spans.into_iter().map(Into::into).collect())
+                            }
+                            parse::Span::Italics(spans) => {
+                                Span::Italics(spans.into_iter().map(Into::into).collect())
+                            }
+                            parse::Span::Strikethrough(spans) => {
+                                Span::Strikethrough(spans.into_iter().map(Into::into).collect())
+                            }
+                        }
+                    }
+                }
+
+                let blocks: Vec<Block> = blocks.into_iter().map(Into::into).collect();
+                let json = serde_json::to_string_pretty(&blocks).unwrap();
+                println!("{}", &json);
+                //
+
                 rid::post(Confirm::ReceivedEvent(req_id, "".to_owned()));
             }
             Msg::ApplyCommand(command_name) => {
@@ -221,15 +371,21 @@ impl RidStore<Msg> for Store {
             Msg::SendJson(ev) => {
                 let event: InputEvent = serde_json::from_str(&ev).unwrap();
                 println!("{:?}", event);
-
+                // if !event.text.is_empty() {
                 let model = self.state.as_mut().unwrap().model_mut();
 
                 let node_id = NodeId(Uuid::parse_str(&event.node_id).unwrap());
 
                 model.set_node_text(&node_id, event.text.clone());
-                model.update_const_command(node_id, &event.text);
+                model.update_const_in_db(node_id, &event.text);
+                // }
 
                 rid::post(Confirm::ReceivedEvent(req_id, ev.to_owned()));
+            }
+            Msg::GenerateSeedPhrase(_) => {
+                let phrase = crate::model::Model::generate_seed();
+
+                rid::post(Confirm::SendSeedPhrase(req_id, phrase.to_owned()));
             }
             Msg::Deploy(ev) => {
                 let mut req_id_lock = self.state.as_ref().unwrap().model().req_id.lock().unwrap();
@@ -253,10 +409,307 @@ impl RidStore<Msg> for Store {
                 let response = serde_json::to_string(&response).unwrap();
                 rid::post(Confirm::Response(req_id, response));
             }
+
+            // Refresh flow status while running
             Msg::Refresh(ev) => {
                 println!("{}", ev);
                 self.refresh_ui();
-                rid::post(Confirm::RefreshUI(req_id));
+                rid::post(Confirm::RefreshStatus(req_id));
+            }
+            Msg::ResetZoom(_) => {
+                self.state.as_mut().unwrap().transform = Transform::default();
+                self.refresh_ui_transform();
+                rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
+            }
+            Msg::FitNodesToScreen(_) => {
+                let state = self.state.as_mut().unwrap();
+
+                let model = state.model_mut();
+                let mut nodes = model.nodes().values();
+                let first_node = nodes.next();
+
+                if let Some(node) = first_node {
+                    let mut x1 = node.data().coords.x;
+                    let mut y1 = node.data().coords.y;
+                    let mut x2 = node.data().coords.x + node.data().dimensions.width as f64;
+                    let mut y2 = node.data().coords.y + node.data().dimensions.height as f64;
+
+                    println!("Node {:10} {:10} : {:10} {:10}", &x1, &y1, &x2, &y2);
+
+                    for node in nodes {
+                        x1 = x1.min(node.data().coords.x);
+                        y1 = y1.min(node.data().coords.y);
+                        x2 = x2.max(node.data().coords.x + node.data().dimensions.width as f64);
+                        y2 = y2.max(node.data().coords.y + node.data().dimensions.height as f64);
+
+                        println!("Node {:10} {:10} : {:10} {:10}", &x1, &y1, &x2, &y2);
+                    }
+
+                    let x = 0.5 * (x1 + x2);
+                    let y = 0.5 * (y1 + y2);
+                    let w = x2 - x1;
+                    let h = y2 - y1;
+
+                    let x1 = x - 0.5 * w * (1.0 + BOOKMARK_MARGIN_MULT);
+                    let y1 = y - 0.5 * h * (1.0 + BOOKMARK_MARGIN_MULT);
+                    let x2 = x + 0.5 * w * (1.0 + BOOKMARK_MARGIN_MULT);
+                    let y2 = y + 0.5 * h * (1.0 + BOOKMARK_MARGIN_MULT);
+
+                    let xscale = state.canvas.width as f64 / (x2 - x1);
+                    let yscale = state.canvas.height as f64 / (y2 - y1);
+                    let scale = xscale
+                        .min(yscale)
+                        .clamp(MIN_BOOKMARK_ZOOM, MAX_BOOKMARK_ZOOM);
+
+                    let tx = x - 0.5 * state.canvas.width as f64 / scale;
+                    let ty = y - 0.5 * state.canvas.height as f64 / scale;
+                    dbg!(tx, ty);
+                    println!("FitToScreen {:10} {:10} : {:10} {:10}", x, y, w, h);
+                    println!("FitToScreen {:10} {:10} : {:10} {:10}", &x1, &y1, &x2, &y2);
+                    println!(
+                        "FitToScreen {:10} {:10} {:10} : {:10} {:10}",
+                        xscale, yscale, scale, tx, ty
+                    );
+
+                    self.state.as_mut().unwrap().transform = Transform {
+                        x: -tx,
+                        y: -ty,
+                        scale,
+                    };
+                    self.refresh_ui_transform();
+                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
+                } else {
+                    rid::post(Confirm::ReceivedEvent(req_id, "".to_owned()));
+                }
+            }
+            Msg::CreateBookmark(name) => {
+                let state = self.state.as_mut().unwrap();
+                let bookmark_id = BookmarkId(generate_uuid_v1());
+                let nodes = state.selected_node_ids.clone();
+                state.model_mut().bookmarks.insert(
+                    bookmark_id,
+                    BookmarkModel {
+                        name,
+                        nodes_ids: nodes,
+                    },
+                );
+
+                // TODO: respond with bookmark_id
+                self.refresh_ui();
+
+                rid::post(Confirm::RefreshUI(req_id, bookmark_id.0.to_string()));
+            }
+            Msg::GotoBookmark(bookmark_id) => {
+                // bookmark_id can be obtained from view.bookmarks
+                let state = self.state.as_mut().unwrap();
+
+                let model = state.model_mut();
+                let bookmark_id = BookmarkId(bookmark_id.parse().unwrap());
+                // let bookmark_id = model.bookmarks.keys().next().unwrap().clone(); // FIXME: Remove this, use bookmark_id from above
+                let bookmark = model.bookmarks.get(&bookmark_id).unwrap();
+                dbg!(&bookmark);
+
+                let mut nodes = bookmark
+                    .nodes_ids
+                    .iter()
+                    .filter_map(|node_id| model.nodes().get(node_id));
+                let first_node = nodes.next();
+                dbg!(&first_node);
+
+                if let Some(node) = first_node {
+                    let mut x1 = node.data().coords.x;
+                    let mut y1 = node.data().coords.y;
+                    let mut x2 = node.data().coords.x + node.data().dimensions.width as f64;
+                    let mut y2 = node.data().coords.y + node.data().dimensions.height as f64;
+
+                    println!("Node {:10} {:10} : {:10} {:10}", &x1, &y1, &x2, &y2);
+
+                    for node in nodes {
+                        x1 = x1.min(node.data().coords.x);
+                        y1 = y1.min(node.data().coords.y);
+                        x2 = x2.max(node.data().coords.x + node.data().dimensions.width as f64);
+                        y2 = y2.max(node.data().coords.y + node.data().dimensions.height as f64);
+
+                        println!("Node {:10} {:10} : {:10} {:10}", &x1, &y1, &x2, &y2);
+                    }
+
+                    let x = 0.5 * (x1 + x2);
+                    let y = 0.5 * (y1 + y2);
+                    let w = x2 - x1;
+                    let h = y2 - y1;
+
+                    let x1 = x - 0.5 * w * (1.0 + BOOKMARK_MARGIN_MULT);
+                    let y1 = y - 0.5 * h * (1.0 + BOOKMARK_MARGIN_MULT);
+                    let x2 = x + 0.5 * w * (1.0 + BOOKMARK_MARGIN_MULT);
+                    let y2 = y + 0.5 * h * (1.0 + BOOKMARK_MARGIN_MULT);
+
+                    let xscale = state.canvas.width as f64 / (x2 - x1);
+                    let yscale = state.canvas.height as f64 / (y2 - y1);
+                    let scale = xscale
+                        .min(yscale)
+                        .clamp(MIN_BOOKMARK_ZOOM, MAX_BOOKMARK_ZOOM); //controls min/
+
+                    let tx = x - 0.5 * state.canvas.width as f64 / scale;
+                    let ty = y - 0.5 * state.canvas.height as f64 / scale;
+                    dbg!(tx, ty);
+                    println!("Bookmark {:10} {:10} : {:10} {:10}", x, y, w, h);
+                    println!("Bookmark {:10} {:10} : {:10} {:10}", &x1, &y1, &x2, &y2);
+                    println!(
+                        "Bookmark {:10} {:10} {:10} : {:10} {:10}",
+                        xscale, yscale, scale, tx, ty
+                    );
+
+                    self.state.as_mut().unwrap().transform = Transform {
+                        x: -tx,
+                        y: -ty,
+                        scale,
+                    };
+                    self.refresh_ui_transform();
+                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
+                } else {
+                    // TODO: Handle if no nodes in bookmark
+                    rid::post(Confirm::ReceivedEvent(req_id, "".to_owned()));
+                }
+            }
+
+            Msg::BookmarkScreenshot(bookmark_id) => {
+                // bookmark_id can be obtained from view.bookmarks
+                let state = self.state.as_mut().unwrap();
+
+                let model = state.model_mut();
+                let bookmark_id = BookmarkId(bookmark_id.parse().unwrap());
+                // let bookmark_id = model.bookmarks.keys().next().unwrap().clone(); // FIXME: Remove this, use bookmark_id from above
+                let bookmark = model.bookmarks.get(&bookmark_id).unwrap();
+                dbg!(&bookmark);
+
+                let mut nodes = bookmark
+                    .nodes_ids
+                    .iter()
+                    .filter_map(|node_id| model.nodes().get(node_id));
+                let first_node = nodes.next();
+                dbg!(&first_node);
+
+                if let Some(node) = first_node {
+                    let mut x1 = node.data().coords.x;
+                    let mut y1 = node.data().coords.y;
+                    let mut x2 = node.data().coords.x + node.data().dimensions.width as f64;
+                    let mut y2 = node.data().coords.y + node.data().dimensions.height as f64;
+
+                    println!("Node {:10} {:10} : {:10} {:10}", &x1, &y1, &x2, &y2);
+
+                    for node in nodes {
+                        x1 = x1.min(node.data().coords.x);
+                        y1 = y1.min(node.data().coords.y);
+                        x2 = x2.max(node.data().coords.x + node.data().dimensions.width as f64);
+                        y2 = y2.max(node.data().coords.y + node.data().dimensions.height as f64);
+
+                        println!("Node {:10} {:10} : {:10} {:10}", &x1, &y1, &x2, &y2);
+                    }
+
+                    let x = 0.5 * (x1 + x2);
+                    let y = 0.5 * (y1 + y2);
+                    let w = x2 - x1;
+                    let h = y2 - y1;
+
+                    let x1 = x - 0.5 * w * (1.0 + BOOKMARK_MARGIN_MULT);
+                    let y1 = y - 0.5 * h * (1.0 + BOOKMARK_MARGIN_MULT);
+                    let x2 = x + 0.5 * w * (1.0 + BOOKMARK_MARGIN_MULT);
+                    let y2 = y + 0.5 * h * (1.0 + BOOKMARK_MARGIN_MULT);
+
+                    let xscale = state.canvas.width as f64 / (x2 - x1);
+                    let yscale = state.canvas.height as f64 / (y2 - y1);
+                    let scale = xscale
+                        .min(yscale)
+                        .clamp(MIN_BOOKMARK_ZOOM, MAX_BOOKMARK_ZOOM); //controls min/
+
+                    let tx = x - 0.5 * state.canvas.width as f64 / scale;
+                    let ty = y - 0.5 * state.canvas.height as f64 / scale;
+                    dbg!(tx, ty);
+                    println!("Bookmark {:10} {:10} : {:10} {:10}", x, y, w, h);
+                    println!("Bookmark {:10} {:10} : {:10} {:10}", &x1, &y1, &x2, &y2);
+                    println!(
+                        "Bookmark {:10} {:10} {:10} : {:10} {:10}",
+                        xscale, yscale, scale, tx, ty
+                    );
+
+                    // let transform = Transform {
+                    //     x: -tx,
+                    //     y: -ty,
+                    //     scale,
+                    // };
+                    self.state.as_mut().unwrap().transform_screenshot = Transform {
+                        x: -tx,
+                        y: -ty,
+                        scale,
+                    };
+                    self.refresh_ui_transform_screenshot();
+                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
+                } else {
+                    // TODO: Handle if no nodes in bookmark
+                    rid::post(Confirm::ReceivedEvent(req_id, "".to_owned()));
+                }
+            }
+            Msg::DeleteBookmark(bookmark_id) => {
+                let state = self.state.as_mut().unwrap();
+                let bookmark_id = BookmarkId(bookmark_id.parse().unwrap());
+                let _bookmark_data = state.model_mut().bookmarks.remove(&bookmark_id);
+                // FIXME: Check bookmark_data.is_none()
+                self.refresh_ui();
+
+                rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
+            }
+
+            Msg::UpdateDimensions(node_id, value_type, width, height) => {
+                // get current node from selection
+                // dbg!(
+                //     self.selected_node_ids().collect::<Vec<_>>(),
+                //     self.active_node
+                // );
+                let state = self.state.as_mut().unwrap();
+
+                let selected_block_id = state.active_node.unwrap();
+                let child_id = NodeId(Uuid::parse_str(&node_id).unwrap());
+
+                // let block_model = state
+                //     .model_mut()
+                //     .nodes()
+                //     .get(&NodeId(Uuid::from_str(&node_id).unwrap()))
+                //     .unwrap();
+                // let mut data = block_model.data_mut();
+
+                state.model_mut().set_node_text(&child_id, String::new());
+                state
+                    .model_mut()
+                    .update_const_in_db(child_id, &String::new());
+                //
+                let additional_data = &value_type;
+                // save to model
+                state
+                    .model_mut()
+                    .set_node_additional_data(&child_id, additional_data.clone());
+                // save to db
+                state
+                    .model_mut()
+                    .update_const_additional_in_db(child_id, additional_data);
+
+                // dimensions
+                let dimensions = model::NodeDimensions { height, width };
+
+                // update block dimensions
+                state
+                    .model_mut()
+                    .set_node_dimensions(&selected_block_id, dimensions.clone());
+
+                //update child dimensions
+                state
+                    .model_mut()
+                    .set_node_dimensions(&child_id, dimensions.clone());
+
+                let dimensions = json!(dimensions);
+                println!("{dimensions}");
+                self.refresh_ui();
+
+                rid::post(Confirm::UpdatedDimensions(req_id, dimensions.to_string()));
             }
         };
         // rid::post(Confirm::ReceivedEvent(req_id, String::new()));
@@ -294,7 +747,7 @@ impl Store {
                 Ok(()) => {
                     state.ui_state = UiState::Default;
                     self.refresh_ui();
-                    rid::post(Confirm::RefreshUI(req_id));
+                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
                     // send StopInput to flutter
                 }
                 /*CommandAction::Replace(replacement) => {
@@ -302,7 +755,7 @@ impl Store {
                         .model_mut()
                         .set_node_text(&node_id, format!("{}{}{}", before, replacement, after));
                     self.refresh_ui();
-                    rid::post(Confirm::RefreshUI(req_id));
+                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
                     // send updated text to flutter
                 }*/
                 Err(()) => {
@@ -338,14 +791,15 @@ impl Store {
 #[derive(Debug, Clone)]
 pub enum Msg {
     Initialize(String),
+    ResizeCanvas(String),
     MouseEvent(String),
     KeyboardEvent(String),
     LoadGraph(String), //StartEdge(String), // { input: { ... } } | { scheduled: { id: 32 | 64 } }
     Debug(String),
     SendJson(String),
     StartInput(String),
-    CancelInput(String),
-    ApplyInput(String),
+    StopInput(String),
+    // ApplyInput(String),
     SetText(String), // { node_id, text }
     // SetText2(String),     // { node_id, text }
     ApplyCommand(String), // { node_id, text }
@@ -354,22 +808,36 @@ pub enum Msg {
     UnDeploy(String),
     Request(String), //
     Refresh(String),
+    Import(String),
+    Export(String, String),
+    ResetZoom(String),
+    FitNodesToScreen(String),
+    CreateBookmark(String),
+    GotoBookmark(String),
+    DeleteBookmark(String),
+    ChangeSolanaNet(String),
+    BookmarkScreenshot(String),
+    UpdateDimensions(String, String, i64, i64),
+    GenerateSeedPhrase(String),
 }
 
 #[rid::reply]
 #[derive(Clone)]
 pub enum Confirm {
     ReceivedEvent(u64, String), // { updates: [ ... ], scheduled: [[1.0, 64], [2.0, 32]] }
-    RefreshUI(u64),
+    RefreshUI(u64, String),
     Initialized(u64, String),
     LoadGraph(u64, String),
     Deployed(u64, String),
     UnDeployed(u64, String),
     ApplyCommand(u64, String),
     Response(u64, String), //
-    Refresh(u64),
+    RequestRefresh(u64),
+    RefreshStatus(u64),
     CreateNode(u64),
     RemoveNode(u64),
+    UpdatedDimensions(u64, String),
+    SendSeedPhrase(u64, String),
 }
 
 impl Store {
@@ -381,26 +849,26 @@ impl Store {
                 // BASIC SELECTION
                 Event::Unselect => {
                     // FIXME: background doen't send events if node loses focus
-                    println!("clear : ");
+                    println!("unselect");
                     state.clear_selection();
                     self.refresh_ui();
-                    rid::post(Confirm::RefreshUI(req_id))
+                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()))
                 }
                 Event::SelectNode(node_id) => {
-                    println!("clear : ");
+                    println!("select node {node_id:?}");
                     state.clear_selection();
 
-                    println!("select node {:?}", node_id);
                     state.add_to_selection(node_id);
                     //state.update_active_node(node_id);
                     self.refresh_ui();
-                    rid::post(Confirm::RefreshUI(req_id))
+                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()))
                 }
-                Event::AddNodeToSelection(node_id) => {
-                    println!("select node {:?}", node_id);
-                    state.add_to_selection(node_id);
+                Event::AddOrRemoveNodeToSelection(node_id) => {
+                    println!("add node to selection {node_id:?}");
+                    state.add_or_remove_from_selection(node_id);
+
                     self.refresh_ui();
-                    rid::post(Confirm::RefreshUI(req_id))
+                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()))
                 }
 
                 // CRUD
@@ -459,53 +927,61 @@ impl Store {
                 }
 
                 // SELECTION RECTANGLE
-                Event::MaybeStartViewportMove(start) => {
-                    state.ui_state = UiState::MaybeViewportMove(start);
+                Event::MaybeStartTransformMove(start) => {
+                    state.ui_state = UiState::MaybeTransformMove(start);
                 }
-                Event::NotAViewportMove => {
+                Event::NotATransformMove => {
                     state.ui_state = UiState::Default;
                 }
-                Event::StartViewportMove(start_coords, coords) => {
-                    let viewport = &mut state.viewport;
-                    viewport.x -= (coords.x - start_coords.x) as f64 / viewport.scale;
-                    viewport.y -= (coords.x - start_coords.y) as f64 / viewport.scale;
-                    state.ui_state = UiState::ViewportMove(start_coords, coords);
-                    self.refresh_ui();
-                    rid::post(Confirm::RefreshUI(req_id))
+                Event::StartTransformMove(start_coords, coords) => {
+                    let transform = &mut state.transform;
+                    transform.x += coords.x - start_coords.x;
+                    transform.y += coords.y - start_coords.y;
+                    //dbg!(start_coords.x, coords.x, transform.x);
+                    state.ui_state = UiState::TransformMove(start_coords);
+                    self.refresh_ui_transform();
+                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()))
                 }
-                Event::ContinueViewportMove(old_coords, new_coords) => {
-                    let viewport = &mut state.viewport;
-                    viewport.x -= (new_coords.x - old_coords.x) as f64 / viewport.scale;
-                    viewport.y -= (new_coords.x - old_coords.y) as f64 / viewport.scale;
-                    self.refresh_ui();
-                    rid::post(Confirm::RefreshUI(req_id))
+                Event::ContinueTransformMove(start_coords, coords) => {
+                    let transform = &mut state.transform;
+                    transform.x += coords.x - start_coords.x;
+                    transform.y += coords.y - start_coords.y;
+                    //dbg!(start_coords.x, coords.x, transform.x);
+                    state.ui_state = UiState::TransformMove(start_coords);
+                    self.refresh_ui_transform();
+                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()))
                 }
-                Event::EndViewportMove(old_coords, new_coords) => {
-                    let viewport = &mut state.viewport;
-                    viewport.x -= (new_coords.x - old_coords.x) as f64 / viewport.scale;
-                    viewport.y -= (new_coords.x - old_coords.y) as f64 / viewport.scale;
+                Event::EndTransformMove(start_coords, coords) => {
+                    let transform = &mut state.transform;
+                    transform.x += coords.x - start_coords.x;
+                    transform.y += coords.y - start_coords.y;
+                    //dbg!(start_coords.x, coords.x, transform.x);
                     state.ui_state = UiState::Default;
-                    self.refresh_ui();
-                    rid::post(Confirm::RefreshUI(req_id))
+                    self.refresh_ui_transform();
+                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()))
                 }
-                Event::CancelViewportMove => {
+                Event::CancelTransformMove => {
                     state.ui_state = UiState::Default;
                 }
                 // MOVE
                 Event::MaybeStartNodeMove(node_id, coords) => {
-                    state.ui_state = UiState::MaybeNodeMove(coords);
-                    println!("clear : ");
-                    state.clear_selection();
-                    println!("select node {:?}", node_id);
-                    state.add_to_selection(node_id.clone());
+                    println!("maybe start node move {:?}", node_id);
+                    state.ui_state = UiState::MaybeNodeMove(node_id, coords);
                 }
                 Event::NotANodeMove => {
                     state.ui_state = UiState::Default;
                 }
-                Event::StartNodeMove(start_coords, coords) => {
+                Event::StartNodeMove(node_id, start_coords, coords) => {
+                    println!("start node move {:?}", node_id);
+                    if !state.selected_node_ids.contains(&node_id) {
+                        println!("do reselect on maybe start node move");
+                        state.clear_selection();
+                        state.add_to_selection(node_id.clone());
+                    }
+
                     state.ui_state = UiState::NodeMove(start_coords, coords);
                     self.refresh_ui();
-                    rid::post(Confirm::RefreshUI(req_id))
+                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()))
                     // select node
                     // state.clear_selection(); // clears :  on multi select // FIXME: workaround
 
@@ -531,7 +1007,7 @@ impl Store {
                 Event::ContinueNodeMove(start_coords, coords) => {
                     state.ui_state = UiState::NodeMove(start_coords, coords);
                     self.refresh_ui();
-                    rid::post(Confirm::RefreshUI(req_id))
+                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()))
                     /*
                     let node_ids: Vec<NodeId> = state.selected_node_ids().copied().collect();
 
@@ -560,7 +1036,7 @@ impl Store {
 
                     state.ui_state = UiState::Default;
                     self.refresh_ui();
-                    rid::post(Confirm::RefreshUI(req_id));
+                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
                 }
                 Event::CancelNodeMove => {
                     /*let node_ids: Vec<NodeId> = state.selected_node_ids().copied().collect();
@@ -576,7 +1052,7 @@ impl Store {
 
                     state.ui_state = UiState::Default;
                     self.refresh_ui();
-                    rid::post(Confirm::RefreshUI(req_id));
+                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
                 }
                 /*Event::Typing(chars) => {
                     match state.ui_state {
@@ -589,7 +1065,7 @@ impl Store {
                 Event::MaybeStartEdge(port_id) => {
                     state.ui_state = UiState::MaybeEdge(port_id);
                     self.refresh_ui();
-                    rid::post(Confirm::RefreshUI(req_id));
+                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
                 }
                 Event::NotAEdge => {
                     state.ui_state = UiState::Default;
@@ -597,12 +1073,12 @@ impl Store {
                 Event::StartEdge(port_id, coords) => {
                     state.ui_state = UiState::Edge(port_id, coords);
                     self.refresh_ui();
-                    rid::post(Confirm::RefreshUI(req_id));
+                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
                 }
                 Event::ContinueEdge(port_id, coords) => {
                     state.ui_state = UiState::Edge(port_id, coords);
                     self.refresh_ui();
-                    rid::post(Confirm::RefreshUI(req_id));
+                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
                 }
                 Event::EndEdge(port_id, output_id) => {
                     println!("Connect Edge {:?} {:?}", port_id, output_id);
@@ -611,26 +1087,45 @@ impl Store {
                         .add_or_remove_flow_edge(port_id, output_id);
                     state.ui_state = UiState::Default; // Question? should it be last?
                     self.refresh_ui();
-                    rid::post(Confirm::RefreshUI(req_id));
+                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
                 }
                 Event::CancelEdge(_) => {
                     state.ui_state = UiState::Default;
                     self.refresh_ui();
-                    rid::post(Confirm::RefreshUI(req_id));
+                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
                 } /*Event::StartCommandInput(command) | Event::ModifyCommandInput(command) => {
-                      println!("command input: {}", &command);
-                      state.ui_state = UiState::CommandInput(command);
-                      self.refresh_ui();
-                      rid::post(Confirm::RefreshUI(req_id));
-                  }*/
-                  /*Event::ApplyCommandInput(command) => {
-                  }
-                  Event::CancelCommandInput => {
-                      state.ui_state = UiState::Default;
-                      println!("cancel command input");
-                      self.refresh_ui();
-                      rid::post(Confirm::RefreshUI(req_id));
-                  }*/
+                println!("command input: {}", &command);
+                state.ui_state = UiState::CommandInput(command);
+                self.refresh_ui();
+                rid::post(Confirm::RefreshUI(req_id));
+                }*/
+                /*Event::ApplyCommandInput(command) => {
+                }
+                Event::CancelCommandInput => {
+                    state.ui_state = UiState::Default;
+                    println!("cancel command input");
+                    self.refresh_ui();
+                    rid::post(Confirm::RefreshUI(req_id));
+                }*/
+                Event::Zoom(x, y, dzoom) => {
+                    let old_zoom = state.transform.scale;
+                    let new_zoom = state.transform.scale * dzoom;
+                    if new_zoom >= MIN_SCROLL_ZOOM && new_zoom <= MAX_SCROLL_ZOOM {
+                        let screen_x = (x + state.transform.x) * state.transform.scale;
+                        let screen_y = (y + state.transform.y) * state.transform.scale;
+
+                        state.transform.x -= screen_x / state.transform.scale;
+                        state.transform.y -= screen_y / state.transform.scale;
+
+                        state.transform.scale = new_zoom;
+
+                        state.transform.x += screen_x / state.transform.scale;
+                        state.transform.y += screen_y / state.transform.scale;
+
+                        self.refresh_ui_transform();
+                        rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
+                    }
+                }
             }
         }
     }
@@ -650,10 +1145,10 @@ impl Store {
         let selection = if let UiState::Selection(start_coords, coords) = &state.ui_state {
             Selection {
                 is_active: true,
-                x1: start_coords.x,
-                y1: start_coords.y,
-                x2: coords.x,
-                y2: coords.y,
+                x1: start_coords.x as i64,
+                y1: start_coords.y as i64,
+                x2: coords.x as i64,
+                y2: coords.y as i64,
             }
         } else {
             Selection {
@@ -688,10 +1183,10 @@ impl Store {
                     NodeView {
                         index: i64::default(),
                         parent_id: "".to_owned(),
-                        origin_x: widget_node_data.coords.x,
-                        origin_y: widget_node_data.coords.y,
-                        x: widget_node_data.coords.x,
-                        y: widget_node_data.coords.y,
+                        origin_x: widget_node_data.coords.x as i64,
+                        origin_y: widget_node_data.coords.y as i64,
+                        x: widget_node_data.coords.x as i64,
+                        y: widget_node_data.coords.y as i64,
                         height: widget_node_data.dimensions.height,
                         width: widget_node_data.dimensions.width,
                         text: widget_node_data.text.to_owned(),
@@ -717,13 +1212,32 @@ impl Store {
                         flow_inbound_edges: vec![],
                         flow_outbound_edges: vec![],
                         success: match state.model().run_status.get(node_id) {
-                            Some(v) => match v.value() {
+                            Some(v) => match v.value().success {
                                 true => "success",
                                 false => "fail",
                             },
                             None => "waiting",
                         }
                         .to_owned(),
+                        error: match state.model().run_status.get(node_id) {
+                            Some(v) => match v.value().error {
+                                Some(ref v) => v.clone(),
+                                None => "waiting".to_owned(),
+                            },
+                            None => String::new(),
+                        },
+                        print_output: match state.model().run_status.get(node_id) {
+                            Some(v) => match v.value().print_output {
+                                Some(ref v) => v.clone(),
+                                None => "waiting".to_owned(),
+                            },
+                            None => String::new(),
+                        },
+                        running: match state.model().run_status.get(node_id) {
+                            Some(v) => v.value().running,
+                            None => false,
+                        },
+                        additional_data: widget_node_data.additional_data.to_owned(),
                     },
                 )
             });
@@ -741,10 +1255,10 @@ impl Store {
                 NodeView {
                     index: input.index,
                     parent_id: input.command_id.0.to_string(),
-                    origin_x: input_data.coords.x + input.local_coords.x,
-                    origin_y: input_data.coords.y + input.local_coords.y,
-                    x: input_data.coords.x + input.local_coords.x,
-                    y: input_data.coords.y + input.local_coords.y,
+                    origin_x: (input_data.coords.x + input.local_coords.x) as i64,
+                    origin_y: (input_data.coords.y + input.local_coords.y) as i64,
+                    x: (input_data.coords.x + input.local_coords.x) as i64,
+                    y: (input_data.coords.y + input.local_coords.y) as i64,
                     height: INPUT_SIZE,
                     width: INPUT_SIZE,
                     text: input.label.to_owned(),
@@ -764,6 +1278,10 @@ impl Store {
                         )
                         .collect(),
                     success: String::new(),
+                    error: String::new(),
+                    print_output: String::new(),
+                    running: false,
+                    additional_data: String::new(),
                 },
             )
         });
@@ -780,10 +1298,10 @@ impl Store {
                 NodeView {
                     index: output.index,
                     parent_id: output.command_id.0.to_string(),
-                    origin_x: output_data.coords.x + output.local_coords.x,
-                    origin_y: output_data.coords.y + output.local_coords.y,
-                    x: output_data.coords.x + output.local_coords.x,
-                    y: output_data.coords.y + output.local_coords.y,
+                    origin_x: (output_data.coords.x + output.local_coords.x) as i64,
+                    origin_y: (output_data.coords.y + output.local_coords.y) as i64,
+                    x: (output_data.coords.x + output.local_coords.x) as i64,
+                    y: (output_data.coords.y + output.local_coords.y) as i64,
                     height: INPUT_SIZE,
                     width: INPUT_SIZE,
                     text: output.label.to_owned(),
@@ -800,6 +1318,10 @@ impl Store {
                         .collect(),
                     flow_inbound_edges: vec![],
                     success: String::new(),
+                    error: String::new(),
+                    running: false,
+                    print_output: String::new(),
+                    additional_data: String::new(),
                 },
             )
         });
@@ -821,19 +1343,19 @@ impl Store {
                     model::EdgeType::Flow => ViewEdgeType::Flow,
                 },
                 from_coords_x: match edge_model.data.from_coords {
-                    Some(coords) => coords.x,
+                    Some(coords) => coords.x as i64,
                     None => 0,
                 },
                 from_coords_y: match edge_model.data.from_coords {
-                    Some(coords) => coords.y,
+                    Some(coords) => coords.y as i64,
                     None => 0,
                 },
                 to_coords_x: match edge_model.data.to_coords {
-                    Some(coords) => coords.x,
+                    Some(coords) => coords.x as i64,
                     None => 0,
                 },
                 to_coords_y: match edge_model.data.to_coords {
-                    Some(coords) => coords.y,
+                    Some(coords) => coords.y as i64,
                     None => 0,
                 },
             };
@@ -854,12 +1376,12 @@ impl Store {
                 let node_id_str = node_id.0.to_string();
                 let node_view = node_views.get_mut(&node_id_str).unwrap();
 
-                node_view.x += dx;
-                node_view.y += dy;
+                node_view.x += dx as i64;
+                node_view.y += dy as i64;
             }
             (dx, dy)
         } else {
-            (0, 0)
+            (0.0, 0.0)
         };
 
         //self.view.flow_edges.clear();
@@ -884,34 +1406,30 @@ impl Store {
             //    .get_mut(&input.parent_node_id.0.to_string())
             //   .unwrap();
 
-            let (dx1, dy1) = if node_ids.contains(&input.parent_node_id) {
+            let (dx1, dy1) = if node_ids.contains(&output.parent_node_id) {
                 (dx, dy)
             } else {
-                (0, 0)
+                (0.0, 0.0)
             };
 
-            let (dx2, dy2) = if node_ids.contains(&output.parent_node_id) {
+            let (dx2, dy2) = if node_ids.contains(&input.parent_node_id) {
                 (dx, dy)
             } else {
-                (0, 0)
+                (0.0, 0.0)
             };
 
             // node_view.outbound_edges
             flow_edges.insert(
                 edge_id.0.to_string(),
                 EdgeView {
-                    from: edge.input_id.0.to_string(), // FIXME: input.label.clone(),
-                    to: edge.output_id.0.to_string(),  // FIXME: output.label.clone(),
+                    from: edge.output_id.0.to_string(), // FIXME: input.label.clone(),
+                    to: edge.input_id.0.to_string(),    // FIXME: output.label.clone(),
                     edge_type: ViewEdgeType::Flow,
-                    from_coords_x: input_data.coords.x + input.local_coords.x + dx1 + 15, //input
-                    from_coords_y: input_data.coords.y
-                        + input.local_coords.y
-                        + dy1
+                    from_coords_x: (output_data.coords.x + output.local_coords.x + dx1) as i64 + 35,
+                    from_coords_y: (output_data.coords.y + output.local_coords.y + dy1) as i64
                         + INPUT_SIZE / 2, //half width of input size
-                    to_coords_x: output_data.coords.x + output.local_coords.x + dx2 + 35, //output
-                    to_coords_y: output_data.coords.y
-                        + output.local_coords.y
-                        + dy2
+                    to_coords_x: (input_data.coords.x + input.local_coords.x + dx2) as i64 + 15,
+                    to_coords_y: (input_data.coords.y + input.local_coords.y + dy2) as i64
                         + INPUT_SIZE / 2,
                 },
             );
@@ -956,16 +1474,15 @@ impl Store {
                     flow_edges.insert(
                         DUMMY_EDGE_ID.to_owned(),
                         EdgeView {
-                            from: node_id.0.to_string(),
-                            to: DUMMY_NODE_ID.to_owned(),
+                            from: DUMMY_NODE_ID.to_owned(),
+                            to: input_id.0.to_string(), //node_id.0.to_string(),
                             edge_type: ViewEdgeType::Flow,
                             // +15 +25 is adjustment for offset port and edge in flutter dragging
-                            from_coords_x: input_data.coords.x + input.local_coords.x + 15,
-                            from_coords_y: input_data.coords.y
-                                + input.local_coords.y
+                            from_coords_x: coords.x as i64,
+                            from_coords_y: coords.y as i64,
+                            to_coords_x: (input_data.coords.x + input.local_coords.x) as i64 + 15,
+                            to_coords_y: (input_data.coords.y + input.local_coords.y) as i64
                                 + INPUT_SIZE / 2,
-                            to_coords_x: coords.x,
-                            to_coords_y: coords.y,
                         },
                     );
 
@@ -980,10 +1497,10 @@ impl Store {
                         NodeView {
                             index: 0,
                             parent_id: "".to_owned(),
-                            origin_x: coords.x,
-                            origin_y: coords.y,
-                            x: coords.x,
-                            y: coords.y,
+                            origin_x: coords.x as i64,
+                            origin_y: coords.y as i64,
+                            x: coords.x as i64,
+                            y: coords.y as i64,
                             width: 0,
                             height: 0,
                             text: "".to_owned(),
@@ -992,6 +1509,10 @@ impl Store {
                             flow_inbound_edges: vec![],
                             flow_outbound_edges: vec![DUMMY_EDGE_ID.to_owned()],
                             success: String::new(),
+                            error: String::new(),
+                            running: false,
+                            print_output: String::new(),
+                            additional_data: String::new(),
                         },
                     );
 
@@ -1049,10 +1570,10 @@ impl Store {
                                         });
                                     //dbg!(&command_output);
                                     if let Some(command_output) = command_output {
-                                        /*dbg!(
+                                        dbg!(
                                             &command_input.acceptable_types,
                                             command_output.r#type
-                                        );*/
+                                        );
                                         command_input
                                             .acceptable_types
                                             .contains(&command_output.r#type)
@@ -1083,12 +1604,11 @@ impl Store {
                         DUMMY_NODE_ID.to_owned(),
                         NodeView {
                             index: i64::default(),
-
                             parent_id: "".to_owned(),
-                            origin_x: coords.x,
-                            origin_y: coords.y,
-                            x: coords.x,
-                            y: coords.y,
+                            origin_x: coords.x as i64,
+                            origin_y: coords.y as i64,
+                            x: coords.x as i64,
+                            y: coords.y as i64,
                             width: 100,
                             height: 100,
                             text: "".to_owned(),
@@ -1097,20 +1617,26 @@ impl Store {
                             flow_inbound_edges: vec![DUMMY_EDGE_ID.to_owned()],
                             flow_outbound_edges: vec![],
                             success: String::new(),
+                            error: String::new(),
+                            running: false,
+                            print_output: String::new(),
+                            additional_data: String::new(),
                         },
                     );
 
                     flow_edges.insert(
                         DUMMY_EDGE_ID.to_owned(),
                         EdgeView {
-                            from: DUMMY_NODE_ID.to_owned(), // FIXME: "".to_owned(),
-                            to: node_id.0.to_string(),      // FIXME: output.label.clone(),
+                            to: DUMMY_NODE_ID.to_owned(),  // FIXME: "".to_owned(),
+                            from: output_id.0.to_string(), // FIXME: output.label.clone(),
                             edge_type: ViewEdgeType::Flow,
-                            from_coords_x: coords.x,
-                            from_coords_y: coords.y,
+                            from_coords_x: (output_data.coords.x + output.local_coords.x) as i64
+                                + 35,
+                            from_coords_y: (output_data.coords.y + output.local_coords.y) as i64
+                                + 25,
                             // +35 +25 is adjustment for offset port and edge in flutter dragging
-                            to_coords_x: output_data.coords.x + output.local_coords.x + 35,
-                            to_coords_y: output_data.coords.y + output.local_coords.y + 25,
+                            to_coords_x: coords.x as i64,
+                            to_coords_y: coords.y as i64,
                         },
                     );
 
@@ -1169,10 +1695,10 @@ impl Store {
                                     });
                                     // dbg!(&command_input);
                                     if let Some(command_input) = command_input {
-                                        /*dbg!(
+                                        dbg!(
                                             &command_input.acceptable_types,
                                             command_output.r#type
-                                        );*/
+                                        );
                                         command_input
                                             .acceptable_types
                                             .contains(&command_output.r#type)
@@ -1187,21 +1713,47 @@ impl Store {
             }
         }
 
-        let viewport = crate::view::Camera {
-            x: (state.viewport.x * 4294967296.0) as i64,
-            y: (state.viewport.y * 4294967296.0) as i64,
-            scale: (state.viewport.scale * 4294967296.0) as i64,
-        };
+        let transform = Self::get_view_tranform(state);
+        let transform_screenshot = Self::get_view_tranform_screenshot(state);
 
         // self.view.flow_edges = flow_edges.clone();
         // dbg!(self.view.flow_edges.clone());
         let nodes = node_views;
 
         let text_commands = self.view.text_commands.clone();
-        let graph_list = self.view.graph_list.clone();
 
+        // SET OLD VIEW
         let old_view = &self.view;
+
+        // GRAPH ID & GRAPH ENTRY
+        let graph_id = state.model().graph_id();
+
+        let graph_entry = state.model().get_graph_entry(graph_id);
+
+        // GRAPH LIST
+        //  let graph_list = self.view.graph_list.clone();
+        let graph_list = state.model().graph_list.clone(); // FIXME: update first in view in updated in model
+
+        let bookmarks = &state.model().bookmarks;
+        let bookmarks = bookmarks
+            .iter()
+            .map(|(bookmark_id, bookmark)| {
+                (
+                    bookmark_id.0.to_string(),
+                    BookmarkView {
+                        name: bookmark.name.clone(),
+                        nodes: bookmark
+                            .nodes_ids
+                            .iter()
+                            .map(|node_id| node_id.0.to_string())
+                            .collect(),
+                    },
+                )
+            })
+            .collect();
+
         let new_view = View {
+            graph_entry: graph_entry.clone(),
             nodes,
             flow_edges,
             selected_node_ids,
@@ -1209,8 +1761,11 @@ impl Store {
             command,
             text_commands,
             graph_list,
-            highlighted,
-            viewport,
+            highlighted, //does not show updates
+            transform,
+            transform_screenshot,
+            bookmarks,
+            solana_net: state.model().solana_net,
         };
 
         let node_ids: HashSet<_> = old_view.nodes.keys().chain(new_view.nodes.keys()).collect();
@@ -1236,7 +1791,7 @@ impl Store {
                     (None, Some(new_node)) => Some((
                         node_id.clone(),
                         NodeChange {
-                            kind: view::NodeChangeKind::Modified,
+                            kind: view::NodeChangeKind::Added,
                         },
                     )),
                     (Some(old_node), None) => Some((
@@ -1255,6 +1810,7 @@ impl Store {
             .keys()
             .chain(new_view.flow_edges.keys())
             .collect();
+
         let changed_flow_edges_ids = flow_edges_ids
             .into_iter()
             .filter(|node_id| {
@@ -1264,18 +1820,26 @@ impl Store {
             .map(Clone::clone)
             .collect();
 
-        let is_nodes_changed = old_view.nodes != new_view.nodes;
+        // let is_graph_changed = if graph_entry == old_view.graph_entry {
+        //     vec![]
+        // } else {
+        //     vec![graph_entry]
+        // };
+
         let is_selected_node_ids_changed = old_view.selected_node_ids != new_view.selected_node_ids;
         let is_selection_changed = old_view.selection != new_view.selection;
         let is_command_changed = old_view.command != new_view.command;
         let is_text_commands_changed = old_view.text_commands != new_view.text_commands;
         let is_graph_list_changed = old_view.graph_list != new_view.graph_list;
         let is_highlighted_changed = old_view.highlighted != new_view.highlighted;
-        let is_viewport_changed = old_view.viewport != new_view.viewport;
+        let is_transform_changed = old_view.transform != new_view.transform;
+        let is_graph_changed = old_view.graph_entry != new_view.graph_entry;
+        let is_bookmark_changed = old_view.bookmarks != new_view.bookmarks;
+        let is_transform_screenshot_changed =
+            old_view.transform_screenshot != new_view.transform_screenshot;
 
         let changes = LastViewChanges {
             changed_nodes_ids,
-            // is_nodes_changed,
             changed_flow_edges_ids,
             is_selected_node_ids_changed,
             is_selection_changed,
@@ -1283,64 +1847,82 @@ impl Store {
             is_text_commands_changed,
             is_graph_list_changed,
             is_highlighted_changed,
-            is_viewport_changed,
+            is_transform_changed,
+            is_transform_screenshot_changed,
+            is_graph_changed,
+            is_bookmark_changed,
         };
         self.view = new_view;
         self.last_view_changes = changes;
 
         //dbg!(&self.view.nodes);
         //dbg!(&self.view.flow_edges);
+        //dbg!(&self.last_view_changes.changed_flow_edges_ids);
         //dbg!(&self.view.highlighted);
-        //dbg!(&self.last_view_changes);
-        dbg!(&state.viewport);
-        dbg!(&self.view.viewport);
+        dbg!(&self.last_view_changes);
+        //dbg!(&state.transform);
+        //dbg!(&self.view.transform);
     }
-}
 
-/*
-Re
-*/
-/*
-{
-    "Const": {
-        "String": "hello"
+    fn refresh_ui_transform(&mut self) {
+        let state = self.state.as_ref().unwrap();
+        self.view.transform = Self::get_view_tranform(state);
+        self.last_view_changes = LastViewChanges {
+            changed_nodes_ids: HashMap::new(),
+            changed_flow_edges_ids: vec![],
+            is_selected_node_ids_changed: false,
+            is_selection_changed: false,
+            is_command_changed: false,
+            is_text_commands_changed: false,
+            is_graph_list_changed: false,
+            is_highlighted_changed: false,
+            is_transform_changed: true,
+            is_transform_screenshot_changed: false,
+            is_graph_changed: false,
+            is_bookmark_changed: false, // FIXME
+        };
+        /*println!(
+            "transform {:10} {:10} {:10}",
+            &state.transform.x, &state.transform.y, &state.transform.scale
+        );*/
     }
-}
-*//*
-{
-    "Const": {
-        "String": "beach soldier piano click essay sock stable cover angle wear aunt advice"
-    }
-}
-{
-    "Const": {
-        "Bool": true
-    }
-}
 
-{
-    "Const": "Empty"
-}
-{
-    "Const": {
-        "U64": 50000000
+    fn refresh_ui_transform_screenshot(&mut self) {
+        let state = self.state.as_ref().unwrap();
+        self.view.transform_screenshot = Self::get_view_tranform_screenshot(state);
+        self.last_view_changes = LastViewChanges {
+            changed_nodes_ids: HashMap::new(),
+            changed_flow_edges_ids: vec![],
+            is_selected_node_ids_changed: false,
+            is_selection_changed: false,
+            is_command_changed: false,
+            is_text_commands_changed: false,
+            is_graph_list_changed: false,
+            is_highlighted_changed: false,
+            is_transform_changed: false,
+            is_transform_screenshot_changed: true,
+            is_graph_changed: false,
+            is_bookmark_changed: false, // FIXME
+        };
+        /*println!(
+            "transform {:10} {:10} {:10}",
+            &state.transform.x, &state.transform.y, &state.transform.scale
+        );*/
     }
-}
 
-{
-    "Const": {
-        "String": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiI1NmVjMTNhOS03NTYyLTRiZjMtODgzOS00ZjVlY2YxOTFmMDYiLCJlbWFpbCI6ImVuem90YXIzMDAwQGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJwaW5fcG9saWN5Ijp7InJlZ2lvbnMiOlt7ImlkIjoiTllDMSIsImRlc2lyZWRSZXBsaWNhdGlvbkNvdW50IjoxfV0sInZlcnNpb24iOjF9LCJtZmFfZW5hYmxlZCI6ZmFsc2V9LCJhdXRoZW50aWNhdGlvblR5cGUiOiJzY29wZWRLZXkiLCJzY29wZWRLZXlLZXkiOiJiYWNkZGI0MTFiZDQ1ZGQzYTUzMSIsInNjb3BlZEtleVNlY3JldCI6IjE5ZGFhMzczY2Q0NTM3YjRjNzg3NDJjOWRkNGI3NTU1MGI4OWNmZDY5YTQ5YjhjNDkxYTc0NDkzM2M4NTY4MGIiLCJpYXQiOjE2NDQ5NTQ0ODl9.9AUY-lYSMpWSS7IQcnkv52J_MYiPDhagWbUT2rv7yTk"
+    fn get_view_tranform(state: &State) -> crate::view::Camera {
+        crate::view::Camera {
+            x: Ratio::from(state.transform.x),
+            y: Ratio::from(state.transform.y),
+            scale: Ratio::from(state.transform.scale),
+        }
     }
-}
 
-{
-    "Const": {
-        "String": "https://api.pinata.cloud"
+    fn get_view_tranform_screenshot(state: &State) -> crate::view::Camera {
+        crate::view::Camera {
+            x: Ratio::from(state.transform_screenshot.x),
+            y: Ratio::from(state.transform_screenshot.y),
+            scale: Ratio::from(state.transform_screenshot.scale),
+        }
     }
 }
-{
-    "Const": {
-        "String": "image.jpg"
-    }
-}
-*/

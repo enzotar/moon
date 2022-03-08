@@ -1,0 +1,225 @@
+/*
+Re
+*/
+/*
+{
+    "Const": {
+        "String": "hello"
+    }
+}
+*//*
+{
+    "Const": {
+        "String": "beach soldier piano click essay sock stable cover angle wear aunt advice"
+    }
+}
+{
+    "Const": {
+        "String": "quote elite test avoid labor dolphin model burden word pottery cabbage evoke"
+    }
+}
+{
+    "Const": {
+        "String": "afford happy pledge oven goddess during celery trouble outside walk mind tip"
+    }
+}
+{
+    "Const": {
+        "String": "where tonight fat sting evidence forest peasant verify power depart banana begin"
+    }
+}
+
+{
+    "Const": {
+        "Bool": true
+    }
+}
+
+{
+    "Const": "Empty"
+}
+{
+    "Const": {
+        "U64": 500
+    }
+}
+
+{
+    "Const": {
+        "String": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiI1NmVjMTNhOS03NTYyLTRiZjMtODgzOS00ZjVlY2YxOTFmMDYiLCJlbWFpbCI6ImVuem90YXIzMDAwQGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJwaW5fcG9saWN5Ijp7InJlZ2lvbnMiOlt7ImlkIjoiTllDMSIsImRlc2lyZWRSZXBsaWNhdGlvbkNvdW50IjoxfV0sInZlcnNpb24iOjF9LCJtZmFfZW5hYmxlZCI6ZmFsc2V9LCJhdXRoZW50aWNhdGlvblR5cGUiOiJzY29wZWRLZXkiLCJzY29wZWRLZXlLZXkiOiJiYWNkZGI0MTFiZDQ1ZGQzYTUzMSIsInNjb3BlZEtleVNlY3JldCI6IjE5ZGFhMzczY2Q0NTM3YjRjNzg3NDJjOWRkNGI3NTU1MGI4OWNmZDY5YTQ5YjhjNDkxYTc0NDkzM2M4NTY4MGIiLCJpYXQiOjE2NDQ5NTQ0ODl9.9AUY-lYSMpWSS7IQcnkv52J_MYiPDhagWbUT2rv7yTk"
+    }
+}
+{
+    "Const": {
+        "String": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiI1NmVjMTNhOS03NTYyLTRiZjMtODgzOS00ZjVlY2YxOTFmMDYiLCJlbWFpbCI6ImVuem90YXIzMDAwQGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJwaW5fcG9saWN5Ijp7InJlZ2lvbnMiOlt7ImlkIjoiTllDMSIsImRlc2lyZWRSZXBsaWNhdGlvbkNvdW50IjoxfV0sInZlcnNpb24iOjF9LCJtZmFfZW5hYmxlZCI6ZmFsc2V9LCJhdXRoZW50aWNhdGlvblR5cGUiOiJzY29wZWRLZXkiLCJzY29wZWRLZXlLZXkiOiJiYWNkZGI0MTFiZDQ1ZGQzYTUzMSIsInNjb3BlZEtleVNlY3JldCI6IjE5ZGFhMzczY2Q0NTM3YjRjNzg3NDJjOWRkNGI3NTU1MGI4OWNmZDY5YTQ5YjhjNDkxYTc0NDkzM2M4NTY4MGIiLCJpYXQiOjE2NDQ5NTQ0ODl9.9AUY-lYSMpWSS7IQcnkv52J_MYiPDhagWbUT2rv7yTk"
+    }
+}
+
+
+
+{
+    "Const": {
+        "String": "https://api.pinata.cloud"
+    }
+}
+{
+    "Const": {
+        "String": "image.jpg"
+    }
+}
+}
+{
+    "Const": {
+        "String": "2jQk5rnXUEqM9DBkGpmo1jAkXrTgQAkKNKTmGQyW4fRgao3PHMfqqX7bGmpRvW6ba8UHU2td9w8S5Sib3ikTQPZy"
+    }
+}
+
+
+Decimals
+{
+    "Const": {
+        "U8": 2
+    }
+}
+
+for NFT
+{
+    "Const": {
+        "U8": 0
+    }
+}
+
+{
+    "Const": {
+        "U16": 4200
+    }
+}
+
+
+
+
+Float
+{
+    "Const": {
+        "F64": 2000.0
+    }
+}
+{
+    "Const": {
+        "F32": 3.0
+    }
+}
+
+
+
+BOOL
+
+{
+    "Const": {
+        "Bool": true
+    }
+}
+
+{
+    "Const": {
+        "Bool": false
+    }
+}
+
+{
+    "Const": {
+        "String": "testing payment"
+    }
+}
+
+{
+    "Const": {
+        "String": "Axis NFT"
+    }
+}
+{
+    "Const": {
+        "String": "AXS"
+    }
+}
+
+{
+    "Const": {
+        "NftCreators": [
+            {
+                "address": "pubkey",
+                "verified": false,
+                "share": 5
+            }
+        ]
+    }
+}
+
+{
+    "Const": {
+        "String": "https://api.jsonbin.io/b/61ddc9072675917a628edc21"
+    }
+}
+
+{
+    "Const": {
+        "Uses": {
+            "use_method": "Burn",
+            "remaining": 3,
+            "total": 5
+        }
+    }
+}
+
+
+{
+    "Const": {
+        "String": "https://api.pinata.cloud"
+    }
+}
+
+{
+    "Const": {
+        "String": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiI1NmVjMTNhOS03NTYyLTRiZjMtODgzOS00ZjVlY2YxOTFmMDYiLCJlbWFpbCI6ImVuem90YXIzMDAwQGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJwaW5fcG9saWN5Ijp7InJlZ2lvbnMiOlt7ImlkIjoiTllDMSIsImRlc2lyZWRSZXBsaWNhdGlvbkNvdW50IjoxfV0sInZlcnNpb24iOjF9LCJtZmFfZW5hYmxlZCI6ZmFsc2V9LCJhdXRoZW50aWNhdGlvblR5cGUiOiJzY29wZWRLZXkiLCJzY29wZWRLZXlLZXkiOiIwMzg3MDRkZDg5ZjcwMzU2Njk3YSIsInNjb3BlZEtleVNlY3JldCI6ImFiZjkzOGJhODg3ZmQ4OGM2MDNjYWMxMDExMzYzMzA4NDhjMzBjMDFiNGM0MmJlMTllYzRjOGQyNmEyYTAwZmUiLCJpYXQiOjE2NDY1MDYzODh9.4iYBqsIhvEL5vjDI1I3SKJcfzQh6CwliwLMON4Mjoow"
+    }
+}
+
+
+
+{
+  "Const": {
+    "NftMetadata": {
+      "name": "Sunshine NFT",
+      "symbol": "SNFT",
+      "description": "Sunshine NFT",
+      "seller_fee_basis_points": 15,
+      "image": "image.jpg",
+      "attributes": [],
+      "collection": {
+        "name": "Sunshine Collection",
+        "family": "SolShine"
+      },
+      "properties": {
+        "files": [
+          {
+            "uri": "image.jpg",
+            "type": "image/jpg"
+          }
+        ],
+        "category": "video",
+        "creators": []
+      }
+    }
+  }
+}
+
+API Key: 038704dd89f70356697a
+ API Secret: abf938ba887fd88c603cac101136330848c30c01b4c42be19ec4c8d26a2a00fe
+ JWT: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiI1NmVjMTNhOS03NTYyLTRiZjMtODgzOS00ZjVlY2YxOTFmMDYiLCJlbWFpbCI6ImVuem90YXIzMDAwQGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJwaW5fcG9saWN5Ijp7InJlZ2lvbnMiOlt7ImlkIjoiTllDMSIsImRlc2lyZWRSZXBsaWNhdGlvbkNvdW50IjoxfV0sInZlcnNpb24iOjF9LCJtZmFfZW5hYmxlZCI6ZmFsc2V9LCJhdXRoZW50aWNhdGlvblR5cGUiOiJzY29wZWRLZXkiLCJzY29wZWRLZXlLZXkiOiIwMzg3MDRkZDg5ZjcwMzU2Njk3YSIsInNjb3BlZEtleVNlY3JldCI6ImFiZjkzOGJhODg3ZmQ4OGM2MDNjYWMxMDExMzYzMzA4NDhjMzBjMDFiNGM0MmJlMTllYzRjOGQyNmEyYTAwZmUiLCJpYXQiOjE2NDY1MDYzODh9.4iYBqsIhvEL5vjDI1I3SKJcfzQh6CwliwLMON4Mjoow
+
+
+https://cloudflare-ipfs.com/ipfs/QmerDUAN93Bmpi1MJCdRCvpbPHa46Aok8wqZWmrL6iUykL
+
+String(
+    "QmerDUAN93Bmpi1MJCdRCvpbPHa46Aok8wqZWmrL6iUykL",
+)

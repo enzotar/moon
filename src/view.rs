@@ -1,9 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::command::*;
-use crate::model::GraphEntry;
+use crate::model::{GraphEntry, SolanaNet};
 
-#[derive(rid::Config)]
+// #[derive(rid::Config)]
 #[rid::model]
 #[derive(Clone, Debug)]
 #[rid::structs(
@@ -11,29 +11,40 @@ use crate::model::GraphEntry;
     Camera,
     Selection,
     Command,
-    WidgetTextCommand,
+    TxtCommand,
     EdgeView,
-    GraphEntry
+    GraphEntry,
+    BookmarkView
 )]
+#[rid::enums(SolanaNet)]
 pub struct View {
+    pub graph_entry: GraphEntry,
     pub nodes: HashMap<String, NodeView>,
     pub flow_edges: HashMap<String, EdgeView>,
     pub selected_node_ids: Vec<String>,
     pub selection: Selection, // TODO Implement
     pub command: Command,     // not used
-    pub text_commands: Vec<WidgetTextCommand>,
+    pub text_commands: Vec<TxtCommand>,
     pub graph_list: Vec<GraphEntry>,
     pub highlighted: Vec<String>,
-    pub viewport: Camera,
+    pub transform: Camera,
+    pub transform_screenshot: Camera,
+    pub bookmarks: HashMap<String, BookmarkView>,
+    pub solana_net: SolanaNet,
 }
 
-#[derive(rid::Config, Clone, Debug, Default)]
+#[derive(rid::Config, Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
+#[rid::model]
+pub struct Ratio {
+    pub numer: i64,
+    pub denom: u64,
+}
+
+#[derive(Clone, Debug, Default)]
 #[rid::model]
 #[rid::structs(NodeChange)]
 pub struct LastViewChanges {
     pub changed_nodes_ids: HashMap<String, NodeChange>, /*NodeChangeKind*/
-    // RefreshNode
-    // pub is_nodes_changed: bool,
     pub changed_flow_edges_ids: Vec<String>,
     pub is_selected_node_ids_changed: bool,
     pub is_selection_changed: bool,
@@ -41,23 +52,42 @@ pub struct LastViewChanges {
     pub is_text_commands_changed: bool,
     pub is_graph_list_changed: bool,
     pub is_highlighted_changed: bool,
-    pub is_viewport_changed: bool,
+    pub is_transform_changed: bool,
+    pub is_transform_screenshot_changed: bool,
+    pub is_graph_changed: bool,
+    pub is_bookmark_changed: bool,
+}
+
+impl From<i64> for Ratio {
+    fn from(numer: i64) -> Self {
+        Self { numer, denom: 1 }
+    }
+}
+
+impl From<f64> for Ratio {
+    fn from(value: f64) -> Self {
+        Self {
+            numer: (value * 4294967296.0) as i64,
+            denom: 4294967296,
+        }
+    }
 }
 
 #[derive(rid::Config, Clone, Copy, Debug, Hash, PartialEq)]
 #[rid::model]
+#[rid::structs(Ratio)]
 pub struct Camera {
-    pub x: i64,     // multiplied by 4294967296
-    pub y: i64,     // multiplied by 4294967296
-    pub scale: i64, // multiplied by 4294967296
+    pub x: Ratio,
+    pub y: Ratio,
+    pub scale: Ratio,
 }
 
 impl Default for Camera {
     fn default() -> Self {
         Self {
-            x: 0,
-            y: 0,
-            scale: 4294967296,
+            x: Ratio::from(0),
+            y: Ratio::from(0),
+            scale: Ratio::from(1),
         }
     }
 }
@@ -107,6 +137,10 @@ impl CommandView for HttpRequestCommand {
 }
 impl CommandView for IpfsUploadCommand {
     const VIEW_TYPE: NodeViewType = NodeViewType::IpfsUpload;
+}
+
+impl CommandView for IpfsNftUploadCommand {
+    const VIEW_TYPE: NodeViewType = NodeViewType::IpfsNftUpload;
 }
 impl CommandView for CreateTokenCommand {
     const VIEW_TYPE: NodeViewType = NodeViewType::CreateToken;
@@ -161,6 +195,7 @@ pub const VIEW_COMMANDS: &'static [&'static dyn DynCommandView] = &[
     &JsonExtractCommand,
     &HttpRequestCommand,
     &IpfsUploadCommand,
+    &IpfsNftUploadCommand,
     // Solana
     &CreateTokenCommand,
     &AddPubkeyCommand,
@@ -197,10 +232,10 @@ fn commands_equal_view_commands() {
         .all(|(command, view_command)| { command.command_name() == view_command.command_name() }));
 }
 
-pub fn generate_default_text_commands() -> Vec<WidgetTextCommand> {
+pub fn generate_default_text_commands() -> Vec<TxtCommand> {
     COMMANDS
         .iter()
-        .map(|command| WidgetTextCommand {
+        .map(|command| TxtCommand {
             command_name: command.command_name().to_owned(),
             widget_name: command.widget_name().to_owned(),
             inputs: command
@@ -230,6 +265,7 @@ pub fn generate_default_text_commands() -> Vec<WidgetTextCommand> {
 impl Default for View {
     fn default() -> Self {
         Self {
+            graph_entry: GraphEntry::default(),
             nodes: HashMap::default(),
             flow_edges: HashMap::default(),
             selected_node_ids: Vec::default(),
@@ -238,7 +274,10 @@ impl Default for View {
             text_commands: generate_default_text_commands(),
             graph_list: Vec::default(),
             highlighted: Vec::default(),
-            viewport: Camera::default(),
+            transform: Camera::default(),
+            transform_screenshot: Camera::default(),
+            bookmarks: HashMap::default(),
+            solana_net: SolanaNet::Devnet,
         }
     }
 }
@@ -264,7 +303,7 @@ pub struct Command {
 #[derive(rid::Config, Debug, Clone, Eq, PartialEq)]
 #[rid::model]
 #[rid::structs(TextCommandInput, TextCommandOutput)]
-pub struct WidgetTextCommand {
+pub struct TxtCommand {
     pub command_name: String,
     pub widget_name: String,
     pub inputs: Vec<TextCommandInput>,
@@ -304,6 +343,10 @@ pub struct NodeView {
     pub flow_inbound_edges: Vec<String>,
     pub flow_outbound_edges: Vec<String>,
     pub success: String,
+    pub error: String,
+    pub print_output: String,
+    pub running: bool,
+    pub additional_data: String,
 }
 
 #[rid::model]
@@ -321,6 +364,7 @@ pub enum NodeViewType {
     JsonExtract,
     HttpRequest,
     IpfsUpload,
+    IpfsNftUpload,
     //
     CreateToken,
     AddPubkey,
@@ -359,4 +403,11 @@ pub enum ViewEdgeType {
     Child,
     Data,
     Flow,
+}
+
+#[derive(rid::Config, Debug, Clone, Eq, PartialEq)]
+#[rid::model]
+pub struct BookmarkView {
+    pub name: String,
+    pub nodes: Vec<String>,
 }
