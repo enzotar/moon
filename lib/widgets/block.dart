@@ -37,12 +37,12 @@ class Block extends SuperBlock {
     // final nodeFrom = provider.entries.firstWhere((element) {
     //   return element.key == this.node.key;
     // });
-
-    print(selected);
+    // print(selected);
     return ProviderScope(
       overrides: [currentNode.overrideWithValue(newTreeNode)], //not working
       child: Positioned(
-        height: newTreeNode.node.value.height.toDouble(),
+        height: newTreeNode.node.value.height.toDouble() +
+            70, //FIXME workaround to show a button  on error
         width: newTreeNode.node.value.width.toDouble(),
         left: newTreeNode.node.value.x.toDouble(),
         top: newTreeNode.node.value.y.toDouble(),
@@ -52,7 +52,9 @@ class Block extends SuperBlock {
           // margin: EdgeInsets.all(5),
           // color: Colors.transparent, // ? Colors.amber : Colors.white,
           child: Stack(
-            children: [...newTreeNode.children!],
+            children: [
+              ...newTreeNode.children!,
+            ],
           ),
         ),
       ),

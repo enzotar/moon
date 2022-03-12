@@ -25,7 +25,7 @@ class Print extends HookConsumerWidget {
 
     return Container(
       child: Center(
-        child: treeNode.node.value.success == "success"
+        child: treeNode.node.value.runState == rid.RunStateView.Success
             ? ListTile(
                 trailing: IconButton(
                     icon: Icon(Icons.copy),
@@ -38,7 +38,7 @@ class Print extends HookConsumerWidget {
                   style: TextStyle(fontSize: 18),
                 ),
               )
-            : treeNode.node.value.success == "fail"
+            : treeNode.node.value.runState == rid.RunStateView.Failed
                 ? ListTile(
                     trailing: IconButton(
                         icon: Icon(Icons.copy),

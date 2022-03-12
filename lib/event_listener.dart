@@ -5,6 +5,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
 import 'package:moon/canvas.dart';
+import 'package:moon/providers/bookmark.dart';
 import 'package:moon/serialization/input_mapping.dart';
 import 'package:moon/providers/store_provider.dart';
 import 'package:screenshot/screenshot.dart';
@@ -14,8 +15,12 @@ class EventListener extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final store = ref.read(storeRepoProvider);
+
     final ScreenshotController screenshotControl =
         ref.read(screenshotController);
+    final rejectList = ref.watch(focusRejectProvider);
+
     // @override
     // void dispose() {
     //   super.dispose();
@@ -28,16 +33,17 @@ class EventListener extends HookConsumerWidget {
 
     // FocusNodeManager.instance.addNode('main', FocusNode());
     // final mainNode = FocusNodeManager.instance.getNode('main');
-    final store = ref.watch(storeRepoProvider);
     // final changes = ref.watch(viewportController);
-    final rejectList = ref.watch(focusRejectController);
-    print("rebuilding event listener");
+    // final rejectList = ref.watch(focusRejectController);
+    // print("rebuilding event listener");
 
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerSignal: (ev) {
-        final rejectList = ref.read(focusRejectProvider).rects;
-        if (!rejectList.single.contains(ev.position)) {
+        final inRejectList = rejectList.rects
+            .where((rect) => rect.contains(ev.position))
+            .toList();
+        if (inRejectList.isEmpty) {
           if (ev is PointerScrollEvent) {
             final inputProperties = {
               "buttons": ev.buttons,
@@ -59,9 +65,13 @@ class EventListener extends HookConsumerWidget {
       },
       onPointerDown: (ev) {
         // print("here");
-        print(ev.localPosition);
-        final rejectList = ref.read(focusRejectProvider).rects;
-        if (!rejectList.single.contains(ev.position)) {
+        // print(ev.localPosition);
+        // final rejectList = ref.read(focusRejectProvider).rects;
+        final inRejectList = rejectList.rects
+            .where((rect) => rect.contains(ev.position))
+            .toList();
+        // print("inRejectList: $inRejectList");
+        if (inRejectList.isEmpty) {
           // print(ev.position);
           final inputProperties = {
             "buttons": ev.buttons,
@@ -84,8 +94,10 @@ class EventListener extends HookConsumerWidget {
       onPointerMove: (ev) {
         // print("button ${ev.buttons}");
 
-        final rejectList = ref.read(focusRejectProvider).rects;
-        if (!rejectList.single.contains(ev.position)) {
+        final inRejectList = rejectList.rects
+            .where((rect) => rect.contains(ev.position))
+            .toList();
+        if (inRejectList.isEmpty) {
           final inputProperties = {
             "buttons": ev.buttons,
             "device": ev.device,
@@ -106,8 +118,10 @@ class EventListener extends HookConsumerWidget {
         }
       },
       onPointerUp: (ev) {
-        final rejectList = ref.read(focusRejectProvider).rects;
-        if (!rejectList.single.contains(ev.position)) {
+        final inRejectList = rejectList.rects
+            .where((rect) => rect.contains(ev.position))
+            .toList();
+        if (inRejectList.isEmpty) {
           final inputProperties = {
             "buttons": ev.buttons,
             "device": ev.device,

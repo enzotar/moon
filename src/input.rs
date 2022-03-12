@@ -6,11 +6,10 @@
 use core::fmt::Debug;
 use core::hash::Hash;
 use std::collections::{HashMap, HashSet};
-use std::num::Wrapping;
 
 use input_core::*;
 use input_more::*;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     event::{Coords, Event},
@@ -108,7 +107,8 @@ pub enum PointerAppEventBuilder {
     CancelEdge,
     ContinueEdge,
     //
-    Zoom,
+    ScrollZoom,
+    ScrollMoveScreen,
     //StartCommandInput,
     //ApplyCommandInput,
     //ModifyCommandInput,
@@ -157,7 +157,8 @@ fn filter_by_priority(events: Vec<Event>) -> impl Iterator<Item = Event> {
     let mut is_modify_command_input_used = false;
     let mut is_cancel_command_input_used = false;
 
-    let mut is_zoom_used = false;
+    let mut is_scroll_zoom_used = false;
+    let mut is_scroll_move_screen_used = false;
 
     for event in &events {
         match event {
@@ -196,7 +197,8 @@ fn filter_by_priority(events: Vec<Event>) -> impl Iterator<Item = Event> {
             Event::CancelEdge(_) => is_cancel_edge_used = true,
             Event::ContinueEdge(_, _) => is_continue_edge_used = true,
             //
-            Event::Zoom(_, _, _) => is_zoom_used = true,
+            Event::ScrollZoom(_, _, _) => is_scroll_zoom_used = true,
+            Event::ScrollMoveScreen(_, _) => is_scroll_move_screen_used = true,
             //
             //Event::StartCommandInput(_) => is_start_command_input_used = true,
             //Event::ApplyCommandInput(_) => is_apply_command_input_used = true,
@@ -287,7 +289,8 @@ fn filter_by_priority(events: Vec<Event>) -> impl Iterator<Item = Event> {
         | Event::CancelEdge(_)
         | Event::ContinueEdge(_, _)
         | Event::EndEdge(_, _)
-        | Event::Zoom(_, _, _) => true,
+        | Event::ScrollZoom(_, _, _)
+        | Event::ScrollMoveScreen(_, _) => true,
         //
         //Event::StartCommandInput(_) => true,
         //Event::ApplyCommandInput(_) => true,
@@ -379,7 +382,8 @@ impl RawEvent {
 
 #[derive(Clone, Debug)]
 pub struct Input {
-    mapping_cache: GlobalMappingCache,
+    mouse_mapping_cache: GlobalMappingCache,
+    touch_mapping_cache: GlobalMappingCache,
     global_state: GlobalState,
     device_state: HashMap<Device, DeviceState>,
 }
@@ -402,6 +406,7 @@ pub struct Context<'a> {
     pub ui_state: &'a UiState,
     pub transform: Transform,
     pub selected_node_ids: &'a HashSet<NodeId>,
+    pub mapping_kind: MappingKind,
 }
 
 #[derive(Clone, Copy)]
@@ -486,681 +491,690 @@ where
     filter_by_priority(events)
 }
 
-impl Default for Input {
-    fn default() -> Self {
-        let lmb = MouseSwitch("LeftMouseButton");
-        let rmb = MouseSwitch("RightMouseButton");
-        let click = Some(TimedEventData {
-            kind: TimedReleaseEventKind::Click,
-            num_possible_clicks: 1,
-        });
-        let dbl_click = Some(TimedEventData {
-            kind: TimedReleaseEventKind::Click,
-            num_possible_clicks: 2,
-        });
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize)]
+pub enum MappingKind {
+    Mouse,
+    Touch,
+}
 
-        let shift_modifiers = {
-            let mut modifiers = Modifiers::new();
-            modifiers
-                .on_press_event(Switch::Keyboard(KeyboardSwitch("Shift Left".to_owned())))
-                .unwrap();
-            modifiers
-        };
+fn generate_default_mapping(
+    mapping_name: MappingKind,
+) -> GlobalMapping<KeyboardMapping, MouseMapping> {
+    let lmb = MouseSwitch("LeftMouseButton");
+    let rmb = MouseSwitch("RightMouseButton");
+    let click = Some(TimedEventData {
+        kind: TimedReleaseEventKind::Click,
+        num_possible_clicks: 1,
+    });
+    let dbl_click = Some(TimedEventData {
+        kind: TimedReleaseEventKind::Click,
+        num_possible_clicks: 2,
+    });
 
-        let keyboard_mapping = KeyboardMapping::new(
-            [
-                Binding::Release(SwitchBinding {
-                    switch: KeyboardSwitch("Escape".into()),
-                    modifiers: Modifiers::new(),
-                    timed_data: click,
-                    pointer_data: None,
-                    event: BasicAppEventBuilder::Unselect,
-                }),
-                /*Binding::Release(SwitchBinding {
-                    switch: KeyboardSwitch("/".into()),
-                    /*modifiers: {
-                        let mut modifiers = Modifiers::new();
-                        modifiers
-                            .on_press_event(Switch::Keyboard(KeyboardSwitch(
-                                "Control Left".to_owned(),
-                            )))
-                            .unwrap();
-                        modifiers
-                    },*/
-                    modifiers: Modifiers::new(),
-                    timed_data: click,
-                    pointer_data: None,
-                    event: BasicAppEventBuilder::StartCommandInput,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: KeyboardSwitch("Enter".into()),
-                    modifiers: Modifiers::new(),
-                    timed_data: click,
-                    pointer_data: None,
-                    event: BasicAppEventBuilder::ApplyCommandInput,
-                }),*/
-                Binding::Release(SwitchBinding {
-                    switch: KeyboardSwitch("Escape".into()),
-                    modifiers: Modifiers::new(),
-                    timed_data: click,
-                    pointer_data: None,
-                    event: BasicAppEventBuilder::CancelSelection,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: KeyboardSwitch("Escape".into()),
-                    modifiers: Modifiers::new(),
-                    timed_data: click,
-                    pointer_data: None,
-                    event: BasicAppEventBuilder::CancelNodeMove,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: KeyboardSwitch("Escape".into()),
-                    modifiers: Modifiers::new(),
-                    timed_data: click,
-                    pointer_data: None,
-                    event: BasicAppEventBuilder::CancelEdge,
-                }),
-                /*Binding::Release(SwitchBinding {
-                    switch: KeyboardSwitch("Escape".into()),
-                    modifiers: Modifiers::new(),
-                    timed_data: click,
-                    pointer_data: None,
-                    event: BasicAppEventBuilder::CancelCommandInput,
-                }),*/
-                Binding::Release(SwitchBinding {
-                    switch: KeyboardSwitch("Delete".into()),
-                    modifiers: {
-                        let mut modifiers = Modifiers::new();
-                        modifiers
-                            .on_press_event(Switch::Keyboard(KeyboardSwitch(
-                                "Control Left".to_owned(),
-                            )))
-                            .unwrap();
-                        modifiers
-                    },
-                    timed_data: dbl_click, // FIXME
-                    pointer_data: None,
-                    event: BasicAppEventBuilder::RemoveNodes,
-                }),
-            ]
-            .into_iter()
-            .collect(),
-        );
-        let mouse_mapping = MouseMapping::new(
-            [
-                Binding::Release(SwitchBinding {
+    let shift_modifiers = {
+        let mut modifiers = Modifiers::new();
+        modifiers
+            .on_press_event(Switch::Keyboard(KeyboardSwitch("Shift Left".to_owned())))
+            .unwrap();
+        modifiers
+    };
+
+    let keyboard_mapping = KeyboardMapping::new(
+        [
+            Binding::Release(SwitchBinding {
+                switch: KeyboardSwitch("Escape".into()),
+                modifiers: Modifiers::new(),
+                timed_data: click,
+                pointer_data: None,
+                event: BasicAppEventBuilder::Unselect,
+            }),
+            /*Binding::Release(SwitchBinding {
+                switch: KeyboardSwitch("/".into()),
+                /*modifiers: {
+                    let mut modifiers = Modifiers::new();
+                    modifiers
+                        .on_press_event(Switch::Keyboard(KeyboardSwitch(
+                            "Control Left".to_owned(),
+                        )))
+                        .unwrap();
+                    modifiers
+                },*/
+                modifiers: Modifiers::new(),
+                timed_data: click,
+                pointer_data: None,
+                event: BasicAppEventBuilder::StartCommandInput,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: KeyboardSwitch("Enter".into()),
+                modifiers: Modifiers::new(),
+                timed_data: click,
+                pointer_data: None,
+                event: BasicAppEventBuilder::ApplyCommandInput,
+            }),*/
+            Binding::Release(SwitchBinding {
+                switch: KeyboardSwitch("Escape".into()),
+                modifiers: Modifiers::new(),
+                timed_data: click,
+                pointer_data: None,
+                event: BasicAppEventBuilder::CancelSelection,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: KeyboardSwitch("Escape".into()),
+                modifiers: Modifiers::new(),
+                timed_data: click,
+                pointer_data: None,
+                event: BasicAppEventBuilder::CancelNodeMove,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: KeyboardSwitch("Escape".into()),
+                modifiers: Modifiers::new(),
+                timed_data: click,
+                pointer_data: None,
+                event: BasicAppEventBuilder::CancelEdge,
+            }),
+            /*Binding::Release(SwitchBinding {
+                switch: KeyboardSwitch("Escape".into()),
+                modifiers: Modifiers::new(),
+                timed_data: click,
+                pointer_data: None,
+                event: BasicAppEventBuilder::CancelCommandInput,
+            }),*/
+            Binding::Release(SwitchBinding {
+                switch: KeyboardSwitch("Delete".into()),
+                modifiers: {
+                    let mut modifiers = Modifiers::new();
+                    modifiers
+                        .on_press_event(Switch::Keyboard(KeyboardSwitch("Control Left".to_owned())))
+                        .unwrap();
+                    modifiers
+                },
+                timed_data: dbl_click, // FIXME
+                pointer_data: None,
+                event: BasicAppEventBuilder::RemoveNodes,
+            }),
+        ]
+        .into_iter()
+        .collect(),
+    );
+    let mouse_mapping = MouseMapping::new(
+        [
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(),
+                timed_data: click,
+                pointer_data: None,
+                event: PointerAppEventBuilder::Unselect,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(),
+                timed_data: click,
+                pointer_data: None,
+                event: PointerAppEventBuilder::SelectNode,
+            }),
+            //
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: shift_modifiers.clone(),
+                timed_data: click,
+                pointer_data: None,
+                event: PointerAppEventBuilder::AddOrRemoveNodeFromSelection,
+            }),
+            // CREATE NODE
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(),
+                timed_data: dbl_click,
+                pointer_data: None,
+                event: PointerAppEventBuilder::CreateNode,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(),
+                timed_data: dbl_click,
+                pointer_data: None,
+                event: PointerAppEventBuilder::EditNode,
+            }),
+            // SELECTION
+            Binding::Press(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(),
+                timed_data: (),
+                pointer_data: (),
+                event: PointerAppEventBuilder::MaybeStartSelection,
+            }),
+            Binding::Coords(CoordsBinding {
+                pointer_data: PointerMoveEventData {
                     switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: click,
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::Unselect,
-                }),
-                Binding::Release(SwitchBinding {
+                    kind: PointerMoveEventKind::DragStart,
+                },
+                modifiers: Modifiers::new(),
+                event: PointerAppEventBuilder::StartSelection,
+            }),
+            Binding::Coords(CoordsBinding {
+                pointer_data: PointerMoveEventData {
                     switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: click,
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::SelectNode,
-                }),
-                //
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: shift_modifiers.clone(),
-                    timed_data: click,
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::AddOrRemoveNodeFromSelection,
-                }),
-                // CREATE NODE
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: dbl_click,
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::CreateNode,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: dbl_click,
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::EditNode,
-                }),
-                // SELECTION
-                Binding::Press(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: (),
-                    pointer_data: (),
-                    event: PointerAppEventBuilder::MaybeStartSelection,
-                }),
-                Binding::Coords(CoordsBinding {
-                    pointer_data: PointerMoveEventData {
-                        switch: lmb,
-                        kind: PointerMoveEventKind::DragStart,
-                    },
-                    modifiers: Modifiers::new(),
-                    event: PointerAppEventBuilder::StartSelection,
-                }),
-                Binding::Coords(CoordsBinding {
-                    pointer_data: PointerMoveEventData {
-                        switch: lmb,
-                        kind: PointerMoveEventKind::DragMove,
-                    },
-                    modifiers: Modifiers::new(),
-                    event: PointerAppEventBuilder::ContinueSelection,
-                }),
-                //
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
-                    timed_data: None,
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::NotASelection,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
-                    timed_data: click,           // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::NotASelection,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
-                    timed_data: dbl_click,       // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::NotASelection,
-                }),
-                //
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
-                    timed_data: None,
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::CancelSelection,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
-                    timed_data: click,           // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::CancelSelection,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
-                    timed_data: dbl_click,       // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::CancelSelection,
-                }),
-                //
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
-                    timed_data: None,
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::NotASelection,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
-                    timed_data: click,                  // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::NotASelection,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
-                    timed_data: dbl_click,              // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::NotASelection,
-                }),
-                //
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
-                    timed_data: None,
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::CancelSelection,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
-                    timed_data: click,                  // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::CancelSelection,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
-                    timed_data: dbl_click,              // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::CancelSelection,
-                }),
-                //
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: None,
-                    pointer_data: Some(PointerChangeEventData::DragEnd),
-                    event: PointerAppEventBuilder::EndSelection,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: click, // FIXME
-                    pointer_data: Some(PointerChangeEventData::DragEnd),
-                    event: PointerAppEventBuilder::EndSelection,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: dbl_click, // FIXME
-                    pointer_data: Some(PointerChangeEventData::DragEnd),
-                    event: PointerAppEventBuilder::EndSelection,
-                }),
-                // TRANSFORM MOVE
-                Binding::Press(SwitchBinding {
+                    kind: PointerMoveEventKind::DragMove,
+                },
+                modifiers: Modifiers::new(),
+                event: PointerAppEventBuilder::ContinueSelection,
+            }),
+            //
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                timed_data: None,
+                pointer_data: None,
+                event: PointerAppEventBuilder::NotASelection,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                timed_data: click,           // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::NotASelection,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                timed_data: dbl_click,       // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::NotASelection,
+            }),
+            //
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                timed_data: None,
+                pointer_data: None,
+                event: PointerAppEventBuilder::CancelSelection,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                timed_data: click,           // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::CancelSelection,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                timed_data: dbl_click,       // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::CancelSelection,
+            }),
+            //
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                timed_data: None,
+                pointer_data: None,
+                event: PointerAppEventBuilder::NotASelection,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                timed_data: click,                  // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::NotASelection,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                timed_data: dbl_click,              // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::NotASelection,
+            }),
+            //
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                timed_data: None,
+                pointer_data: None,
+                event: PointerAppEventBuilder::CancelSelection,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                timed_data: click,                  // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::CancelSelection,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                timed_data: dbl_click,              // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::CancelSelection,
+            }),
+            //
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(),
+                timed_data: None,
+                pointer_data: Some(PointerChangeEventData::DragEnd),
+                event: PointerAppEventBuilder::EndSelection,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(),
+                timed_data: click, // FIXME
+                pointer_data: Some(PointerChangeEventData::DragEnd),
+                event: PointerAppEventBuilder::EndSelection,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(),
+                timed_data: dbl_click, // FIXME
+                pointer_data: Some(PointerChangeEventData::DragEnd),
+                event: PointerAppEventBuilder::EndSelection,
+            }),
+            // TRANSFORM MOVE
+            Binding::Press(SwitchBinding {
+                switch: rmb,
+                modifiers: Modifiers::new(),
+                timed_data: (),
+                pointer_data: (),
+                event: PointerAppEventBuilder::MaybeStartTransformMove,
+            }),
+            Binding::Coords(CoordsBinding {
+                pointer_data: PointerMoveEventData {
                     switch: rmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: (),
-                    pointer_data: (),
-                    event: PointerAppEventBuilder::MaybeStartTransformMove,
-                }),
-                Binding::Coords(CoordsBinding {
-                    pointer_data: PointerMoveEventData {
-                        switch: rmb,
-                        kind: PointerMoveEventKind::DragStart,
-                    },
-                    modifiers: Modifiers::new(),
-                    event: PointerAppEventBuilder::StartTransformMove,
-                }),
-                Binding::Coords(CoordsBinding {
-                    pointer_data: PointerMoveEventData {
-                        switch: rmb,
-                        kind: PointerMoveEventKind::DragMove,
-                    },
-                    modifiers: Modifiers::new(),
-                    event: PointerAppEventBuilder::ContinueTransformMove,
-                }),
-                //
-                Binding::Release(SwitchBinding {
+                    kind: PointerMoveEventKind::DragStart,
+                },
+                modifiers: Modifiers::new(),
+                event: PointerAppEventBuilder::StartTransformMove,
+            }),
+            Binding::Coords(CoordsBinding {
+                pointer_data: PointerMoveEventData {
                     switch: rmb,
-                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
-                    timed_data: None,
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::NotATransformMove,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: rmb,
-                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
-                    timed_data: click,           // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::NotATransformMove,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: rmb,
-                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
-                    timed_data: dbl_click,       // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::NotATransformMove,
-                }),
-                //
-                Binding::Release(SwitchBinding {
-                    switch: rmb,
-                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
-                    timed_data: None,
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::CancelTransfromMove,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: rmb,
-                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
-                    timed_data: click,           // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::CancelTransfromMove,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: rmb,
-                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
-                    timed_data: dbl_click,       // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::CancelTransfromMove,
-                }),
-                //
-                Binding::Release(SwitchBinding {
-                    switch: rmb,
-                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
-                    timed_data: None,
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::NotATransformMove,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: rmb,
-                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
-                    timed_data: click,                  // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::NotATransformMove,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: rmb,
-                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
-                    timed_data: dbl_click,              // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::NotATransformMove,
-                }),
-                //
-                Binding::Release(SwitchBinding {
-                    switch: rmb,
-                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
-                    timed_data: None,
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::CancelTransfromMove,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: rmb,
-                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
-                    timed_data: click,                  // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::CancelTransfromMove,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: rmb,
-                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
-                    timed_data: dbl_click,              // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::CancelTransfromMove,
-                }),
-                //
-                Binding::Release(SwitchBinding {
-                    switch: rmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: None,
-                    pointer_data: Some(PointerChangeEventData::DragEnd),
-                    event: PointerAppEventBuilder::EndTransformMove,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: rmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: click, // FIXME
-                    pointer_data: Some(PointerChangeEventData::DragEnd),
-                    event: PointerAppEventBuilder::EndTransformMove,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: rmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: dbl_click, // FIXME
-                    pointer_data: Some(PointerChangeEventData::DragEnd),
-                    event: PointerAppEventBuilder::EndTransformMove,
-                }),
-                // NODE MOVE
-                Binding::Press(SwitchBinding {
+                    kind: PointerMoveEventKind::DragMove,
+                },
+                modifiers: Modifiers::new(),
+                event: PointerAppEventBuilder::ContinueTransformMove,
+            }),
+            //
+            Binding::Release(SwitchBinding {
+                switch: rmb,
+                modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                timed_data: None,
+                pointer_data: None,
+                event: PointerAppEventBuilder::NotATransformMove,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: rmb,
+                modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                timed_data: click,           // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::NotATransformMove,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: rmb,
+                modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                timed_data: dbl_click,       // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::NotATransformMove,
+            }),
+            //
+            Binding::Release(SwitchBinding {
+                switch: rmb,
+                modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                timed_data: None,
+                pointer_data: None,
+                event: PointerAppEventBuilder::CancelTransfromMove,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: rmb,
+                modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                timed_data: click,           // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::CancelTransfromMove,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: rmb,
+                modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                timed_data: dbl_click,       // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::CancelTransfromMove,
+            }),
+            //
+            Binding::Release(SwitchBinding {
+                switch: rmb,
+                modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                timed_data: None,
+                pointer_data: None,
+                event: PointerAppEventBuilder::NotATransformMove,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: rmb,
+                modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                timed_data: click,                  // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::NotATransformMove,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: rmb,
+                modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                timed_data: dbl_click,              // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::NotATransformMove,
+            }),
+            //
+            Binding::Release(SwitchBinding {
+                switch: rmb,
+                modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                timed_data: None,
+                pointer_data: None,
+                event: PointerAppEventBuilder::CancelTransfromMove,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: rmb,
+                modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                timed_data: click,                  // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::CancelTransfromMove,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: rmb,
+                modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                timed_data: dbl_click,              // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::CancelTransfromMove,
+            }),
+            //
+            Binding::Release(SwitchBinding {
+                switch: rmb,
+                modifiers: Modifiers::new(),
+                timed_data: None,
+                pointer_data: Some(PointerChangeEventData::DragEnd),
+                event: PointerAppEventBuilder::EndTransformMove,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: rmb,
+                modifiers: Modifiers::new(),
+                timed_data: click, // FIXME
+                pointer_data: Some(PointerChangeEventData::DragEnd),
+                event: PointerAppEventBuilder::EndTransformMove,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: rmb,
+                modifiers: Modifiers::new(),
+                timed_data: dbl_click, // FIXME
+                pointer_data: Some(PointerChangeEventData::DragEnd),
+                event: PointerAppEventBuilder::EndTransformMove,
+            }),
+            // NODE MOVE
+            Binding::Press(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(),
+                timed_data: (),
+                pointer_data: (),
+                event: PointerAppEventBuilder::MaybeStartNodeMove,
+            }),
+            Binding::Coords(CoordsBinding {
+                pointer_data: PointerMoveEventData {
                     switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: (),
-                    pointer_data: (),
-                    event: PointerAppEventBuilder::MaybeStartNodeMove,
-                }),
-                Binding::Coords(CoordsBinding {
-                    pointer_data: PointerMoveEventData {
-                        switch: lmb,
-                        kind: PointerMoveEventKind::DragStart,
-                    },
-                    modifiers: Modifiers::new(),
-                    event: PointerAppEventBuilder::StartNodeMove,
-                }),
-                Binding::Coords(CoordsBinding {
-                    pointer_data: PointerMoveEventData {
-                        switch: lmb,
-                        kind: PointerMoveEventKind::DragMove,
-                    },
-                    modifiers: Modifiers::new(),
-                    event: PointerAppEventBuilder::ContinueNodeMove,
-                }),
-                //
-                Binding::Release(SwitchBinding {
+                    kind: PointerMoveEventKind::DragStart,
+                },
+                modifiers: Modifiers::new(),
+                event: PointerAppEventBuilder::StartNodeMove,
+            }),
+            Binding::Coords(CoordsBinding {
+                pointer_data: PointerMoveEventData {
                     switch: lmb,
-                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
-                    timed_data: None,
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::NotANodeMove,
-                }),
-                Binding::Release(SwitchBinding {
+                    kind: PointerMoveEventKind::DragMove,
+                },
+                modifiers: Modifiers::new(),
+                event: PointerAppEventBuilder::ContinueNodeMove,
+            }),
+            //
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                timed_data: None,
+                pointer_data: None,
+                event: PointerAppEventBuilder::NotANodeMove,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                timed_data: click,           // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::NotANodeMove,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                timed_data: dbl_click,       // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::NotANodeMove,
+            }),
+            //
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                timed_data: None,
+                pointer_data: None,
+                event: PointerAppEventBuilder::CancelNodeMove,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                timed_data: click,           // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::CancelNodeMove,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
+                timed_data: dbl_click,       // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::CancelNodeMove,
+            }),
+            //
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                timed_data: None,
+                pointer_data: None,
+                event: PointerAppEventBuilder::NotANodeMove,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                timed_data: click,                  // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::NotANodeMove,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                timed_data: dbl_click,              // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::NotANodeMove,
+            }),
+            //
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                timed_data: None,
+                pointer_data: None,
+                event: PointerAppEventBuilder::CancelNodeMove,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                timed_data: click,                  // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::CancelNodeMove,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                timed_data: dbl_click,              // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::CancelNodeMove,
+            }),
+            //
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(),
+                timed_data: None,
+                pointer_data: Some(PointerChangeEventData::DragEnd),
+                event: PointerAppEventBuilder::EndNodeMove,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(),
+                timed_data: click, // FIXME
+                pointer_data: Some(PointerChangeEventData::DragEnd),
+                event: PointerAppEventBuilder::EndNodeMove,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(),
+                timed_data: dbl_click, // FIXME
+                pointer_data: Some(PointerChangeEventData::DragEnd),
+                event: PointerAppEventBuilder::EndNodeMove,
+            }),
+            // EDGE
+            Binding::Press(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(),
+                timed_data: (),
+                pointer_data: (),
+                event: PointerAppEventBuilder::MaybeStartEdge,
+            }),
+            Binding::Coords(CoordsBinding {
+                pointer_data: PointerMoveEventData {
                     switch: lmb,
-                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
-                    timed_data: click,           // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::NotANodeMove,
-                }),
-                Binding::Release(SwitchBinding {
+                    kind: PointerMoveEventKind::DragStart,
+                },
+                modifiers: Modifiers::new(),
+                event: PointerAppEventBuilder::StartEdge,
+            }),
+            Binding::Coords(CoordsBinding {
+                pointer_data: PointerMoveEventData {
                     switch: lmb,
-                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
-                    timed_data: dbl_click,       // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::NotANodeMove,
-                }),
-                //
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
-                    timed_data: None,
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::CancelNodeMove,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
-                    timed_data: click,           // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::CancelNodeMove,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(), // FIXME: do not override with event with more modifiers
-                    timed_data: dbl_click,       // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::CancelNodeMove,
-                }),
-                //
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
-                    timed_data: None,
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::NotANodeMove,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
-                    timed_data: click,                  // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::NotANodeMove,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
-                    timed_data: dbl_click,              // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::NotANodeMove,
-                }),
-                //
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
-                    timed_data: None,
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::CancelNodeMove,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
-                    timed_data: click,                  // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::CancelNodeMove,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
-                    timed_data: dbl_click,              // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::CancelNodeMove,
-                }),
-                //
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: None,
-                    pointer_data: Some(PointerChangeEventData::DragEnd),
-                    event: PointerAppEventBuilder::EndNodeMove,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: click, // FIXME
-                    pointer_data: Some(PointerChangeEventData::DragEnd),
-                    event: PointerAppEventBuilder::EndNodeMove,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: dbl_click, // FIXME
-                    pointer_data: Some(PointerChangeEventData::DragEnd),
-                    event: PointerAppEventBuilder::EndNodeMove,
-                }),
-                // EDGE
-                Binding::Press(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: (),
-                    pointer_data: (),
-                    event: PointerAppEventBuilder::MaybeStartEdge,
-                }),
-                Binding::Coords(CoordsBinding {
-                    pointer_data: PointerMoveEventData {
-                        switch: lmb,
-                        kind: PointerMoveEventKind::DragStart,
-                    },
-                    modifiers: Modifiers::new(),
-                    event: PointerAppEventBuilder::StartEdge,
-                }),
-                Binding::Coords(CoordsBinding {
-                    pointer_data: PointerMoveEventData {
-                        switch: lmb,
-                        kind: PointerMoveEventKind::DragMove,
-                    },
-                    modifiers: Modifiers::new(),
-                    event: PointerAppEventBuilder::ContinueEdge,
-                }),
-                //
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: None,
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::NotAEdge,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: click, // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::NotAEdge,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: dbl_click, // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::NotAEdge,
-                }),
-                //
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: None,
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::CancelEdge,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: click, // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::CancelEdge,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: dbl_click, // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::CancelEdge,
-                }),
-                //
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
-                    timed_data: None,
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::NotAEdge,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
-                    timed_data: click,                  // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::NotAEdge,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
-                    timed_data: dbl_click,              // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::NotAEdge,
-                }),
-                //
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
-                    timed_data: None,
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::CancelEdge,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
-                    timed_data: click,                  // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::CancelEdge,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
-                    timed_data: dbl_click,              // FIXME
-                    pointer_data: None,
-                    event: PointerAppEventBuilder::CancelEdge,
-                }),
-                //
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: None,
-                    pointer_data: Some(PointerChangeEventData::DragEnd),
-                    event: PointerAppEventBuilder::EndEdge,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: click, // FIXME
-                    pointer_data: Some(PointerChangeEventData::DragEnd),
-                    event: PointerAppEventBuilder::EndEdge,
-                }),
-                Binding::Release(SwitchBinding {
-                    switch: lmb,
-                    modifiers: Modifiers::new(),
-                    timed_data: dbl_click, // FIXME
-                    pointer_data: Some(PointerChangeEventData::DragEnd),
-                    event: PointerAppEventBuilder::EndEdge,
-                }),
+                    kind: PointerMoveEventKind::DragMove,
+                },
+                modifiers: Modifiers::new(),
+                event: PointerAppEventBuilder::ContinueEdge,
+            }),
+            //
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(),
+                timed_data: None,
+                pointer_data: None,
+                event: PointerAppEventBuilder::NotAEdge,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(),
+                timed_data: click, // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::NotAEdge,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(),
+                timed_data: dbl_click, // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::NotAEdge,
+            }),
+            //
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(),
+                timed_data: None,
+                pointer_data: None,
+                event: PointerAppEventBuilder::CancelEdge,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(),
+                timed_data: click, // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::CancelEdge,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(),
+                timed_data: dbl_click, // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::CancelEdge,
+            }),
+            //
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                timed_data: None,
+                pointer_data: None,
+                event: PointerAppEventBuilder::NotAEdge,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                timed_data: click,                  // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::NotAEdge,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                timed_data: dbl_click,              // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::NotAEdge,
+            }),
+            //
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                timed_data: None,
+                pointer_data: None,
+                event: PointerAppEventBuilder::CancelEdge,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                timed_data: click,                  // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::CancelEdge,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: shift_modifiers.clone(), // FIXME: do not override with event with more modifiers
+                timed_data: dbl_click,              // FIXME
+                pointer_data: None,
+                event: PointerAppEventBuilder::CancelEdge,
+            }),
+            //
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(),
+                timed_data: None,
+                pointer_data: Some(PointerChangeEventData::DragEnd),
+                event: PointerAppEventBuilder::EndEdge,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(),
+                timed_data: click, // FIXME
+                pointer_data: Some(PointerChangeEventData::DragEnd),
+                event: PointerAppEventBuilder::EndEdge,
+            }),
+            Binding::Release(SwitchBinding {
+                switch: lmb,
+                modifiers: Modifiers::new(),
+                timed_data: dbl_click, // FIXME
+                pointer_data: Some(PointerChangeEventData::DragEnd),
+                event: PointerAppEventBuilder::EndEdge,
+            }),
+        ]
+        .into_iter()
+        .chain(match mapping_name {
+            MappingKind::Mouse => vec![
                 //
                 // FIXME: scoll should provide additions information,
                 // but event builder can not contain it,
@@ -1168,18 +1182,30 @@ impl Default for Input {
                 Binding::Trigger(TriggerBinding {
                     trigger: MouseTrigger("scroll"),
                     modifiers: Modifiers::new(),
-                    event: PointerAppEventBuilder::Zoom,
+                    event: PointerAppEventBuilder::ScrollZoom,
                 }),
-            ]
-            .into_iter()
-            .collect(),
-        );
-        let mapping = GlobalMapping {
-            keyboard: keyboard_mapping,
-            mouse: mouse_mapping,
-        };
+            ],
+            MappingKind::Touch => vec![Binding::Trigger(TriggerBinding {
+                trigger: MouseTrigger("scroll"),
+                modifiers: Modifiers::new(),
+                event: PointerAppEventBuilder::ScrollMoveScreen,
+            })],
+        })
+        .collect(),
+    );
+    GlobalMapping {
+        keyboard: keyboard_mapping,
+        mouse: mouse_mapping,
+    }
+}
 
-        let mapping_cache = GlobalMappingCache::from_mapping(mapping);
+impl Default for Input {
+    fn default() -> Self {
+        let mouse_mapping = generate_default_mapping(MappingKind::Mouse);
+        let touch_mapping = generate_default_mapping(MappingKind::Touch);
+
+        let mouse_mapping_cache = GlobalMappingCache::from_mapping(mouse_mapping);
+        let touch_mapping_cache = GlobalMappingCache::from_mapping(touch_mapping);
 
         let global_state = GlobalState::new(
             Modifiers::default(),
@@ -1198,7 +1224,8 @@ impl Default for Input {
         let device_state = HashMap::new();
 
         Self {
-            mapping_cache,
+            mouse_mapping_cache,
+            touch_mapping_cache,
             global_state,
             device_state,
         }
@@ -1242,7 +1269,7 @@ pub enum FlutterKeyboardEventKind {
 }
 
 impl Input {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self::default()
     }
 
@@ -1251,10 +1278,18 @@ impl Input {
         msg: &str,
         context: Context<'a>,
     ) -> impl CapturedLifetime<'a> + Iterator<Item = Event> {
+        //static MOVE_EVENTS_COUNT: std::sync::atomic::AtomicUsize =
+        //    std::sync::atomic::AtomicUsize::new(0);
+
         let event: FlutterPointerEvent = serde_json::from_str(&msg).unwrap();
 
         let device = match event.kind {
             FlutterPointerKind::Mouse => Device::Mouse(event.device),
+        };
+
+        let mapping_cache = match context.mapping_kind {
+            MappingKind::Mouse => &self.mouse_mapping_cache,
+            MappingKind::Touch => &self.touch_mapping_cache,
         };
 
         let x = event.position_x / context.transform.scale - context.transform.x;
@@ -1287,25 +1322,26 @@ impl Input {
         let bindings = self.global_state.with_timeout(
             event.timestamp_ms - 1000,
             event.timestamp_ms - 300,
-            &self.mapping_cache,
+            mapping_cache,
         );
         let mut events: Vec<_> = timeout_bindings_into_events(bindings, context).collect();
 
         if device_state.x != x || device_state.y != y {
+            //MOVE_EVENTS_COUNT.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             let event = MouseCoordsEvent::new(event.timestamp_ms, Coords { x, y });
             let bindings =
                 self.global_state
-                    .with_mouse_coords_event(event, &self.mapping_cache, is_dragged);
+                    .with_mouse_coords_event(event, mapping_cache, is_dragged);
             events.extend(event_bindings_into_events(bindings, context));
             //Self::handle_events(raw_event, store, req_id)
         }
 
-        if context.last_scroll_dy != 0.0 {
+        if context.last_scroll_dx != 0.0 || context.last_scroll_dy != 0.0 {
             // context.last_scroll_dy.abs() < 0.1
             let event = MouseTriggerEvent::new(event.timestamp_ms, MouseTrigger("scroll"));
             let bindings = self
                 .global_state
-                .with_mouse_trigger_event(event, &self.mapping_cache);
+                .with_mouse_trigger_event(event, mapping_cache);
             events.extend(event_bindings_into_events(bindings, context));
         }
 
@@ -1315,18 +1351,25 @@ impl Input {
             // (MouseButton::Auxiliary, 4),
         ] {
             if (device_state.buttons & mask) != (buttons & mask) {
+                //let move_events_count =
+                //    MOVE_EVENTS_COUNT.swap(0, std::sync::atomic::Ordering::SeqCst);
+                //if move_events_count != 0 {
+                //println!("mouse move {move_events_count}");
+                //}
                 if buttons & mask != 0 {
+                    //println!("mouse {button:?} press");
                     let event = MouseSwitchEvent::new(event.timestamp_ms, button);
                     let bindings = self
                         .global_state
-                        .with_mouse_press_event(event, &self.mapping_cache);
+                        .with_mouse_press_event(event, mapping_cache);
                     events.extend(event_bindings_into_events(bindings, context));
                 } else {
+                    //println!("mouse {button:?} release");
                     let event = MouseSwitchEvent::new(event.timestamp_ms, button);
                     let bindings = self
                         .global_state
-                        .with_mouse_release_event(event, &self.mapping_cache);
-                    let mut mouse_events = event_bindings_into_events(bindings, context)/*.peekable()*/;
+                        .with_mouse_release_event(event, mapping_cache);
+                    let mouse_events = event_bindings_into_events(bindings, context)/*.peekable()*/;
                     /*if mouse_events.peek().is_some() {
                         self.global_state
                             .mouse_timed_state
@@ -1350,6 +1393,11 @@ impl Input {
         msg: &str,
         context: Context<'a>,
     ) -> impl CapturedLifetime<'a> + Iterator<Item = Event> {
+        let mapping_cache = match context.mapping_kind {
+            MappingKind::Mouse => &self.mouse_mapping_cache,
+            MappingKind::Touch => &self.touch_mapping_cache,
+        };
+
         let context = EventContext {
             model: context.model,
             ui_state: context.ui_state,
@@ -1370,7 +1418,7 @@ impl Input {
                 let event = KeyboardSwitchEvent::new(event.timestamp_ms, switch);
                 let bindings = self
                     .global_state
-                    .with_keyboard_press_event(event, &self.mapping_cache);
+                    .with_keyboard_press_event(event, mapping_cache);
                 event_bindings_into_events(bindings, context).collect()
             }
             FlutterKeyboardEventKind::KeyUpEvent => {
@@ -1379,9 +1427,9 @@ impl Input {
                 let event = KeyboardSwitchEvent::new(event.timestamp_ms, switch.clone());
                 let bindings = self
                     .global_state
-                    .with_keyboard_release_event(event, &self.mapping_cache);
+                    .with_keyboard_release_event(event, mapping_cache);
 
-                let mut keyboard_events = event_bindings_into_events(bindings, context)/*.peekable()*/;
+                let  keyboard_events = event_bindings_into_events(bindings, context)/*.peekable()*/;
                 /*if keyboard_events.peek().is_some() {
                     self.global_state
                         .keyboard_timed_state
@@ -1902,10 +1950,14 @@ impl BuildAppEvent<Coords> for PointerAppEventBuilder {
                 | UiState::UiInput
                 | UiState::CommandInput(_) => None,
             },
-            Self::Zoom => Some(Event::Zoom(
+            Self::ScrollZoom => Some(Event::ScrollZoom(
                 coords.x as f64,
                 coords.y as f64,
                 MOUSE_SCROLL_DELTA_MULT.powf(-context.last_scroll_dy),
+            )),
+            Self::ScrollMoveScreen => Some(Event::ScrollMoveScreen(
+                context.last_scroll_dx,
+                context.last_scroll_dy,
             )),
         }
         /*

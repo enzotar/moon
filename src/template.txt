@@ -185,6 +185,11 @@ BOOL
 }
 
 
+{
+    "String:"2jQk5rnXUEqM9DBkGpmo1jAkXrTgQAkKNKTmGQyW4fRgao3PHMfqqX7bGmpRvW6ba8UHU2td9w8S5Sib3ikTQPZy"
+}
+
+
 
 {
   "Const": {
@@ -223,3 +228,57 @@ https://cloudflare-ipfs.com/ipfs/QmerDUAN93Bmpi1MJCdRCvpbPHa46Aok8wqZWmrL6iUykL
 String(
     "QmerDUAN93Bmpi1MJCdRCvpbPHa46Aok8wqZWmrL6iUykL",
 )
+
+
+
+NftMetadata(
+    NftMetadata {
+        name: "Sunshine NFT",
+        symbol: "SNFT",
+        description: "Sunshine NFT",
+        seller_fee_basis_points: 15,
+        image: "ipfs://QmYasLHeFsRRY51xbBo6JfA2HegBEXhM3WL85S3Xfixr5d",
+        animation_url: None,
+        external_url: None,
+        attributes: [],
+        collection: Some(
+            NftMetadataCollection {
+                name: "Sunshine Collection",
+                family: "SolShine",
+            },
+        ),
+        properties: NftMetadataProperties {
+            files: [
+                NftMetadataFile {
+                    uri: "ipfs://QmYasLHeFsRRY51xbBo6JfA2HegBEXhM3WL85S3Xfixr5d",
+                    kind: "image/jpg",
+                },
+            ],
+            category: Some(
+                "video",
+            ),
+            creators: [],
+        },
+    },
+)
+
+String(
+    "ipfs://QmVkWGbyXEKE49Y2vVuwASYPhBeB8n4zkv4PVHyzoPCKWn",
+)
+
+
+{
+    "Const": {
+        "String": "image.jpg"
+    }
+}
+
+{
+    "Const": {
+        "String": "/home/amir/code/rust/libraries/sunshine_flow/arweave-key-iI13Hg-83m6ZGlhc1ielZ6aprjWZB-RCxO7wH6c0_QQ.json"
+    }
+}
+
+hot wallet
+2jQk5rnXUEqM9DBkGpmo1jAkXrTgQAkKNKTmGQyW4fRgao3PHMfqqX7bGmpRvW6ba8UHU2td9w8S5Sib3ikTQPZy
+

@@ -1,5 +1,5 @@
 use std::cmp;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use sunshine_solana::commands::simple::http_request;
 use sunshine_solana::commands::simple::ipfs_nft_upload;
@@ -94,16 +94,30 @@ fn calculate_node_height(command: impl DynCommand) -> i64 {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommandInput {
     pub name: &'static str,
-    pub acceptable_types: &'static [&'static str],
+    pub type_bounds: &'static [TypeBound],
     // command_type
     // inputtable
 }
 
 impl CommandInput {
-    pub const fn new(name: &'static str, acceptable_types: &'static [&'static str]) -> Self {
-        Self {
-            name,
-            acceptable_types,
+    pub const fn new(name: &'static str, type_bounds: &'static [TypeBound]) -> Self {
+        Self { name, type_bounds }
+    }
+
+    pub fn acceptable_types(&self) -> HashSet<&'static str> {
+        let mut type_bounds = self.type_bounds.iter();
+        if let Some(type_bound) = type_bounds.next() {
+            let mut acceptable_types: HashSet<_> = type_bound.types.iter().copied().collect();
+            for type_bound in self.type_bounds {
+                let other_acceptable_types: HashSet<_> = type_bound.types.iter().copied().collect();
+                acceptable_types = acceptable_types
+                    .intersection(&other_acceptable_types)
+                    .copied()
+                    .collect();
+            }
+            acceptable_types
+        } else {
+            HashSet::new()
         }
     }
 }
@@ -118,6 +132,12 @@ impl CommandOutput {
     pub const fn new(name: &'static str, r#type: &'static str) -> Self {
         Self { name, r#type }
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct TypeBound {
+    pub name: &'static str,
+    pub types: &'static [&'static str],
 }
 
 pub trait Command {
@@ -236,10 +256,7 @@ pub struct ArweaveUploadCommand;
 impl Command for PrintCommand {
     const COMMAND_NAME: &'static str = "print";
     const WIDGET_NAME: &'static str = "Print";
-    const INPUTS: &'static [CommandInput] = &[CommandInput::new(
-        "print",
-        &["String", "Number", "Pubkey", "Keypair"],
-    )];
+    const INPUTS: &'static [CommandInput] = &[CommandInput::new("print", &[PRINTABLE])];
     const OUTPUTS: &'static [CommandOutput] = &[];
     fn dimensions() -> NodeDimensions {
         NodeDimensions {
@@ -296,8 +313,8 @@ impl Command for JsonExtractCommand {
     const COMMAND_NAME: &'static str = "json_extract";
     const WIDGET_NAME: &'static str = "JsonExtract";
     const INPUTS: &'static [CommandInput] = &[
-        CommandInput::new("pointer", &["String"]),
-        CommandInput::new("arg", &["String"]),
+        CommandInput::new("pointer", &[STRING]),
+        CommandInput::new("arg", &[STRING]),
     ];
     const OUTPUTS: &'static [CommandOutput] = &[CommandOutput::new("val", "String")]; //FIXME any value
     fn dimensions() -> NodeDimensions {
@@ -318,9 +335,9 @@ impl Command for HttpRequestCommand {
     const COMMAND_NAME: &'static str = "http_request";
     const WIDGET_NAME: &'static str = "HttpRequest";
     const INPUTS: &'static [CommandInput] = &[
-        CommandInput::new("method", &["String"]),
-        CommandInput::new("url", &["String"]),
-        CommandInput::new("auth_token", &["String"]),
+        CommandInput::new("method", &[STRING]),
+        CommandInput::new("url", &[STRING]),
+        CommandInput::new("auth_token", &[STRING]),
     ];
     const OUTPUTS: &'static [CommandOutput] = &[CommandOutput::new("resp_body", "String")];
     fn dimensions() -> NodeDimensions {
@@ -342,9 +359,9 @@ impl Command for IpfsUploadCommand {
     const COMMAND_NAME: &'static str = "ipfs_upload";
     const WIDGET_NAME: &'static str = "IpfsUpload";
     const INPUTS: &'static [CommandInput] = &[
-        CommandInput::new("pinata_url", &["String"]),
-        CommandInput::new("pinata_jwt", &["String"]),
-        CommandInput::new("file_path", &["String"]),
+        CommandInput::new("pinata_url", &[STRING]),
+        CommandInput::new("pinata_jwt", &[STRING]),
+        CommandInput::new("file_path", &[STRING]),
     ];
     const OUTPUTS: &'static [CommandOutput] = &[CommandOutput::new("image_cid", "String")];
     fn dimensions() -> NodeDimensions {
@@ -366,9 +383,9 @@ impl Command for IpfsNftUploadCommand {
     const COMMAND_NAME: &'static str = "ipfs_nft_upload";
     const WIDGET_NAME: &'static str = "IpfsNftUpload";
     const INPUTS: &'static [CommandInput] = &[
-        CommandInput::new("pinata_url", &["String"]),
-        CommandInput::new("pinata_jwt", &["String"]),
-        CommandInput::new("metadata", &["NftMetadata"]),
+        CommandInput::new("pinata_url", &[STRING]),
+        CommandInput::new("pinata_jwt", &[STRING]),
+        CommandInput::new("metadata", &[NFT_METADATA]),
     ];
     const OUTPUTS: &'static [CommandOutput] = &[
         CommandOutput::new("metadata_cid", "String"),
@@ -396,11 +413,11 @@ impl Command for CreateTokenCommand {
     const COMMAND_NAME: &'static str = "create_token";
     const WIDGET_NAME: &'static str = "CreateToken";
     const INPUTS: &'static [CommandInput] = &[
-        CommandInput::new("fee_payer", &["Keypair", "NodeId"]),
-        CommandInput::new("decimals", &["Number"]),
-        CommandInput::new("authority", &["Keypair"]),
-        CommandInput::new("token", &["Keypair"]),
-        CommandInput::new("memo", &["String"]),
+        CommandInput::new("fee_payer", &[KEYPAIR]), // , "NodeId"
+        CommandInput::new("decimals", &[NUMBER]),
+        CommandInput::new("authority", &[KEYPAIR]),
+        CommandInput::new("token", &[KEYPAIR]),
+        CommandInput::new("memo", &[STRING]),
     ];
     const OUTPUTS: &'static [CommandOutput] = &[
         CommandOutput::new("token", "Keypair"),
@@ -427,8 +444,8 @@ impl Command for AddPubkeyCommand {
     const COMMAND_NAME: &'static str = "add_pubkey";
     const WIDGET_NAME: &'static str = "AddPubkey";
     const INPUTS: &'static [CommandInput] = &[
-        CommandInput::new("name", &["String"]),
-        CommandInput::new("pubkey", &["Pubkey"]),
+        CommandInput::new("name", &[STRING]),
+        CommandInput::new("pubkey", &[PUBKEY]),
     ];
     const OUTPUTS: &'static [CommandOutput] = &[CommandOutput::new("pubkey", "Pubkey")];
     fn dimensions() -> NodeDimensions {
@@ -449,10 +466,10 @@ impl Command for CreateAccountCommand {
     const COMMAND_NAME: &'static str = "create_account";
     const WIDGET_NAME: &'static str = "CreateAccount";
     const INPUTS: &'static [CommandInput] = &[
-        CommandInput::new("owner", &["Keypair"]),
-        CommandInput::new("fee_payer", &["Keypair"]),
-        CommandInput::new("token", &["Keypair"]),
-        CommandInput::new("account", &["Keypair"]),
+        CommandInput::new("owner", &[KEYPAIR]),
+        CommandInput::new("fee_payer", &[KEYPAIR]),
+        CommandInput::new("token", &[KEYPAIR]),
+        CommandInput::new("account", &[KEYPAIR]),
     ];
     const OUTPUTS: &'static [CommandOutput] = &[
         CommandOutput::new("signature", "String"),
@@ -481,10 +498,10 @@ impl Command for GenerateKeypairCommand {
     const COMMAND_NAME: &'static str = "generate_keypair";
     const WIDGET_NAME: &'static str = "GenerateKeypair";
     const INPUTS: &'static [CommandInput] = &[
-        CommandInput::new("seed_phrase", &["String"]),
-        CommandInput::new("base58_str", &["String"]),
-        CommandInput::new("passphrase", &["String"]),
-        CommandInput::new("save", &["String"]),
+        CommandInput::new("seed_phrase", &[STRING]),
+        CommandInput::new("private_key", &[STRING]), //base58 str
+        CommandInput::new("passphrase", &[STRING]),
+        CommandInput::new("save", &[STRING]),
     ];
     const OUTPUTS: &'static [CommandOutput] = &[
         CommandOutput::new("pubkey", "Pubkey"),
@@ -503,7 +520,7 @@ impl Command for GenerateKeypairCommand {
                 seed_phrase: Arg::None,
                 passphrase: None,
                 save: Arg::None,
-                base58_str: Arg::None,
+                private_key: Arg::None,
             },
         ))
     }
@@ -513,11 +530,11 @@ impl Command for MintTokenCommand {
     const COMMAND_NAME: &'static str = "mint_token";
     const WIDGET_NAME: &'static str = "MintToken";
     const INPUTS: &'static [CommandInput] = &[
-        CommandInput::new("token", &["Keypair"]),
-        CommandInput::new("recipient", &["Pubkey"]),
-        CommandInput::new("mint_authority", &["Keypair"]),
-        CommandInput::new("amount", &["Number"]),
-        CommandInput::new("fee_payer", &["Keypair"]),
+        CommandInput::new("token", &[KEYPAIR]),
+        CommandInput::new("recipient", &[PUBKEY]),
+        CommandInput::new("mint_authority", &[KEYPAIR]),
+        CommandInput::new("amount", &[NUMBER]),
+        CommandInput::new("fee_payer", &[KEYPAIR]),
     ];
     const OUTPUTS: &'static [CommandOutput] = &[
         CommandOutput::new("token", "Pubkey"),
@@ -544,15 +561,15 @@ impl Command for TransferCommand {
     const COMMAND_NAME: &'static str = "transfer";
     const WIDGET_NAME: &'static str = "Transfer";
     const INPUTS: &'static [CommandInput] = &[
-        CommandInput::new("fee_payer", &["Keypair"]),
-        CommandInput::new("token", &["Pubkey"]),
-        CommandInput::new("amount", &["Number"]),
-        CommandInput::new("recipient", &["Pubkey"]),
-        CommandInput::new("sender", &["Keypair"]),
-        CommandInput::new("sender_owner", &["Keypair"]),
-        CommandInput::new("allow_unfunded", &["Bool"]), //TODO update name to allow_unfunded_recipient
-        CommandInput::new("fund_recipient", &["Bool"]),
-        CommandInput::new("memo", &["String"]),
+        CommandInput::new("fee_payer", &[KEYPAIR]),
+        CommandInput::new("token", &[PUBKEY]),
+        CommandInput::new("amount", &[NUMBER]),
+        CommandInput::new("recipient", &[PUBKEY]),
+        CommandInput::new("sender", &[KEYPAIR]),
+        CommandInput::new("sender_owner", &[KEYPAIR]),
+        CommandInput::new("allow_unfunded", &[BOOL]), //TODO update name to allow_unfunded_recipient
+        CommandInput::new("fund_recipient", &[BOOL]),
+        CommandInput::new("memo", &[STRING]),
     ];
     const OUTPUTS: &'static [CommandOutput] = &[
         CommandOutput::new("sender_owner", "Pubkey"),
@@ -583,8 +600,8 @@ impl Command for RequestAirdropCommand {
     const COMMAND_NAME: &'static str = "request_airdrop";
     const WIDGET_NAME: &'static str = "RequestAirdrop";
     const INPUTS: &'static [CommandInput] = &[
-        CommandInput::new("pubkey", &["Pubkey"]),
-        CommandInput::new("amount", &["Number"]),
+        CommandInput::new("pubkey", &[PUBKEY]),
+        CommandInput::new("amount", &[NUMBER]),
     ];
     const OUTPUTS: &'static [CommandOutput] = &[CommandOutput::new("signature", "String")];
     fn dimensions() -> NodeDimensions {
@@ -606,7 +623,7 @@ impl Command for RequestAirdropCommand {
 impl Command for GetBalanceCommand {
     const COMMAND_NAME: &'static str = "get_balance";
     const WIDGET_NAME: &'static str = "GetBalance";
-    const INPUTS: &'static [CommandInput] = &[CommandInput::new("pubkey", &["Pubkey"])];
+    const INPUTS: &'static [CommandInput] = &[CommandInput::new("pubkey", &[PUBKEY])];
     const OUTPUTS: &'static [CommandOutput] = &[CommandOutput::new("balance", "Number")];
     fn dimensions() -> NodeDimensions {
         NodeDimensions {
@@ -627,19 +644,19 @@ impl Command for CreateMetadataAccountsCommand {
     const COMMAND_NAME: &'static str = "create_metadata_accounts";
     const WIDGET_NAME: &'static str = "CreateMetadataAccounts";
     const INPUTS: &'static [CommandInput] = &[
-        CommandInput::new("token", &["Pubkey"]),
-        CommandInput::new("token_authority", &["Pubkey"]),
-        CommandInput::new("fee_payer", &["Keypair"]),
-        CommandInput::new("update_authority", &["Keypair"]),
-        CommandInput::new("name", &["String"]),
-        CommandInput::new("symbol", &["String"]),
-        CommandInput::new("uri", &["String"]),
-        CommandInput::new("creators", &["NftCreators"]), //multi arg input
-        CommandInput::new("seller_fee_basis_points", &["Number"]), //u16
-        CommandInput::new("update_authority_is_signer", &["Bool"]),
-        CommandInput::new("is_mutable", &["Bool"]),
-        CommandInput::new("collection", &["NftCollection"]), //multi arg input
-        CommandInput::new("uses", &["NftUses"]),             //multi arg input
+        CommandInput::new("token", &[PUBKEY]),
+        CommandInput::new("token_authority", &[PUBKEY]),
+        CommandInput::new("fee_payer", &[KEYPAIR]),
+        CommandInput::new("update_authority", &[KEYPAIR]),
+        CommandInput::new("name", &[STRING]),
+        CommandInput::new("symbol", &[STRING]),
+        CommandInput::new("uri", &[STRING]),
+        CommandInput::new("creators", &[NFT_CREATORS]), //multi arg input
+        CommandInput::new("seller_fee_basis_points", &[NUMBER]), //u16
+        CommandInput::new("update_authority_is_signer", &[BOOL]),
+        CommandInput::new("is_mutable", &[BOOL]),
+        CommandInput::new("collection", &[NFT_COLLECTION]), //multi arg input
+        CommandInput::new("uses", &[NTF_USES]),             //multi arg input
     ];
     const OUTPUTS: &'static [CommandOutput] = &[
         CommandOutput::new("signature", "String"),
@@ -678,12 +695,12 @@ impl Command for CreateMasterEditionCommand {
     const COMMAND_NAME: &'static str = "create_master_edition";
     const WIDGET_NAME: &'static str = "CreateMasterEdition";
     const INPUTS: &'static [CommandInput] = &[
-        CommandInput::new("token", &["Pubkey"]),
-        CommandInput::new("token_authority", &["Pubkey"]),
-        CommandInput::new("fee_payer", &["Keypair"]),
-        CommandInput::new("update_authority", &["Keypair"]),
-        CommandInput::new("is_mutable", &["Bool"]),
-        CommandInput::new("max_supply", &["Number"]),
+        CommandInput::new("token", &[PUBKEY]),
+        CommandInput::new("token_authority", &[PUBKEY]),
+        CommandInput::new("fee_payer", &[KEYPAIR]),
+        CommandInput::new("update_authority", &[KEYPAIR]),
+        CommandInput::new("is_mutable", &[BOOL]),
+        CommandInput::new("max_supply", &[NUMBER]),
     ];
     const OUTPUTS: &'static [CommandOutput] = &[
         CommandOutput::new("signature", "String"),
@@ -716,13 +733,13 @@ impl Command for UpdateMetadataAccountsCommand {
     const COMMAND_NAME: &'static str = "update_metadata_accounts";
     const WIDGET_NAME: &'static str = "UpdateMetadataAccounts";
     const INPUTS: &'static [CommandInput] = &[
-        CommandInput::new("token", &["Pubkey"]),
-        CommandInput::new("fee_payer", &["Keypair"]),
-        CommandInput::new("update_authority", &["Keypair"]),
-        CommandInput::new("new_update_authority", &["Keypair"]),
-        CommandInput::new("data", &["MetadataAccount"]), // multi arg
-        CommandInput::new("primary_sale_happened", &["Bool"]),
-        CommandInput::new("is_mutable", &["Bool"]),
+        CommandInput::new("token", &[PUBKEY]),
+        CommandInput::new("fee_payer", &[KEYPAIR]),
+        CommandInput::new("update_authority", &[KEYPAIR]),
+        CommandInput::new("new_update_authority", &[KEYPAIR]),
+        CommandInput::new("data", &[METADATA_ACCOUNT]), // multi arg
+        CommandInput::new("primary_sale_happened", &[BOOL]),
+        CommandInput::new("is_mutable", &[BOOL]),
     ];
     const OUTPUTS: &'static [CommandOutput] = &[
         CommandOutput::new("signature", "String"),
@@ -755,14 +772,14 @@ impl Command for UtilizeCommand {
     const COMMAND_NAME: &'static str = "utilize";
     const WIDGET_NAME: &'static str = "Utilize";
     const INPUTS: &'static [CommandInput] = &[
-        CommandInput::new("token_account", &["Pubkey"]),
-        CommandInput::new("token", &["Pubkey"]),
-        CommandInput::new("use_authority_record_pda", &["Keypair", "Pubkey"]),
-        CommandInput::new("use_authority", &["Keypair"]),
-        CommandInput::new("fee_payer", &["Keypair"]),
-        CommandInput::new("owner", &["Pubkey"]),
-        CommandInput::new("burner", &["Pubkey", "Keypair"]),
-        CommandInput::new("number_of_uses", &["Number"]), //u64
+        CommandInput::new("token_account", &[PUBKEY]),
+        CommandInput::new("token", &[PUBKEY]),
+        CommandInput::new("use_authority_record_pda", &[PUBKEY]),
+        CommandInput::new("use_authority", &[KEYPAIR]),
+        CommandInput::new("fee_payer", &[KEYPAIR]),
+        CommandInput::new("owner", &[PUBKEY]),
+        CommandInput::new("burner", &[PUBKEY]),
+        CommandInput::new("number_of_uses", &[NUMBER]), //u64
     ];
     const OUTPUTS: &'static [CommandOutput] = &[CommandOutput::new("signature", "String")];
     fn dimensions() -> NodeDimensions {
@@ -789,13 +806,13 @@ impl Command for ApproveUseAuthorityCommand {
     const COMMAND_NAME: &'static str = "approve_use_authority";
     const WIDGET_NAME: &'static str = "ApproveUseAuthority";
     const INPUTS: &'static [CommandInput] = &[
-        CommandInput::new("user", &["Pubkey"]),
-        CommandInput::new("owner", &["Keypair"]),
-        CommandInput::new("fee_payer", &["Keypair"]),
-        CommandInput::new("token_account", &["Pubkey"]),
-        CommandInput::new("token", &["Pubkey"]),
-        CommandInput::new("burner", &["Pubkey"]),
-        CommandInput::new("number_of_uses", &["Number"]),
+        CommandInput::new("user", &[PUBKEY]),
+        CommandInput::new("owner", &[KEYPAIR]),
+        CommandInput::new("fee_payer", &[KEYPAIR]),
+        CommandInput::new("token_account", &[PUBKEY]),
+        CommandInput::new("token", &[PUBKEY]),
+        CommandInput::new("burner", &[PUBKEY]),
+        CommandInput::new("number_of_uses", &[NUMBER]),
     ];
     const OUTPUTS: &'static [CommandOutput] = &[
         CommandOutput::new("signature", "String"),
@@ -825,7 +842,7 @@ impl Command for ApproveUseAuthorityCommand {
 impl Command for GetLeftUsesCommand {
     const COMMAND_NAME: &'static str = "get_left_uses";
     const WIDGET_NAME: &'static str = "GetLeftUses";
-    const INPUTS: &'static [CommandInput] = &[CommandInput::new("token", &["Pubkey"])];
+    const INPUTS: &'static [CommandInput] = &[CommandInput::new("token", &[PUBKEY])];
     const OUTPUTS: &'static [CommandOutput] = &[CommandOutput::new("left_uses", "Number")];
     fn dimensions() -> NodeDimensions {
         NodeDimensions {
@@ -844,9 +861,11 @@ impl Command for ArweaveUploadCommand {
     const COMMAND_NAME: &'static str = "arweave_upload";
     const WIDGET_NAME: &'static str = "ArweaveUpload";
     const INPUTS: &'static [CommandInput] = &[
-        CommandInput::new("fee_payer", &["Keypair"]),
-        CommandInput::new("reward_mult", &["Number"]), //f32
-        CommandInput::new("file_path", &["String"]),
+        CommandInput::new("fee_payer", &[KEYPAIR]),
+        CommandInput::new("reward_mult", &[NUMBER]), //f32
+        CommandInput::new("file_path", &[STRING]),
+        CommandInput::new("arweave_key_path", &[STRING]),
+        CommandInput::new("pay_with_solana", &[BOOL]),
     ];
     const OUTPUTS: &'static [CommandOutput] = &[
         CommandOutput::new("fee_payer", "Keypair"),
@@ -864,7 +883,87 @@ impl Command for ArweaveUploadCommand {
                 fee_payer: None,
                 reward_mult: None,
                 file_path: None,
+                arweave_key_path: None,
+                pay_with_solana: None,
             },
         )))
     }
 }
+
+const PRINTABLE: TypeBound = TypeBound {
+    name: "Printable",
+    types: &[
+        "String",
+        "Number",
+        "Bool",
+        "Pubkey",
+        "Keypair",
+        "NftCreators",
+        "NftCollection",
+        "NftMetadata",
+        "NftUses",
+        "MetadataAccount",
+    ],
+};
+
+const PUBKEY: TypeBound = TypeBound {
+    name: "Pubkey",
+    types: &["Pubkey", "Keypair"],
+};
+
+const KEYPAIR: TypeBound = TypeBound {
+    name: "Keypair",
+    types: &["Keypair"],
+};
+
+const STRING: TypeBound = TypeBound {
+    name: "String",
+    types: &["String"],
+};
+
+const NUMBER: TypeBound = TypeBound {
+    name: "Number",
+    types: &["Number"],
+};
+
+const BOOL: TypeBound = TypeBound {
+    name: "Bool",
+    types: &["Bool"],
+};
+
+const NFT_CREATORS: TypeBound = TypeBound {
+    name: "NftCreators",
+    types: &["NftCreators"],
+};
+
+const NFT_COLLECTION: TypeBound = TypeBound {
+    name: "NftCollection",
+    types: &["NftCollection"],
+};
+
+const NTF_USES: TypeBound = TypeBound {
+    name: "NftUses",
+    types: &["NftUses"],
+};
+
+const NFT_METADATA: TypeBound = TypeBound {
+    name: "NftMetadata",
+    types: &["NftMetadata"],
+};
+
+const METADATA_ACCOUNT: TypeBound = TypeBound {
+    name: "MetadataAccount",
+    types: &["MetadataAccount"],
+};
+
+/*
+    const INTEGER: TypeBound = TypeBound {
+        name: "Printable",
+        types: &[
+            "u8",
+            "u16",
+            "u32",
+        ],
+    };
+    ...
+*/

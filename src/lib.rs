@@ -4,6 +4,14 @@
 
 // TODO: fixed edges not updated for the last node movement frame
 
+/*
+    https://stackoverflow.com/a/62415754
+
+    1: detect zoom gesture on touch screen and probably touchpads
+    2: use separate events for mouse scroll (results in zoom)
+       and touch or touchpad two-finger scroll (results in screen move)
+*/
+
 mod api;
 mod command;
 mod event;
@@ -31,9 +39,8 @@ use serde_json::json;
 use sunshine_core::msg::Action;
 use sunshine_core::msg::QueryKind;
 use sunshine_core::store::Datastore;
-use sunshine_solana::commands::solana;
-use sunshine_solana::CommandConfig;
-use sunshine_solana::{commands::simple::CommandKind as SimpleCommandKind, commands::CommandKind};
+use sunshine_solana::RunState;
+
 use uuid::Uuid;
 
 use event::{Coords, Event};
@@ -41,10 +48,10 @@ use rid::RidStore;
 use view::EdgeView;
 use view::NodeView;
 use view::NodeViewType;
+use view::RunStateView;
 use view::ViewEdgeType;
 use view::{
-    commands_view_map, generate_default_text_commands, BookmarkView, Command, LastViewChanges,
-    Ratio, Selection, View,
+    commands_view_map, BookmarkView, Command, DebugData, LastViewChanges, Ratio, Selection, View,
 };
 
 use sunshine_indra::store::generate_uuid_v1;
@@ -55,7 +62,7 @@ use crate::view::NodeChange;
 use crate::view::NodeViewType::{DummyEdgeHandle, WidgetBlock, WidgetTextInput};
 
 use api::*;
-use input::FlutterPointerEvent;
+use input::{FlutterPointerEvent, MappingKind};
 use model::{NodeId, NodeModel};
 use state::*;
 
@@ -100,15 +107,17 @@ impl RidStore<Msg> for Store {
                 #[serde(rename_all = "camelCase")]
                 struct InitializeEvent {
                     db_path: String,
+                    log_path: String,
                     canvas_width: u64,
                     canvas_height: u64,
                 }
 
                 let event: InitializeEvent = serde_json::from_str(&ev).unwrap();
-                let db_path = event.db_path;//"SUNSHINE_DB".to_owned();
+                let db_path = event.db_path; //"SUNSHINE_DB".to_owned();
                 assert!(self.state.is_none());
                 self.state = Some(State::new(
                     db_path.clone(),
+                    event.log_path,
                     event.canvas_width,
                     event.canvas_height,
                 ));
@@ -173,8 +182,10 @@ impl RidStore<Msg> for Store {
                     "Mainnet" => SolanaNet::Mainnet,
                     _ => panic!(),
                 };
-                println!("Solana Net changed to {:?}", solana_net);
                 model.change_solana_net(solana_net);
+
+                self.refresh_ui();
+
                 rid::post(Confirm::ReceivedEvent(req_id, "".to_owned()));
             }
             Msg::Import(path) => {
@@ -194,7 +205,7 @@ impl RidStore<Msg> for Store {
                 model.export(path, filename);
                 rid::post(Confirm::ReceivedEvent(req_id, "".to_owned()));
             }
-            Msg::Debug(ev) => {
+            Msg::Debug(_ev) => {
                 let model = self.state.as_ref().unwrap().model();
                 let graph_id = model.graph_id();
 
@@ -367,7 +378,7 @@ impl RidStore<Msg> for Store {
 
                 rid::post(Confirm::ApplyCommand(req_id, command_name.to_owned()));
             }
-            Msg::ApplyAutocomplete(ev) => {}
+            Msg::ApplyAutocomplete(_ev) => {}
             Msg::SendJson(ev) => {
                 let event: InputEvent = serde_json::from_str(&ev).unwrap();
                 println!("{:?}", event);
@@ -387,7 +398,7 @@ impl RidStore<Msg> for Store {
 
                 rid::post(Confirm::SendSeedPhrase(req_id, phrase.to_owned()));
             }
-            Msg::Deploy(ev) => {
+            Msg::Deploy(_ev) => {
                 let mut req_id_lock = self.state.as_ref().unwrap().model().req_id.lock().unwrap();
                 *req_id_lock = req_id;
 
@@ -411,8 +422,8 @@ impl RidStore<Msg> for Store {
             }
 
             // Refresh flow status while running
-            Msg::Refresh(ev) => {
-                println!("{}", ev);
+            Msg::Refresh(_ev) => {
+                //println!("{}", ev);
                 self.refresh_ui();
                 rid::post(Confirm::RefreshStatus(req_id));
             }
@@ -486,15 +497,20 @@ impl RidStore<Msg> for Store {
                 let state = self.state.as_mut().unwrap();
                 let bookmark_id = BookmarkId(generate_uuid_v1());
                 let nodes = state.selected_node_ids.clone();
-                state.model_mut().bookmarks.insert(
-                    bookmark_id,
-                    BookmarkModel {
-                        name,
-                        nodes_ids: nodes,
-                    },
-                );
 
-                // TODO: respond with bookmark_id
+                // save to model
+                let bookmark_model = BookmarkModel {
+                    name,
+                    nodes_ids: nodes,
+                };
+                state
+                    .model_mut()
+                    .bookmarks
+                    .insert(bookmark_id, bookmark_model.clone());
+
+                //save to db
+                state.model_mut().save_bookmark(bookmark_id, bookmark_model);
+                // state.model_mut()
                 self.refresh_ui();
 
                 rid::post(Confirm::RefreshUI(req_id, bookmark_id.0.to_string()));
@@ -505,16 +521,15 @@ impl RidStore<Msg> for Store {
 
                 let model = state.model_mut();
                 let bookmark_id = BookmarkId(bookmark_id.parse().unwrap());
-                // let bookmark_id = model.bookmarks.keys().next().unwrap().clone(); // FIXME: Remove this, use bookmark_id from above
                 let bookmark = model.bookmarks.get(&bookmark_id).unwrap();
-                dbg!(&bookmark);
+                // dbg!(&bookmark);
 
                 let mut nodes = bookmark
                     .nodes_ids
                     .iter()
                     .filter_map(|node_id| model.nodes().get(node_id));
                 let first_node = nodes.next();
-                dbg!(&first_node);
+                // dbg!(&first_node);
 
                 if let Some(node) = first_node {
                     let mut x1 = node.data().coords.x;
@@ -551,7 +566,7 @@ impl RidStore<Msg> for Store {
 
                     let tx = x - 0.5 * state.canvas.width as f64 / scale;
                     let ty = y - 0.5 * state.canvas.height as f64 / scale;
-                    dbg!(tx, ty);
+                    // dbg!(tx, ty);
                     println!("Bookmark {:10} {:10} : {:10} {:10}", x, y, w, h);
                     println!("Bookmark {:10} {:10} : {:10} {:10}", &x1, &y1, &x2, &y2);
                     println!(
@@ -652,41 +667,51 @@ impl RidStore<Msg> for Store {
             Msg::DeleteBookmark(bookmark_id) => {
                 let state = self.state.as_mut().unwrap();
                 let bookmark_id = BookmarkId(bookmark_id.parse().unwrap());
-                let _bookmark_data = state.model_mut().bookmarks.remove(&bookmark_id);
+
+                let _bookmark_data = state.model_mut().delete_bookmark(bookmark_id);
+
                 // FIXME: Check bookmark_data.is_none()
                 self.refresh_ui();
 
                 rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
             }
-
-            Msg::UpdateDimensions(node_id, value_type, width, height) => {
-                // get current node from selection
-                // dbg!(
-                //     self.selected_node_ids().collect::<Vec<_>>(),
-                //     self.active_node
-                // );
+            Msg::RemoveNode(node_id) => {
+                //println!("remove nodes {:?}", node_id);
                 let state = self.state.as_mut().unwrap();
 
-                let selected_block_id = state.active_node.unwrap();
+                state
+                    .model_mut()
+                    .remove_node(NodeId(Uuid::parse_str(&node_id).unwrap()));
+                self.refresh_ui();
+                rid::post(Confirm::RemoveNode(req_id, node_id));
+            }
+
+            // FIXME: somehow invalid node_id received
+            // and probably panicked in set_node_text, set_node_additional_data
+            Msg::UpdateDimensions(node_id, value_type, width, height) => {
+                // Command Id
                 let child_id = NodeId(Uuid::parse_str(&node_id).unwrap());
 
-                // let block_model = state
-                //     .model_mut()
-                //     .nodes()
-                //     .get(&NodeId(Uuid::from_str(&node_id).unwrap()))
-                //     .unwrap();
-                // let mut data = block_model.data_mut();
+                // Get Block Id
+                let state = self.state.as_mut().unwrap();
+                let selected_block_id = state.active_node.unwrap();
 
+                // clear text content
                 state.model_mut().set_node_text(&child_id, String::new());
                 state
                     .model_mut()
                     .update_const_in_db(child_id, &String::new());
-                //
+
+                // get sub node type: String, Json, Bool, Seed Phrase, etc.
                 let additional_data = &value_type;
+
+                //get config based on
+
                 // save to model
                 state
                     .model_mut()
                     .set_node_additional_data(&child_id, additional_data.clone());
+
                 // save to db
                 state
                     .model_mut()
@@ -705,11 +730,24 @@ impl RidStore<Msg> for Store {
                     .model_mut()
                     .set_node_dimensions(&child_id, dimensions.clone());
 
+                // format dimensions for Dart
                 let dimensions = json!(dimensions);
-                println!("{dimensions}");
+
+                // refresh ui
                 self.refresh_ui();
 
                 rid::post(Confirm::UpdatedDimensions(req_id, dimensions.to_string()));
+            }
+            Msg::SetMappingKind(kind) => {
+                let state = self.state.as_mut().unwrap();
+
+                match kind.as_str() {
+                    "mouse" => state.mapping_kind = MappingKind::Mouse,
+                    "touch" => state.mapping_kind = MappingKind::Touch,
+                    _ => panic!("invalid mapping kind"),
+                }
+
+                rid::post(Confirm::ReceivedEvent(req_id, "".to_owned()));
             }
         };
         // rid::post(Confirm::ReceivedEvent(req_id, String::new()));
@@ -742,7 +780,7 @@ impl Store {
             })
         };
 
-        if let Some((before, command, after)) = data {
+        if let Some((_before, command, _after)) = data {
             match state.apply_command(command) {
                 Ok(()) => {
                     state.ui_state = UiState::Default;
@@ -768,7 +806,7 @@ impl Store {
         }
     }
 
-    fn on_initialize(&mut self, data: InitializeRequest) -> Option<Response> {
+    fn on_initialize(&mut self, _data: InitializeRequest) -> Option<Response> {
         // let db_path = "/home/amir/SUNSHINE_DB".to_owned(); //FIXME
         // assert!(self.state.is_none());
         // self.state = Some(State::new(db_path.clone()));
@@ -778,11 +816,11 @@ impl Store {
         todo!()
     }
 
-    fn on_mouse(&mut self, data: FlutterPointerEvent) -> Option<Response> {
+    fn on_mouse(&mut self, _data: FlutterPointerEvent) -> Option<Response> {
         todo!()
     }
 
-    fn on_text_input(&mut self, data: InputRequest) -> Option<Response> {
+    fn on_text_input(&mut self, _data: InputRequest) -> Option<Response> {
         todo!()
     }
 }
@@ -819,6 +857,8 @@ pub enum Msg {
     BookmarkScreenshot(String),
     UpdateDimensions(String, String, i64, i64),
     GenerateSeedPhrase(String),
+    RemoveNode(String),
+    SetMappingKind(String), // "mouse" | "touch"
 }
 
 #[rid::reply]
@@ -835,7 +875,7 @@ pub enum Confirm {
     RequestRefresh(u64),
     RefreshStatus(u64),
     CreateNode(u64),
-    RemoveNode(u64),
+    RemoveNode(u64, String),
     UpdatedDimensions(u64, String),
     SendSeedPhrase(u64, String),
 }
@@ -849,13 +889,13 @@ impl Store {
                 // BASIC SELECTION
                 Event::Unselect => {
                     // FIXME: background doen't send events if node loses focus
-                    println!("unselect");
+                    // println!("unselect");
                     state.clear_selection();
                     self.refresh_ui();
                     rid::post(Confirm::RefreshUI(req_id, "".to_owned()))
                 }
                 Event::SelectNode(node_id) => {
-                    println!("select node {node_id:?}");
+                    // println!("select node {node_id:?}");
                     state.clear_selection();
 
                     state.add_to_selection(node_id);
@@ -864,7 +904,7 @@ impl Store {
                     rid::post(Confirm::RefreshUI(req_id, "".to_owned()))
                 }
                 Event::AddOrRemoveNodeToSelection(node_id) => {
-                    println!("add node to selection {node_id:?}");
+                    // println!("add node to selection {node_id:?}");
                     state.add_or_remove_from_selection(node_id);
 
                     self.refresh_ui();
@@ -874,19 +914,20 @@ impl Store {
                 // CRUD
                 Event::CreateNode(coords) => {
                     let node_id = state.model_mut().create_starting_node_block(coords);
-                    println!("selected node {:?}", node_id);
+                    //println!("selected node {:?}", node_id);
                     state.add_to_selection(node_id);
                     self.refresh_ui();
                     rid::post(Confirm::CreateNode(req_id))
                 }
                 Event::EditNode(_) => {}
                 Event::RemoveNodes(removable_node_ids) => {
-                    println!("remove nodes {:?}", removable_node_ids);
+                    // println!("remove nodes {:?}", removable_node_ids);
                     for node_id in removable_node_ids {
                         state.model_mut().remove_node(node_id);
+                        let node_id = node_id.0.to_string();
+                        rid::post(Confirm::RemoveNode(req_id, node_id))
                     }
                     self.refresh_ui();
-                    rid::post(Confirm::RemoveNode(req_id))
                     /*let mut all_removable_nodes = HashSet::new();
                     let mut parents: HashMap<NodeId, NodeId> = HashMap::new();
 
@@ -922,7 +963,7 @@ impl Store {
                     state.ui_state = UiState::Default; // question
                 }
                 Event::CancelSelection => {
-                    println!(":  cancelled");
+                    // println!(":  cancelled");
                     state.ui_state = UiState::Default;
                 }
 
@@ -965,16 +1006,16 @@ impl Store {
                 }
                 // MOVE
                 Event::MaybeStartNodeMove(node_id, coords) => {
-                    println!("maybe start node move {:?}", node_id);
+                    //println!("maybe start node move {:?}", node_id);
                     state.ui_state = UiState::MaybeNodeMove(node_id, coords);
                 }
                 Event::NotANodeMove => {
                     state.ui_state = UiState::Default;
                 }
                 Event::StartNodeMove(node_id, start_coords, coords) => {
-                    println!("start node move {:?}", node_id);
+                    //println!("start node move {:?}", node_id);
                     if !state.selected_node_ids.contains(&node_id) {
-                        println!("do reselect on maybe start node move");
+                        //println!("do reselect on maybe start node move");
                         state.clear_selection();
                         state.add_to_selection(node_id.clone());
                     }
@@ -1081,7 +1122,7 @@ impl Store {
                     rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
                 }
                 Event::EndEdge(port_id, output_id) => {
-                    println!("Connect Edge {:?} {:?}", port_id, output_id);
+                    // println!("Connect Edge {:?} {:?}", port_id, output_id);
                     state
                         .model_mut()
                         .add_or_remove_flow_edge(port_id, output_id);
@@ -1107,8 +1148,8 @@ impl Store {
                     self.refresh_ui();
                     rid::post(Confirm::RefreshUI(req_id));
                 }*/
-                Event::Zoom(x, y, dzoom) => {
-                    let old_zoom = state.transform.scale;
+                Event::ScrollZoom(x, y, dzoom) => {
+                    // let old_zoom = state.transform.scale;
                     let new_zoom = state.transform.scale * dzoom;
                     if new_zoom >= MIN_SCROLL_ZOOM && new_zoom <= MAX_SCROLL_ZOOM {
                         let screen_x = (x + state.transform.x) * state.transform.scale;
@@ -1126,6 +1167,12 @@ impl Store {
                         rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
                     }
                 }
+                Event::ScrollMoveScreen(dx, dy) => {
+                    state.transform.x -= dx / state.transform.scale;
+                    state.transform.y -= dy / state.transform.scale;
+                    self.refresh_ui_transform();
+                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
+                }
             }
         }
     }
@@ -1135,6 +1182,45 @@ impl Store {
 
         self.view.graph_list = state.model().graph_list.clone();
     }
+
+    /*
+        #[derive(Clone, Copy, Debug)]
+        struct RefreshFlags {
+            nodes: bool, // Vec<NodeId> // Filter
+            edges: bool,
+            smth_else: bool,
+        }
+
+        fn refresh_ui(&mut self, flags: RefreshFlags) {
+            let state = self.state.as_ref().unwrap();
+
+            let (nodes, changed_nodes_ids) = if flags.nodes {
+                ...
+
+                let changed_nodes_ids = ...
+            } else {
+                (state.view.nodes, vec![]);
+            }
+
+            // ...
+            let changes = LastViewChanges {
+                changed_nodes_ids,
+                changed_flow_edges_ids,
+                is_selected_node_ids_changed,
+                is_selection_changed,
+                is_command_changed,
+                is_text_commands_changed,
+                is_graph_list_changed,
+                is_highlighted_changed,
+                is_transform_changed,
+                is_transform_screenshot_changed,
+                is_graph_changed,
+                is_bookmark_changed,
+            };
+            self.view = new_view;
+            self.last_view_changes = changes;
+        }
+    */
 
     fn refresh_ui(&mut self) {
         //let old_view = std::mem::take(&mut self.view);
@@ -1211,31 +1297,39 @@ impl Store {
                         },
                         flow_inbound_edges: vec![],
                         flow_outbound_edges: vec![],
-                        success: match state.model().run_status.get(node_id) {
-                            Some(v) => match v.value().success {
-                                true => "success",
-                                false => "fail",
+                        run_state: match state.model().run_status.get(node_id) {
+                            Some(v) => match v.value().0 {
+                                RunState::WaitingInputs => RunStateView::WaitingInputs,
+                                RunState::Running => RunStateView::Running,
+                                RunState::Failed(_, _) => RunStateView::Failed,
+                                RunState::Success(_) => RunStateView::Success,
                             },
-                            None => "waiting",
-                        }
-                        .to_owned(),
+                            None => RunStateView::NotRunning,
+                        },
+                        elapsed_time: match state.model().run_status.get(node_id) {
+                            Some(v) => match v.value().0 {
+                                RunState::WaitingInputs => 0,
+                                RunState::Running => 0,
+                                RunState::Failed(t, _) => t,
+                                RunState::Success(t) => t,
+                            },
+                            None => 0,
+                        },
                         error: match state.model().run_status.get(node_id) {
-                            Some(v) => match v.value().error {
-                                Some(ref v) => v.clone(),
-                                None => "waiting".to_owned(),
+                            Some(v) => match &v.value().0 {
+                                RunState::WaitingInputs => String::new(),
+                                RunState::Running => String::new(),
+                                RunState::Failed(_, e) => e.clone(),
+                                RunState::Success(_) => String::new(),
                             },
                             None => String::new(),
                         },
                         print_output: match state.model().run_status.get(node_id) {
-                            Some(v) => match v.value().print_output {
+                            Some(v) => match v.value().1 {
                                 Some(ref v) => v.clone(),
                                 None => "waiting".to_owned(),
                             },
                             None => String::new(),
-                        },
-                        running: match state.model().run_status.get(node_id) {
-                            Some(v) => v.value().running,
-                            None => false,
                         },
                         additional_data: widget_node_data.additional_data.to_owned(),
                     },
@@ -1271,16 +1365,16 @@ impl Store {
                         .iter()
                         .filter(|(_, edge)| &edge.input_id == input_id)
                         .map(
-                            |(edge_id, flow_edge_model)| {
+                            |(edge_id, _flow_edge_model)| {
                                 edge_id.0.to_string()
                                 //flow_edge_model.input_id.0.to_string() // FIXME: should be the edge id, not the input id
                             }, /* edge_id.0.to_string() */
                         )
                         .collect(),
-                    success: String::new(),
+                    run_state: RunStateView::NotRunning,
                     error: String::new(),
                     print_output: String::new(),
-                    running: false,
+                    elapsed_time: 0,
                     additional_data: String::new(),
                 },
             )
@@ -1317,10 +1411,10 @@ impl Store {
                         )
                         .collect(),
                     flow_inbound_edges: vec![],
-                    success: String::new(),
+                    run_state: RunStateView::NotRunning,
                     error: String::new(),
-                    running: false,
                     print_output: String::new(),
+                    elapsed_time: 0,
                     additional_data: String::new(),
                 },
             )
@@ -1468,9 +1562,6 @@ impl Store {
                         // NodeModel::Data(_) => panic!(),
                     };
 
-                    let node_id_str = node_id.0.to_string();
-                    let node_view = node_views.get_mut(&node_id_str).unwrap();
-
                     flow_edges.insert(
                         DUMMY_EDGE_ID.to_owned(),
                         EdgeView {
@@ -1508,10 +1599,10 @@ impl Store {
                             widget_type: NodeViewType::DummyEdgeHandle,
                             flow_inbound_edges: vec![],
                             flow_outbound_edges: vec![DUMMY_EDGE_ID.to_owned()],
-                            success: String::new(),
+                            run_state: RunStateView::NotRunning,
                             error: String::new(),
-                            running: false,
                             print_output: String::new(),
+                            elapsed_time: 0,
                             additional_data: String::new(),
                         },
                     );
@@ -1571,11 +1662,11 @@ impl Store {
                                     //dbg!(&command_output);
                                     if let Some(command_output) = command_output {
                                         dbg!(
-                                            &command_input.acceptable_types,
+                                            command_input.acceptable_types(),
                                             command_output.r#type
                                         );
                                         command_input
-                                            .acceptable_types
+                                            .acceptable_types()
                                             .contains(&command_output.r#type)
                                     } else {
                                         false
@@ -1616,10 +1707,10 @@ impl Store {
                             widget_type: NodeViewType::DummyEdgeHandle,
                             flow_inbound_edges: vec![DUMMY_EDGE_ID.to_owned()],
                             flow_outbound_edges: vec![],
-                            success: String::new(),
+                            run_state: RunStateView::NotRunning,
                             error: String::new(),
-                            running: false,
                             print_output: String::new(),
+                            elapsed_time: 0,
                             additional_data: String::new(),
                         },
                     );
@@ -1696,11 +1787,11 @@ impl Store {
                                     // dbg!(&command_input);
                                     if let Some(command_input) = command_input {
                                         dbg!(
-                                            &command_input.acceptable_types,
+                                            command_input.acceptable_types(),
                                             command_output.r#type
                                         );
                                         command_input
-                                            .acceptable_types
+                                            .acceptable_types()
                                             .contains(&command_output.r#type)
                                     } else {
                                         false
@@ -1766,6 +1857,10 @@ impl Store {
             transform_screenshot,
             bookmarks,
             solana_net: state.model().solana_net,
+            ui_state_debug: DebugData {
+                ui_state: serde_json::to_string(&state.ui_state).unwrap(),
+                mapping_kind: serde_json::to_string(&state.mapping_kind).unwrap(),
+            },
         };
 
         let node_ids: HashSet<_> = old_view.nodes.keys().chain(new_view.nodes.keys()).collect();
@@ -1820,12 +1915,6 @@ impl Store {
             .map(Clone::clone)
             .collect();
 
-        // let is_graph_changed = if graph_entry == old_view.graph_entry {
-        //     vec![]
-        // } else {
-        //     vec![graph_entry]
-        // };
-
         let is_selected_node_ids_changed = old_view.selected_node_ids != new_view.selected_node_ids;
         let is_selection_changed = old_view.selection != new_view.selection;
         let is_command_changed = old_view.command != new_view.command;
@@ -1859,7 +1948,7 @@ impl Store {
         //dbg!(&self.view.flow_edges);
         //dbg!(&self.last_view_changes.changed_flow_edges_ids);
         //dbg!(&self.view.highlighted);
-        dbg!(&self.last_view_changes);
+        //dbg!(&self.last_view_changes);
         //dbg!(&state.transform);
         //dbg!(&self.view.transform);
     }

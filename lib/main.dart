@@ -20,15 +20,21 @@ void main() async {
   //rid.debugReply = (reply) => debugPrint('$reply');
 
   WidgetsFlutterBinding.ensureInitialized();
-  final appDir = await getApplicationSupportDirectory();
+
+  // MUST DO DEVICE TYPE CHECK AND UPDATE
+  // final persistentDir = await getLibraryDirectory(); // Unsupported on Android and Linux
+  final tempDir = await getTemporaryDirectory();
+  final persistentDir = await getApplicationSupportDirectory();
   initializeJsonMapper();
 
   final initEvent = {
-    "dbPath": appDir.path,
+    "dbPath": persistentDir.path,
+    "logPath": persistentDir.path,
     "canvasWidth": 1920, // Screen size
     "canvasHeight": 950,
   };
 
+  print(initEvent);
   // final screen = Screen();
   // print(screen);
   String event = JsonMapper.serialize(InputProperties(initEvent));

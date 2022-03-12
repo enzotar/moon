@@ -1,4 +1,4 @@
-use serde_json::{json, Value as JsonValue};
+use serde_json::Value as JsonValue;
 
 /// add b to a, overriding matching keys
 pub fn merge_json(a: &mut JsonValue, b: &JsonValue) {

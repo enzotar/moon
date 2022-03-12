@@ -1,15 +1,10 @@
-import 'dart:collection';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
-import 'package:moon/widgets/block.dart';
+import 'package:moon/providers/bookmark.dart';
 import 'package:moon/edge.dart';
 import 'package:moon/providers/store_provider.dart';
-import 'package:moon/widget_builder.dart';
-
-import 'graph_selection.dart';
 
 class CanvasLayout extends HookConsumerWidget {
   CanvasLayout({
@@ -119,7 +114,7 @@ class Nodes extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // print(context.debugDoingBuild);
-    print("rebuilding Nodes");
+    // print("rebuilding Nodes");
     // ref.watch(_nodes);
     // final provider = ref.watch(nodeController);
 
@@ -137,7 +132,7 @@ class Edges extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    print("rebuilding Edges");
+    // print("rebuilding Edges");
     final edges = ref.watch(edgeController);
 
     return Stack(

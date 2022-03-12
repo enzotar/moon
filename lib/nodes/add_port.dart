@@ -33,8 +33,8 @@ List<Widget> addPort(
 
     if (nodeEntry.item2.widgetType == rid.NodeViewType.WidgetInput) {
       final inputName = textCommand[0].inputs.where((input) {
-        print(input.name);
-        print(nodeEntry.item2.text);
+        // print(input.name);
+        // print(nodeEntry.item2.text);
         return input.name == nodeEntry.item2.text;
       }).toList();
       final inputType = inputName[0].acceptableKinds[0];
@@ -119,11 +119,11 @@ class InputWidget extends HookConsumerWidget {
                     //     edges.contains(nodeEntry.key) ? Colors.green : Colors.white,
                     onPressed: () {},
                     style: ElevatedButton.styleFrom(
-                      primary: edges.length != 1 || dummy.isEmpty
-                          ? Colors.white
+                      primary: edges.length == 1 || dummy.isNotEmpty
+                          ? Colors.amber
                           : highlightedPort.contains(nodeEntry.item1)
                               ? Color.fromARGB(255, 168, 216, 114)
-                              : Colors.amber,
+                              : Colors.white,
                       fixedSize: const Size(30, 30),
                       shape: const CircleBorder(
                         side: BorderSide(
@@ -214,6 +214,7 @@ class OutputPort extends HookConsumerWidget {
         return element.from == nodeEntry.item1;
       },
     ).toList();
+
     return Container(
       width: 120,
       height: 50,
@@ -232,11 +233,11 @@ class OutputPort extends HookConsumerWidget {
               //     edges.contains(nodeEntry.key) ? Colors.green : Colors.white,
               onPressed: () {},
               style: ElevatedButton.styleFrom(
-                primary: edges.length < 1 && dummy.isEmpty
-                    ? Colors.white
+                primary: edges.length > 1 || dummy.isNotEmpty
+                    ? Colors.amber
                     : highlightedPort.contains(nodeEntry.item1)
                         ? Color.fromARGB(255, 168, 216, 114)
-                        : Colors.amber,
+                        : Colors.white,
                 fixedSize: const Size(30, 30),
                 shape: const CircleBorder(
                   side: BorderSide(

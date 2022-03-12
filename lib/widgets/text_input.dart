@@ -5,6 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
 import 'package:flutter/material.dart';
 import 'package:recase/recase.dart';
+import 'package:moon/providers/popup_menu.dart';
 import 'package:moon/providers/store_provider.dart';
 import 'package:moon/serialization/input_mapping.dart';
 import 'package:moon/widgets/block.dart';
@@ -39,13 +40,13 @@ class TextInput extends SuperBlock {
     final nodes = ref.watch(nodeController);
 
     final store = ref.read(storeRepoProvider).store;
-    List<rid.TxtCommand> _userOptions = store.view.textCommands;
+    List<rid.WidgetTextCommand> _userOptions = store.view.textCommands;
 
     _userOptions.sort((a, b) {
       return a.commandName.toLowerCase().compareTo(b.commandName.toLowerCase());
     });
 
-    String _displayStringForOption(rid.TxtCommand option) {
+    String _displayStringForOption(rid.WidgetTextCommand option) {
       ReCase rc = ReCase(option.commandName);
 
       return rc.titleCase; //
@@ -70,7 +71,7 @@ class TextInput extends SuperBlock {
             children: [
               // Text(treeNode.node.key), // to debug node id
               Padding(
-                padding: const EdgeInsets.all(8.0),
+                padding: const EdgeInsets.fromLTRB(8, 8, 30, 8),
                 child: Autocomplete(
                   displayStringForOption: _displayStringForOption,
                   fieldViewBuilder: (BuildContext context,
@@ -134,24 +135,24 @@ class TextInput extends SuperBlock {
                   },
                   optionsBuilder: ((textEditingValue) {
                     if (textEditingValue.text == '') {
-                      return const Iterable<rid.TxtCommand>.empty();
+                      return const Iterable<rid.WidgetTextCommand>.empty();
                     }
                     if (textEditingValue.text.startsWith('/')) {
                       // remove slash and pass to options
                       final newTextEditingValue = textEditingValue.replaced(
                           TextRange(start: 0, end: 1), "");
-                      return _userOptions.where((rid.TxtCommand option) {
+                      return _userOptions.where((rid.WidgetTextCommand option) {
                         return option
                             .toString()
                             .contains(newTextEditingValue.text.toLowerCase());
                       });
                     } else {
-                      return const Iterable<rid.TxtCommand>.empty();
+                      return const Iterable<rid.WidgetTextCommand>.empty();
                     }
                   }),
                   optionsViewBuilder: (BuildContext context,
-                      AutocompleteOnSelected<rid.TxtCommand> onSelected,
-                      Iterable<rid.TxtCommand> options) {
+                      AutocompleteOnSelected<rid.WidgetTextCommand> onSelected,
+                      Iterable<rid.WidgetTextCommand> options) {
                     return Align(
                       alignment: Alignment.topLeft,
                       child: Material(
@@ -165,7 +166,7 @@ class TextInput extends SuperBlock {
                             shrinkWrap: true,
                             itemCount: options.length,
                             itemBuilder: (BuildContext context, int index) {
-                              final rid.TxtCommand option =
+                              final rid.WidgetTextCommand option =
                                   options.elementAt(index);
                               return InkWell(
                                 onTap: () {
@@ -206,7 +207,13 @@ class TextInput extends SuperBlock {
                     );
                   },
                 ),
-              )
+              ),
+              Positioned(
+                right: 0,
+                child: ref.read(
+                  popUpMenuProvider(parentId),
+                ),
+              ),
             ],
           ),
         ),

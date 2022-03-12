@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::command::*;
 use crate::model::{GraphEntry, SolanaNet};
@@ -11,10 +11,11 @@ use crate::model::{GraphEntry, SolanaNet};
     Camera,
     Selection,
     Command,
-    TxtCommand,
+    WidgetTextCommand,
     EdgeView,
     GraphEntry,
     BookmarkView,
+    DebugData
 )]
 #[rid::enums(SolanaNet)]
 pub struct View {
@@ -24,13 +25,21 @@ pub struct View {
     pub selected_node_ids: Vec<String>,
     pub selection: Selection, // TODO Implement
     pub command: Command,     // not used
-    pub text_commands: Vec<TxtCommand>,
+    pub text_commands: Vec<WidgetTextCommand>,
     pub graph_list: Vec<GraphEntry>,
     pub highlighted: Vec<String>,
     pub transform: Camera,
     pub transform_screenshot: Camera,
     pub bookmarks: HashMap<String, BookmarkView>,
     pub solana_net: SolanaNet,
+    pub ui_state_debug: DebugData,
+}
+
+#[derive(Clone, Debug, Default, Eq, Hash, PartialEq)]
+#[rid::model]
+pub struct DebugData {
+    pub ui_state: String,
+    pub mapping_kind: String,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
@@ -73,7 +82,7 @@ impl From<f64> for Ratio {
     }
 }
 
-#[derive(rid::Config, Clone, Copy, Debug, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq)]
 #[rid::model]
 #[rid::structs(Ratio)]
 pub struct Camera {
@@ -93,14 +102,14 @@ impl Default for Camera {
 }
 
 #[rid::model]
-#[derive(rid::Config, Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 #[rid::enums(NodeChangeKind)]
 pub struct NodeChange {
     pub kind: NodeChangeKind,
 }
 
 #[rid::model]
-#[derive(rid::Config, Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum NodeChangeKind {
     Added,
     Removed,
@@ -232,10 +241,10 @@ fn commands_equal_view_commands() {
         .all(|(command, view_command)| { command.command_name() == view_command.command_name() }));
 }
 
-pub fn generate_default_text_commands() -> Vec<TxtCommand> {
+pub fn generate_default_text_commands() -> Vec<WidgetTextCommand> {
     COMMANDS
         .iter()
-        .map(|command| TxtCommand {
+        .map(|command| WidgetTextCommand {
             command_name: command.command_name().to_owned(),
             widget_name: command.widget_name().to_owned(),
             inputs: command
@@ -244,7 +253,7 @@ pub fn generate_default_text_commands() -> Vec<TxtCommand> {
                 .map(|input| TextCommandInput {
                     name: input.name.to_owned(),
                     acceptable_kinds: input
-                        .acceptable_types
+                        .acceptable_types()
                         .iter()
                         .map(|&value| value.to_owned())
                         .collect(),
@@ -278,11 +287,12 @@ impl Default for View {
             transform_screenshot: Camera::default(),
             bookmarks: HashMap::default(),
             solana_net: SolanaNet::Devnet,
+            ui_state_debug: DebugData::default(),
         }
     }
 }
 
-#[derive(rid::Config, Debug, Default, Clone, Eq, PartialEq)]
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
 #[rid::model]
 pub struct Selection {
     pub is_active: bool,
@@ -293,24 +303,24 @@ pub struct Selection {
 }
 
 // not used
-#[derive(rid::Config, Debug, Default, Clone, Eq, PartialEq)]
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
 #[rid::model]
 pub struct Command {
     pub is_active: bool,
     pub command: String,
 }
 
-#[derive(rid::Config, Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 #[rid::model]
 #[rid::structs(TextCommandInput, TextCommandOutput)]
-pub struct TxtCommand {
+pub struct WidgetTextCommand {
     pub command_name: String,
     pub widget_name: String,
     pub inputs: Vec<TextCommandInput>,
     pub outputs: Vec<TextCommandOutput>,
 }
 
-#[derive(rid::Config, Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 #[rid::model]
 pub struct TextCommandInput {
     pub name: String,
@@ -324,10 +334,10 @@ pub struct TextCommandOutput {
     pub kind: String,
 }
 
-#[derive(rid::Config, Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 #[rid::model]
 #[rid::structs(EdgeView)]
-#[rid::enums(NodeViewType)]
+#[rid::enums(NodeViewType, RunStateView)]
 pub struct NodeView {
     pub index: i64, // only for input output nodes
     pub parent_id: String,
@@ -342,15 +352,25 @@ pub struct NodeView {
     pub widget_type: NodeViewType,                 // FIXME, pub NodeType
     pub flow_inbound_edges: Vec<String>,
     pub flow_outbound_edges: Vec<String>,
-    pub success: String,
+    pub run_state: RunStateView,
+    pub elapsed_time: u64,
     pub error: String,
     pub print_output: String,
-    pub running: bool,
     pub additional_data: String,
 }
 
 #[rid::model]
-#[derive(rid::Config, Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum RunStateView {
+    WaitingInputs,
+    Running,
+    Failed,
+    Success,
+    NotRunning,
+}
+
+#[rid::model]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum NodeViewType {
     Data,
     WidgetBlock,
@@ -384,7 +404,7 @@ pub enum NodeViewType {
     ArweaveUpload,
 }
 
-#[derive(rid::Config, Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 #[rid::model]
 #[rid::enums(ViewEdgeType)]
 pub struct EdgeView {
@@ -397,7 +417,7 @@ pub struct EdgeView {
     pub to_coords_y: i64,
 }
 
-#[derive(rid::Config, Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 #[rid::model]
 pub enum ViewEdgeType {
     Child,
@@ -405,7 +425,7 @@ pub enum ViewEdgeType {
     Flow,
 }
 
-#[derive(rid::Config, Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 #[rid::model]
 pub struct BookmarkView {
     pub name: String,

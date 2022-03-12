@@ -6,6 +6,8 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:recase/recase.dart';
+import 'package:moon/bookmark_manager.dart';
+import 'package:moon/commands/const_subblocks/file_picker.dart';
 import 'package:moon/logger.dart';
 import 'package:moon/providers/store_provider.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
@@ -65,7 +67,7 @@ class LayoutScreen extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext buildContext, WidgetRef ref) {
-    print("rebuilding layout");
+    // print("rebuilding layout");
     var _last = useState("");
     final provider = ref.watch(changesController);
     // final viewport = ref.watch(viewportController);
@@ -103,7 +105,7 @@ class LayoutScreen extends HookConsumerWidget {
       },
     ).toList();
 
-    final mainnetSelection = useState("Testnet");
+    final mainnetSelection = useState(store.view.solanaNet.name.toString());
 
     ///
     final hideDrawer = useState(true);
@@ -134,7 +136,7 @@ class LayoutScreen extends HookConsumerWidget {
                         style: TextStyle(color: Colors.white)),
                     Draggable(
                       onDragEnd: (details) {
-                        print(details.offset);
+                        // print(details.offset);
                       },
                       child: Image.asset(
                         "assets/const.png",
@@ -167,8 +169,86 @@ class LayoutScreen extends HookConsumerWidget {
 
     return Scaffold(
       key: _scaffoldKey,
-      // drawer: Drawer(),
+      drawer: Drawer(
+        backgroundColor: Colors.blueGrey[900],
+        child: ListView(
+          children: [
+            TextButton.icon(
+              icon: Icon(Icons.mouse),
+              label: Text("Set Input For Mouse"),
+              onPressed: () {
+                ref.read(storeRepoProvider).store.msgSetMappingKind("mouse");
+              },
+            ),
+            TextButton.icon(
+              icon: Icon(Icons.laptop),
+              label: Text("Set Input For Trackpad"),
+              onPressed: () {
+                ref.read(storeRepoProvider).store.msgSetMappingKind("touch");
+              },
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Divider(color: Colors.white),
+            ),
+            TextButton.icon(
+              icon: Icon(Icons.save),
+              label: Text("export"),
+              onPressed: () async {
+                final timestamp =
+                    DateTime.now().millisecondsSinceEpoch.toString();
+                final filename = ref.read(storeRepoProvider).graph_entry.name +
+                    " - " +
+                    timestamp; // TODO fix datetime format
+                print(filename);
+                String? path = await FilePicker.platform.saveFile(
+                    fileName: filename,
+                    type: FileType.custom,
+                    allowedExtensions: ["json"]);
+
+                if (path != null) {
+                  print(path);
+                  store.msgExport(path, filename);
+                }
+              },
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Divider(color: Colors.white),
+            ),
+            TextButton.icon(
+              icon: Icon(Icons.folder_open_rounded),
+              label: Text("import"),
+              onPressed: () {
+                filePicker(FileType.custom, jsonOnlyExtension,
+                    PickerFollowAction.Import, ref);
+              },
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Divider(color: Colors.white),
+            ),
+            TextButton(
+              child: Text("debug"),
+              onPressed: () {
+                store.msgDebug("debug");
+              },
+            ),
+          ],
+        ),
+      ),
       appBar: AppBar(
+        leading: Builder(
+          builder: (BuildContext context) {
+            return IconButton(
+              icon: const Icon(Icons.menu, color: Colors.white),
+              onPressed: () {
+                Scaffold.of(context).openDrawer();
+              },
+              tooltip: MaterialLocalizations.of(context).showMenuTooltip,
+            );
+          },
+        ),
         backgroundColor: Colors.black87,
         title: Container(
           child: Row(
@@ -189,13 +269,7 @@ class LayoutScreen extends HookConsumerWidget {
           ),
         ),
         actions: [
-          TextButton.icon(
-              icon: Icon(Icons.next_plan_outlined),
-              onPressed: () {
-                // store.msgGotoBookmark("go_to_bookmark");
-                // store.msgUnDeploy("undeploy");
-              },
-              label: Text("Next Bookmark")),
+          DebugWidget(),
           TextButton.icon(
               icon: Icon(Icons.bookmark_add_outlined),
               onPressed: () {
@@ -204,10 +278,8 @@ class LayoutScreen extends HookConsumerWidget {
                 store.msgCreateBookmark("add_bookmark").then(
                       (value) => store.msgBookmarkScreenshot(value.data!),
                     );
-
-                //
               },
-              label: Text("Add Bookmark")),
+              label: Text("Bookmark Nodes")),
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: VerticalDivider(color: Colors.white),
@@ -228,7 +300,7 @@ class LayoutScreen extends HookConsumerWidget {
           TextButton.icon(
               icon: Icon(Icons.play_arrow_rounded),
               onPressed: () {
-                store.msgDeploy("deploy", timeout: Duration(minutes: 1));
+                store.msgDeploy("deploy", timeout: Duration(minutes: 120));
               },
               label: Text("Deploy")),
           TextButton.icon(
@@ -241,63 +313,9 @@ class LayoutScreen extends HookConsumerWidget {
             padding: const EdgeInsets.all(8.0),
             child: VerticalDivider(color: Colors.white),
           ),
-          TextButton(
-            child: Text("debug"),
-            onPressed: () {
-              store.msgDebug("debug");
-            },
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: VerticalDivider(color: Colors.white),
-          ),
           TextButton.icon(
-            icon: Icon(Icons.save),
-            label: Text("export"),
-            onPressed: () async {
-              final timestamp =
-                  DateTime.now().millisecondsSinceEpoch.toString();
-              final filename = ref.read(storeRepoProvider).graph_entry.name +
-                  " - " +
-                  timestamp; // TODO fix datetime format
-              print(filename);
-              String? path = await FilePicker.platform.saveFile(
-                  fileName: filename,
-                  type: FileType.custom,
-                  allowedExtensions: ["json"]);
-
-              if (path != null) {
-                print(path);
-                store.msgExport(path, filename);
-              }
-            },
-          ),
-          TextButton.icon(
-            icon: Icon(Icons.folder_open_rounded),
-            label: Text("import"),
-            onPressed: () async {
-              FilePickerResult? result = await FilePicker.platform.pickFiles(
-                  type: FileType.custom, allowedExtensions: ["json"]);
-
-              if (result != null) {
-                PlatformFile file = PlatformFile(
-                    path: result.files.single.path,
-                    name: result.files.single.name,
-                    size: result.files.single.size);
-
-                print(file);
-                store.msgImport(file.path!, timeout: Duration(hours: 8));
-              } else {
-                // User canceled the picker
-              }
-            },
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: VerticalDivider(color: Colors.white),
-          ),
-          TextButton(
-            child: Text("fit to screen"),
+            icon: Icon(Icons.fit_screen),
+            label: Text("fit to screen"),
             onPressed: () {
               ref
                   .read(storeRepoProvider)
@@ -306,8 +324,9 @@ class LayoutScreen extends HookConsumerWidget {
               // _transformationController.value = Matrix4.identity();
             },
           ),
-          TextButton(
-            child: Text("reset zoom"),
+          TextButton.icon(
+            icon: Icon(Icons.restart_alt_rounded),
+            label: Text("reset zoom"),
             onPressed: () {
               ref.read(storeRepoProvider).store.msgResetZoom("reset zoom");
               // _transformationController.value = Matrix4.identity();
@@ -323,7 +342,10 @@ class LayoutScreen extends HookConsumerWidget {
               "height": constraints.maxHeight.toInt(),
             };
             String event = JsonMapper.serialize(InputProperties(resizeEvent));
-            ref.read(storeRepoProvider).store.msgResizeCanvas(event);
+            ref
+                .read(storeRepoProvider)
+                .store
+                .msgResizeCanvas(event, timeout: Duration(seconds: 20));
             return Container(
               // height: MediaQuery.of(context).size.height + height,
               // width: MediaQuery.of(context).size.width + width,
@@ -339,7 +361,7 @@ class LayoutScreen extends HookConsumerWidget {
 
         Row(
           children: [
-            if (!hideDrawer.value) const BookmarkList(),
+            if (!hideDrawer.value) const BookmarkManager(),
             // Container(
             //   decoration: BoxDecoration(color: Colors.blueGrey[800]),
             //   child: ListView.separated(
@@ -383,56 +405,20 @@ class LayoutScreen extends HookConsumerWidget {
   }
 }
 
-class BookmarkList extends HookConsumerWidget {
-  const BookmarkList({Key? key}) : super(key: key);
+class DebugWidget extends HookConsumerWidget {
+  const DebugWidget({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bookmarks = ref.watch(bookmarkController);
-    final store = ref.read(storeRepoProvider).store;
-    print(bookmarks);
-    return Container(
-      width: 300,
-      decoration: BoxDecoration(color: Colors.blueGrey[800]),
-      child: ListView.separated(
-        separatorBuilder: ((context, index) => const Divider()),
-        itemBuilder: ((context, index) {
-          final bookmark = bookmarks.entries.elementAt(index);
+    final provider = ref.watch(debugController);
 
-          return GestureDetector(
-              onTap: () {
-                store.msgGotoBookmark(bookmark.key);
-              },
-              child: Container(
-                decoration: BoxDecoration(color: Colors.black12),
-                child: Dismissible(
-                  background: Container(
-                    alignment: Alignment.centerRight,
-                    color: Colors.red,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(0, 0, 10, 0),
-                      child: Icon(Icons.cancel),
-                    ),
-                  ),
-                  direction: DismissDirection.endToStart,
-                  onDismissed: (direction) {
-                    store.msgDeleteBookmark(bookmark.key);
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content:
-                          Text('Deleted bookmark', textAlign: TextAlign.center),
-                    ));
-                  },
-                  key: UniqueKey(),
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(bookmark.value.nodes.toString()),
-                  ),
-                ),
-              ));
-        }),
-        itemCount: bookmarks.length,
-        // children: commandList,
-      ),
+    return Container(
+      child: Column(children: [
+        Text(ref.read(storeRepoProvider).debugData.mappingKind,
+            style: TextStyle(color: Colors.white)),
+        Text(ref.read(storeRepoProvider).debugData.uiState,
+            style: TextStyle(color: Colors.white)),
+      ]),
     );
   }
 }

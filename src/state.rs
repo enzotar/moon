@@ -1,35 +1,16 @@
 use std::collections::HashSet;
-use std::sync::Arc;
 
-use futures::executor::block_on;
-use sunshine_solana::commands::solana::add_pubkey;
-use sunshine_solana::commands::solana::create_account;
-use sunshine_solana::CommandConfig;
+use serde::Serialize;
 
 use crate::command::commands_map;
 use crate::event::Coords;
 use crate::event::Event;
-use crate::input::{CapturedLifetime, Context, Input};
-use crate::model::GraphId;
-use crate::model::NodeEdgeModel;
+use crate::input::{CapturedLifetime, Context, Input, MappingKind};
+
 use crate::model::NodeModel;
+use crate::model::PortId;
 use crate::model::WidgetKind;
 use crate::model::{Model, NodeId};
-use crate::model::{NodeEdgeId, PortId};
-use crate::utils::Rect;
-
-use sunshine_solana::commands::solana;
-use sunshine_solana::commands::solana::create_token;
-use sunshine_solana::commands::solana::generate_keypair;
-use sunshine_solana::commands::solana::generate_keypair::Arg;
-use sunshine_solana::commands::solana::mint_token;
-use sunshine_solana::commands::solana::request_airdrop;
-use sunshine_solana::commands::solana::transfer;
-use sunshine_solana::ContextConfig;
-use sunshine_solana::{
-    commands::simple::Command as SimpleCommand, commands::simple::CommandKind as SimpleCommandKind,
-    commands::CommandKind,
-};
 
 #[derive(Debug)]
 pub struct State {
@@ -41,6 +22,7 @@ pub struct State {
     pub transform: Transform,
     pub transform_screenshot: Transform,
     pub canvas: Canvas,
+    pub mapping_kind: MappingKind,
     // pub req_id: u64,
 }
 
@@ -68,12 +50,12 @@ impl Default for Transform {
 }
 
 impl State {
-    pub fn new(db_path: String, canvas_width: u64, canvas_height: u64) -> Self {
-        let mut model = Model::new(db_path);
+    pub fn new(db_path: String, log_path: String, canvas_width: u64, canvas_height: u64) -> Self {
+        let model = Model::new(db_path, log_path);
 
         Self {
             model,
-            input: Input::new(),
+            input: Input::default(),
             ui_state: UiState::Default,
             selected_node_ids: HashSet::new(),
             active_node: None,
@@ -83,6 +65,7 @@ impl State {
                 width: canvas_width,
                 height: canvas_height,
             },
+            mapping_kind: MappingKind::Mouse,
         }
     }
 
@@ -125,14 +108,14 @@ impl State {
     pub fn clear_selection(&mut self) {
         self.selected_node_ids.clear();
         self.active_node = None;
-        dbg!(&self.selected_node_ids, self.active_node);
+        //dbg!(&self.selected_node_ids, self.active_node);
         // self.update_selection();
     }
 
     pub fn add_to_selection(&mut self, node_id: NodeId) {
         self.selected_node_ids.insert(node_id);
         self.active_node = Some(node_id);
-        dbg!(&self.selected_node_ids, self.active_node);
+        //dbg!(&self.selected_node_ids, self.active_node);
     }
 
     pub fn add_or_remove_from_selection(&mut self, node_id: NodeId) {
@@ -164,6 +147,7 @@ impl State {
                 transform: self.transform,
                 ui_state: &self.ui_state,
                 selected_node_ids: &self.selected_node_ids,
+                mapping_kind: self.mapping_kind,
             },
         )
     }
@@ -179,6 +163,7 @@ impl State {
                 transform: self.transform,
                 ui_state: &self.ui_state,
                 selected_node_ids: &self.selected_node_ids,
+                mapping_kind: self.mapping_kind,
             },
         )
     }
@@ -231,7 +216,7 @@ impl State {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub enum UiState {
     Default,
     MaybeSelection(Coords),

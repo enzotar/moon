@@ -17,7 +17,7 @@ class DummyEdgeHandle extends HookConsumerWidget {
   // InputsOutputs? _inputsOutputs = InputsOutputs.owner;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    print("rebuilding dummy edge handle");
+    // print("rebuilding dummy edge handle");
     final provider = ref.watch(widgetTreeController);
     // final nodeFrom = provider.entries.firstWhere((element) {
     //   return element.key == this.node.key;

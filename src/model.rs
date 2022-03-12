@@ -17,13 +17,15 @@ use std::sync::Mutex;
 use sunshine_indra::store::generate_uuid_v1;
 use sunshine_indra::store::DbConfig;
 use sunshine_indra::store::DB;
-use sunshine_solana::commands::simple;
+use sunshine_solana::RunState;
+
 use sunshine_solana::commands::solana;
+use sunshine_solana::commands::solana::SolanaNet as BackendSolanaNet;
 use sunshine_solana::COMMAND_NAME_MARKER;
 use sunshine_solana::{
-    commands::simple::Command as SimpleCommand, commands::simple::CommandKind as SimpleCommandKind,
-    commands::CommandKind, CommandConfig, ContextConfig, COMMAND_MARKER, CTX_EDGE_MARKER,
-    CTX_MARKER, INPUT_ARG_NAME_MARKER, OUTPUT_ARG_NAME_MARKER, START_NODE_MARKER,
+    commands::simple::Command as SimpleCommand, commands::CommandKind, CommandConfig,
+    ContextConfig, COMMAND_MARKER, CTX_EDGE_MARKER, CTX_MARKER, INPUT_ARG_NAME_MARKER,
+    OUTPUT_ARG_NAME_MARKER, START_NODE_MARKER,
 };
 use uuid::Uuid;
 
@@ -48,6 +50,8 @@ pub const FLOW_GRAPH_MARKER: &str = "FLOW_GRAPH_MARKER";
 pub const TEXT_MARKER: &str = "TEXT_MARKER";
 pub const ADDITIONAL_DATA_MARKER: &str = "ADDITIONAL_DATA_MARKER";
 pub const REQ_ID: &str = "REQ_ID";
+pub const BOOKMARKS: &str = "BOOKMARKS";
+pub const BOOKMARK_NAME: &str = "BOOKMARK_NAME";
 
 pub const INPUT_OFFSET: i64 = 50;
 
@@ -101,17 +105,9 @@ pub struct Model {
     outputs: HashMap<OutputId, OutputModel>,
     pub bookmarks: HashMap<BookmarkId, BookmarkModel>,
     flow_context: FlowContext,
-    pub run_status: Arc<DashMap<NodeId, RunStatusEntry>>,
+    pub run_status: Arc<DashMap<NodeId, (RunState, Option<String>)>>,
     pub req_id: Arc<Mutex<u64>>,
     pub solana_net: SolanaNet,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct RunStatusEntry {
-    pub success: bool,
-    pub error: Option<String>,
-    pub print_output: Option<String>,
-    pub running: bool,
 }
 
 impl fmt::Debug for Db {
@@ -284,6 +280,26 @@ pub enum SolanaNet {
     Mainnet,
 }
 
+impl From<SolanaNet> for BackendSolanaNet {
+    fn from(solana_net: SolanaNet) -> BackendSolanaNet {
+        match solana_net {
+            SolanaNet::Devnet => BackendSolanaNet::Devnet,
+            SolanaNet::Testnet => BackendSolanaNet::Testnet,
+            SolanaNet::Mainnet => BackendSolanaNet::Mainnet,
+        }
+    }
+}
+
+impl From<BackendSolanaNet> for SolanaNet {
+    fn from(solana_net: BackendSolanaNet) -> SolanaNet {
+        match solana_net {
+            BackendSolanaNet::Devnet => SolanaNet::Devnet,
+            BackendSolanaNet::Testnet => SolanaNet::Testnet,
+            BackendSolanaNet::Mainnet => SolanaNet::Mainnet,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WidgetKind {
@@ -301,7 +317,7 @@ pub enum BasicWidgetKind {
 }
 
 impl Model {
-    pub fn new(db_path: String) -> Self {
+    pub fn new(db_path: String, log_path: String) -> Self {
         // database configuration
         let cfg = DbConfig { db_path };
 
@@ -366,7 +382,7 @@ impl Model {
 
         let context_node_id = NodeId(generate_uuid_v1());
 
-        let run_status: Arc<DashMap<NodeId, RunStatusEntry>> = Arc::new(DashMap::new());
+        let run_status = Arc::new(DashMap::new());
         let req_id = Arc::new(Mutex::new(u64::default()));
 
         let graph_id = Arc::new(Mutex::new(GraphId(graph_id)));
@@ -392,6 +408,7 @@ impl Model {
                 run_status.clone(),
                 req_id.clone(),
                 graph_id.clone(),
+                log_path,
             ),
             run_status,
             req_id,
@@ -492,12 +509,6 @@ impl Model {
     }
 
     pub fn change_solana_net(&mut self, solana_net: SolanaNet) {
-        let url = match solana_net {
-            SolanaNet::Devnet => "https://api.devnet.solana.com",
-            SolanaNet::Testnet => "https://api.testnet.solana.com",
-            SolanaNet::Mainnet => "https://api.mainnet-beta.solana.com",
-        };
-
         let mut ctx_node = block_on(
             self.db
                 .0
@@ -510,7 +521,7 @@ impl Model {
         let mut ctx_cfg: solana::Config =
             serde_json::from_value(ctx_node.properties.remove(CTX_MARKER).unwrap()).unwrap();
 
-        ctx_cfg.solana_url = url.to_owned();
+        ctx_cfg.solana_net = solana_net.into();
 
         ctx_node.properties.insert(
             CTX_MARKER.to_owned(),
@@ -524,6 +535,7 @@ impl Model {
         .unwrap();
 
         self.solana_net = solana_net;
+        println!("Solana Net changed to {:?}", self.solana_net);
     }
 
     pub fn export(&self, path: String, filename: String) {
@@ -647,6 +659,12 @@ impl Model {
         phrase
     }
 
+    // pub fn validate_seed(phrase: String) -> String {
+    //     use bip39::{Language, Mnemonic, MnemonicType};
+
+    //     let validate = Mnemonic::validate(&phrase, Language::English);
+    // }
+
     pub fn new_graph(&mut self) {
         self.run_status.clear();
 
@@ -702,6 +720,26 @@ impl Model {
             *graph_id_ref = graph_id
         }
 
+        self.bookmarks = HashMap::new();
+        for node in graph.nodes.iter() {
+            if let Some(bookmark_name) = node.properties.get(BOOKMARK_NAME) {
+                let bookmark_name = serde_json::from_value(bookmark_name.clone()).unwrap();
+
+                let bookmarked_node_ids = node.properties.get(BOOKMARKS).unwrap();
+                let bookmarked_node_ids =
+                    serde_json::from_value(bookmarked_node_ids.clone()).unwrap();
+
+                self.bookmarks.insert(
+                    BookmarkId(node.node_id),
+                    BookmarkModel {
+                        name: bookmark_name,
+                        nodes_ids: bookmarked_node_ids,
+                    },
+                );
+            }
+        }
+        // dbg!(self.bookmarks.clone());
+
         self.nodes = HashMap::new();
 
         let get_widget_kind = |properties: &Properties| {
@@ -732,12 +770,7 @@ impl Model {
                 Some(WidgetKind::Context(ctx)) => {
                     self.context_node_id = NodeId(node.node_id);
 
-                    self.solana_net = match ctx.solana_url.as_str() {
-                        "https://api.devnet.solana.com" => SolanaNet::Devnet,
-                        "https://api.testnet.solana.com" => SolanaNet::Testnet,
-                        "https://api.mainnet-beta.solana.com" => SolanaNet::Mainnet,
-                        _ => unreachable!(),
-                    };
+                    self.solana_net = ctx.solana_net.into();
 
                     continue;
                 }
@@ -857,7 +890,7 @@ impl Model {
 
             //get parent coords
             let coords = Coords { x: 0.0, y: 0.0 };
-            dbg!(&node);
+            // dbg!(&node);
             let (_, edge) = self
                 .node_edges
                 .iter()
@@ -944,6 +977,60 @@ impl Model {
         }
     }
 
+    pub fn save_bookmark(&mut self, bookmark_id: BookmarkId, bookmark_model: BookmarkModel) {
+        let mut props = Properties::new();
+        props.insert(BOOKMARK_NAME.into(), JsonValue::String(bookmark_model.name));
+
+        props.insert(
+            BOOKMARKS.into(),
+            serde_json::to_value(bookmark_model.nodes_ids).unwrap(),
+        );
+        println!("{:?}", props.clone());
+
+        block_on(self.db.0.execute(Action::Mutate(
+            self.graph_id().0,
+            MutateKind::CreateNodeWithId((bookmark_id.0, props)),
+        )))
+        .unwrap();
+    }
+
+    pub fn update_bookmark_node_ids_in_db(
+        &mut self,
+        bookmark_id: BookmarkId,
+        bookmark_model: BookmarkModel,
+    ) {
+        let mut props = block_on(
+            self.db
+                .0
+                .execute(Action::Query(QueryKind::ReadNode(bookmark_id.0))),
+        )
+        .unwrap()
+        .into_node()
+        .unwrap()
+        .properties;
+
+        props.insert(
+            BOOKMARKS.into(),
+            serde_json::to_value(bookmark_model.nodes_ids).unwrap(),
+        );
+
+        block_on(self.db.0.execute(Action::Mutate(
+            self.graph_id().0,
+            MutateKind::UpdateNode((bookmark_id.0, props)),
+        )))
+        .unwrap();
+    }
+
+    pub fn delete_bookmark(&mut self, bookmark_id: BookmarkId) {
+        self.bookmarks.remove(&bookmark_id);
+
+        block_on(self.db.0.execute(Action::Mutate(
+            self.graph_id().0,
+            MutateKind::DeleteNode(bookmark_id.0),
+        )))
+        .unwrap();
+    }
+
     // has both the node id of the block and of the command
     pub fn generate_ports(
         node_id: NodeId,
@@ -961,7 +1048,7 @@ impl Model {
 
         let commands_map = commands_map();
         let command = commands_map.get(command_name).unwrap();
-        let mut inputs: Vec<_> = command.inputs().iter().map(|input| input.name).collect();
+        let inputs: Vec<_> = command.inputs().iter().map(|input| input.name).collect();
         let outputs: Vec<_> = command.outputs().iter().map(|output| output.name).collect();
 
         let mut y = Y_INPUT_OFFSET - INPUT_OFFSET;
@@ -1007,19 +1094,24 @@ impl Model {
     }
 
     pub fn set_node_text(&mut self, node_id: &NodeId, text: String) {
-        let node = self.nodes.get_mut(node_id).unwrap().data_mut();
+        // FIXME: should panic if invalid node_id used
+        // if let Some(node) =
+        self.nodes.get_mut(node_id).unwrap().data_mut().text = text;
         // let node = match node {
         //     NodeModel::Widget(node) => node,
         // };
-        node.text = text;
 
         // update db
+        // }
     }
 
     pub fn set_node_additional_data(&mut self, node_id: &NodeId, additional_data: String) {
-        let node = self.nodes.get_mut(node_id).unwrap().data_mut();
-
-        node.additional_data = additional_data;
+        // FIXME: should panic if invalid node_id used
+        self.nodes
+            .get_mut(node_id)
+            .unwrap()
+            .data_mut()
+            .additional_data = additional_data;
 
         // update db
     }
@@ -1070,7 +1162,7 @@ impl Model {
         // dbg!(text.clone());
         let cfg: SimpleCommand = match serde_json::from_str(text) {
             Ok(cfg) => cfg,
-            e => {
+            Err(e) => {
                 eprintln!("error while saving const: {:#?}", e);
                 return;
             }
@@ -1096,8 +1188,6 @@ impl Model {
         props
             .insert(TEXT_MARKER.into(), JsonValue::String(text.to_string()))
             .unwrap();
-
-        dbg!(props.clone());
 
         block_on(self.db.0.execute(Action::Mutate(
             self.graph_id().0,
@@ -1271,19 +1361,61 @@ impl Model {
         node_id
     }
 
+    pub fn delete_graph(&mut self, graph_id: GraphId) {}
+
     /// Remove node from model and db
     pub fn remove_node(&mut self, node_id: NodeId) {
         // Block > node_edge > Widget >
         // if command, remove Flow edges
         // Graph > node_edge > Block
+        // bookmarks
 
-        // node
+        // bookmarks
+        let mut bookmarks_to_update = HashMap::new();
+        let mut bookmarks_to_remove = Vec::new();
+
+        // remove from bookmarks in model
+        let is_in_bookmark = self
+            .bookmarks
+            .borrow_mut()
+            .into_iter()
+            .filter(|(_, bookmark_model)| bookmark_model.nodes_ids.contains(&node_id));
+
+        // update in model
+        for (bookmark_id, bookmark_model) in is_in_bookmark {
+            match bookmark_model.nodes_ids.len() {
+                0 => panic!(),
+                // self is the only node, remove whole bookmark
+                1 => {
+                    bookmarks_to_remove.push(bookmark_id.clone());
+                }
+                // other nodes are bookmarked, only remove self
+                _ => {
+                    bookmark_model.nodes_ids.remove(&node_id);
+                    bookmarks_to_update.insert(bookmark_id.clone(), bookmark_model.clone());
+                }
+            }
+        }
+
+        // update in database
+        bookmarks_to_update
+            .into_iter()
+            .for_each(|(bookmark_id, bookmark_model)| {
+                self.update_bookmark_node_ids_in_db(bookmark_id, bookmark_model);
+            });
+
+        // remove from model and database
+        bookmarks_to_remove.into_iter().for_each(|bookmark_id| {
+            self.delete_bookmark(bookmark_id);
+        });
+
+        // nodes and edges
         let mut node_edges_to_remove = Vec::new();
         let mut flow_edges_to_remove = HashSet::new();
         let mut inputs_to_remove = Vec::new();
         let mut outputs_to_remove = Vec::new();
         let mut children_to_remove = Vec::new();
-
+        //
         for (edge_id, edge) in self.node_edges.iter() {
             if edge.from != node_id {
                 continue;
@@ -1372,6 +1504,7 @@ impl Model {
             MutateKind::DeleteNode(node_id.0),
         )))
         .unwrap();
+
         self.nodes.remove(&node_id).unwrap();
     }
 
@@ -1553,12 +1686,11 @@ impl Model {
         .unwrap();
 
         //get block's outputs, and change their width
-        let outputs: HashMap<&OutputId, &mut OutputModel> = self
+        let outputs = self
             .outputs
             .borrow_mut()
             .into_iter()
-            .filter(|(_id, output_model)| output_model.parent_node_id == *node_id)
-            .collect();
+            .filter(|(_id, output_model)| output_model.parent_node_id == *node_id);
 
         for (_, output_model) in outputs {
             *output_model = OutputModel {
@@ -1848,9 +1980,8 @@ pub fn create_wallet_and_context(db: Db, graph_id: GraphId) -> ContextConfig {
         .unwrap();
 
     let solana_context_config = solana::Config {
-        solana_url: "https://api.mainnet-beta.solana.com".into(),
+        solana_net: BackendSolanaNet::Devnet,
         wallet_graph: wallet_graph_id,
-        solana_arweave_url: "https://arloader.io/".into(),
     };
 
     // create context node

@@ -5,39 +5,37 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
-import 'package:recase/recase.dart';
 import 'package:moon/commands/const.dart';
-import 'package:moon/providers/store_provider.dart';
-import 'package:tuple/tuple.dart';
 
-class JsonTextField extends HookConsumerWidget {
-  JsonTextField({Key? key, required this.treeNode}) : super(key: key);
+import 'package:moon/providers/store_provider.dart';
+
+class StringTextField extends HookConsumerWidget {
+  StringTextField({Key? key, required this.treeNode, required this.focusNode})
+      : super(key: key);
 
   final TreeNode treeNode;
+  final FocusNode focusNode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final focusNode = useFocusNode();
+    // final focusNode = useFocusNode();
     final scrollController = useScrollController();
+
     var controller = useTextEditingController(
-        text: treeNode.node.value.text == ""
-            ? ""
-            : jsonEncode(jsonDecode(treeNode.node.value.text)["Const"]));
+        text: treeNode.node.value.text != ""
+            ? jsonDecode(treeNode.node.value.text)["Const"]["String"]
+            : treeNode.node.value.text);
     final store = ref.read(storeRepoProvider).store;
 
-    ValueNotifier<Tuple2<String, int?>> _error = useState(Tuple2("", null));
-    ValueNotifier<bool> decodeSucceeded = useState(false);
-    ValueNotifier<Map<String, dynamic>> decodedJson = useState({});
+    saveToDb() {
+      final text = controller.value.text.trimRight();
 
-    void saveToDb() {
-      if (decodeSucceeded.value == true) {
-        final text = decodedJson.value;
-        final output =
-            createJson<Map<String, dynamic>>(text, treeNode.node.key, null);
-
-        // print(output);
-        store.msgSendJson(output);
-      }
+      final inputEvent = createJson(
+        text,
+        treeNode.node.key,
+        "String",
+      );
+      store.msgSendJson(inputEvent);
     }
 
     useEffect(() {
@@ -53,7 +51,7 @@ class JsonTextField extends HookConsumerWidget {
             focusRect.right + 15,
             focusRect.top + treeNode.node.value.height - 120 + 30,
           );
-          print(rect.size);
+          // print(rect.size);
           ref.read(focusRejectController.notifier).set([rect]);
         } else {
           saveToDb();
@@ -67,7 +65,6 @@ class JsonTextField extends HookConsumerWidget {
 
     return Expanded(
       child: Container(
-        height: treeNode.node.value.height - 120,
         child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(0, 0, 0, 0),
@@ -81,56 +78,42 @@ class JsonTextField extends HookConsumerWidget {
               width: treeNode.node.value.width - 120,
               // height: treeNode.node.value.height - 120,
               child: TextField(
-                dragStartBehavior: DragStartBehavior.start,
+                dragStartBehavior: DragStartBehavior.down,
                 // expands: true,
                 onTap: () {
                   // focusNode.requestFocus();
                 },
                 focusNode: focusNode,
-                minLines: 18,
-                maxLines: 18,
+                minLines: 8,
+                maxLines: 8,
                 keyboardType: TextInputType.multiline,
                 textInputAction: TextInputAction.done,
                 onEditingComplete: () {},
                 scrollController: scrollController,
 
                 onChanged: (value) {
-                  _error.value = Tuple2("", null);
-                  decodeSucceeded.value = false;
-                  try {
-                    decodedJson.value =
-                        json.decode(value) as Map<String, dynamic>;
-                    decodeSucceeded.value = true;
-                  } on FormatException catch (e) {
-                    // print(e); //actually prints where the json error is
+                  // print(focusNode);
 
-                    _error.value = Tuple2(
-                        "Not a valid JSON, check cursor position ${e.offset}",
-                        e.offset);
-                  }
+                  // final inputProperties = {
+                  //   "node_id": "dummy",
+                  //   "value": value,
+                  // };
+                  // String inputEvent =
+                  //     JsonMapper.serialize(
+                  //         InputProperties(
+                  //             inputProperties));
+                  // store.store.msgSetText(inputEvent);
                 },
                 onSubmitted: (_) {
+                  // print(controller.value.text);
                   saveToDb();
                 },
                 controller: controller,
+                obscureText: false,
                 decoration: InputDecoration(
                   enabledBorder: OutlineInputBorder(
                     borderSide: BorderSide(
                       color: Color.fromARGB(255, 255, 255, 255),
-                      width: 1,
-                    ),
-                  ),
-                  errorText:
-                      _error.value.item1 == "" ? null : _error.value.item1,
-                  focusedErrorBorder: OutlineInputBorder(
-                    borderSide: BorderSide(
-                      color: Color.fromARGB(255, 255, 0, 0),
-                      width: 1,
-                    ),
-                  ),
-                  errorBorder: OutlineInputBorder(
-                    borderSide: BorderSide(
-                      color: Color.fromARGB(255, 255, 0, 0),
                       width: 1,
                     ),
                   ),

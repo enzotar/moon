@@ -1,19 +1,12 @@
 import 'dart:collection';
-import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:plugin/generated/rid_api.dart';
-import 'package:moon/commands/const.dart';
+import 'package:moon/providers/bookmark.dart';
 
-import 'package:moon/graph_selection.dart';
-import 'package:moon/_unused/screenshot.dart';
 import 'package:moon/widget_builder.dart';
 import 'package:moon/widgets/block.dart';
-import 'package:screenshot/screenshot.dart';
-import 'package:screenshot/screenshot.dart';
-import 'package:tuple/tuple.dart';
 
 /// STORE REPO
 ///
@@ -32,12 +25,13 @@ class StoreRepo {
   List<String> selected_node_ids;
   Selection selection;
   Command command;
-  List<TxtCommand> text_commands;
+  List<WidgetTextCommand> text_commands;
   List<GraphEntry> graph_list;
   List<String> highlighted;
   Camera transform;
   Camera transformScreenshot;
   HashMap<String, BookmarkView> bookmarks;
+  DebugData debugData;
 
   StoreRepo(this._read)
       : this.store = Store.instance,
@@ -52,7 +46,8 @@ class StoreRepo {
         this.highlighted = Store.instance.view.highlighted,
         this.transform = Store.instance.view.transform,
         this.transformScreenshot = Store.instance.view.transformScreenshot,
-        this.bookmarks = Store.instance.view.bookmarks {
+        this.bookmarks = Store.instance.view.bookmarks,
+        this.debugData = Store.instance.view.uiStateDebug {
     // print("init StoreRepo");
 
     updateAll();
@@ -72,51 +67,56 @@ class StoreRepo {
     this.transform = Store.instance.view.transform;
     this.bookmarks = Store.instance.view.bookmarks;
     this.transformScreenshot = Store.instance.view.transformScreenshot;
+    this.debugData = Store.instance.view.uiStateDebug;
     ;
   }
 
   update_nodes() {
     // print("update StoreRepo nodes, number of nodes:");
 
-    store = Store.instance;
-
+    // store = Store.instance;
     nodes = Store.instance.view.nodes;
   }
 
   updateFlowEdges() {
-    store = Store.instance;
-
+    // store = Store.instance;
     flow_edges = Store.instance.view.flowEdges;
   }
 
   updateHighlighted() {
-    store = Store.instance;
+    // store = Store.instance;
 
     highlighted = Store.instance.view.highlighted;
   }
 
   updateViewport() {
-    store = Store.instance;
+    // store = Store.instance;
 
     transform = Store.instance.view.transform;
   }
 
   updateBookmarks() {
-    store = Store.instance;
+    // store = Store.instance;
 
     bookmarks = Store.instance.view.bookmarks;
   }
 
   updateTransformScreenshot() {
-    store = Store.instance;
+    // store = Store.instance;
 
     transformScreenshot = Store.instance.view.transformScreenshot;
   }
 
   updateSelectedNodeIds() {
-    store = Store.instance;
+    // store = Store.instance;
 
     selected_node_ids = Store.instance.view.selectedNodeIds;
+  }
+
+  updateDebugData() {
+    // store = Store.instance;
+
+    debugData = Store.instance.view.uiStateDebug;
   }
 }
 
@@ -194,10 +194,12 @@ class LastChangesRepo {
   // StreamSubscription<PostedConfirm>? _streams;
 
   void _subscribe() {
-    print("subscribe");
+    // print("subscribe");
     final _streams = rid.replyChannel.stream;
 
     _streams.listen((ev) {
+      _read(storeRepoProvider).updateDebugData();
+      _read(debugController.notifier).updateState();
       switch (ev.type) {
         case Confirm.RequestRefresh:
           {
@@ -213,7 +215,7 @@ class LastChangesRepo {
           break;
         case Confirm.UpdatedDimensions:
           {
-            print("updated node dimensions");
+            // print("updated node dimensions");
             update_all_changes();
 
             // List<String>? added_ids = this
@@ -250,7 +252,7 @@ class LastChangesRepo {
             // print("added ids $added_ids");
 
             if (this.changed_nodes_ids.isNotEmpty && added_ids.isEmpty) {
-              print("changed nodes");
+              // print("changed nodes");
 
               _read(storeRepoProvider).update_nodes();
 
@@ -263,7 +265,7 @@ class LastChangesRepo {
             }
 
             if (this.changed_flow_edges_ids.isNotEmpty) {
-              print("changed flow edges");
+              // print("changed flow edges");
 
               _read(storeRepoProvider).updateFlowEdges();
               // update nodes for edges to includes flow edges?
@@ -280,17 +282,17 @@ class LastChangesRepo {
               _read(viewportController.notifier).updateState();
             }
             if (this.is_graph_changed) {
-              print("is graph changed");
+              // print("is graph changed");
               _read(graphController.notifier).updateState();
             }
             if (this.is_bookmark_changed) {
-              print("is bookmark changed");
+              // print("is bookmark changed");
 
               _read(storeRepoProvider).updateBookmarks();
               _read(bookmarkController.notifier).updateState();
             }
             if (this.is_transform_screenshot_changed) {
-              print("is transform screenshot changed");
+              // print("is transform screenshot changed");
               _read(storeRepoProvider).updateTransformScreenshot();
               _read(viewportController.notifier).updateToScreenshot();
               _read(transformScreenshotController.notifier).screenshot();
@@ -315,7 +317,22 @@ class LastChangesRepo {
             _read(changesController.notifier).updateState();
           }
           break; //
-        case Confirm.RemoveNode: //
+        case Confirm.RemoveNode:
+          {
+            // find node, unfocus it
+
+            update_all_changes();
+
+            _read(storeRepoProvider).updateAll();
+
+            _read(widgetTreeController.notifier).build_tree();
+            _read(edgeController.notifier).updateState();
+            _read(bookmarkController.notifier).updateState();
+
+            _read(changesController.notifier).updateState();
+            _read(graphController.notifier).updateState();
+          }
+          break;
         case Confirm.Initialized:
           {
             update_all_changes();
@@ -324,6 +341,7 @@ class LastChangesRepo {
 
             _read(widgetTreeController.notifier).build_tree();
             _read(edgeController.notifier).updateState();
+            _read(bookmarkController.notifier).updateState();
 
             _read(changesController.notifier).updateState();
             _read(graphController.notifier).updateState();
@@ -338,6 +356,7 @@ class LastChangesRepo {
             _read(widgetTreeController.notifier).build_tree();
             _read(nodeController.notifier).init();
             _read(edgeController.notifier).updateState();
+            _read(bookmarkController.notifier).updateState();
 
             _read(changesController.notifier).updateState();
             _read(graphController.notifier).updateState();
@@ -351,40 +370,6 @@ class LastChangesRepo {
   }
 }
 
-final dropDownValues =
-    Provider.family<Map<String, Tuple4<String, int, int, Function>>, TreeNode>(
-        (ref, treeNode) {
-  return {
-    "JSON": Tuple4("json", 400, 500, () {}),
-    "Boolean, True": Tuple4("bool_true", 300, 110, () {
-      final value = createJson(
-        true,
-        treeNode.node.key,
-        "Bool",
-      );
-      print(value);
-      ref.read(storeRepoProvider).store.msgSendJson(value);
-    }),
-    "Boolean, False": Tuple4("bool_false", 300, 110, () {
-      final value = createJson(
-        false,
-        treeNode.node.key,
-        "Bool",
-      );
-      ref.read(storeRepoProvider).store.msgSendJson(value);
-    }),
-    "String": Tuple4("string", 300, 300, () {}),
-    "NFT Metadata": Tuple4("nft", 300, 600, () {}),
-    "Seed Phrase": Tuple4("seed", 400, 220, () {}),
-    "Number, i64": Tuple4("i64", 300, 175, () {}),
-    "Number, u8": Tuple4("u8", 300, 175, () {}),
-    "Number, u16": Tuple4("u16", 300, 175, () {}),
-    "Number, u64": Tuple4("u64", 300, 175, () {}),
-    "Number, f32": Tuple4("f32", 300, 175, () {}),
-    "Number, f64": Tuple4("f64", 300, 175, () {}),
-  };
-});
-
 final selectedNode = Provider.family<ShapeBorder, bool>((ref, selected) {
   return RoundedRectangleBorder(
       side: selected
@@ -393,23 +378,19 @@ final selectedNode = Provider.family<ShapeBorder, bool>((ref, selected) {
       borderRadius: BorderRadius.circular(5));
 });
 
-final screenshotController =
-    Provider<ScreenshotController>(((ref) => ScreenshotController()));
+final debugController = StateNotifierProvider<DebugController, List<DebugData>>(
+    (ref) => DebugController(ref));
 
-final bookmarkController =
-    StateNotifierProvider<BookmarkController, HashMap<String, BookmarkView>>(
-        (ref) => BookmarkController(ref));
-
-class BookmarkController extends StateNotifier<HashMap<String, BookmarkView>> {
+class DebugController extends StateNotifier<List<DebugData>> {
   final Ref _ref;
 
-  BookmarkController(this._ref) : super(HashMap<String, BookmarkView>()) {
-    // _subscribe();
+  DebugController(this._ref) : super([]) {
+    // updateState();
   }
 
   updateState() {
-    print("update bookmarkState");
-    state = _ref.read(storeRepoProvider).bookmarks;
+    // print("update changesController");
+    state = [_ref.read(storeRepoProvider).debugData];
   }
 }
 
@@ -459,29 +440,7 @@ class GraphController extends StateNotifier<List<GraphEntry>> {
 
   updateState() {
     // print("update changesController");
-    state = [_ref.read(storeRepoProvider).store.view.graphEntry];
-  }
-}
-
-final viewportController =
-    StateNotifierProvider<ViewportController, List<Camera>>(
-        (ref) => ViewportController(ref));
-
-class ViewportController extends StateNotifier<List<Camera>> {
-  final Ref _ref;
-
-  ViewportController(this._ref) : super([]) {
-    // _subscribe();
-  }
-
-  updateState() {
-    // print("update viewportController");
-    // state = _ref.refresh(lastChangesRepoProvider); // refreshes too often
-    state = [_ref.read(storeRepoProvider).transform];
-  }
-
-  updateToScreenshot() {
-    state = [_ref.read(storeRepoProvider).transformScreenshot];
+    state = [_ref.read(storeRepoProvider).graph_entry];
   }
 }
 
@@ -515,93 +474,6 @@ class StoredContextController extends StateNotifier<List<BuildContext>> {
   update(context) {
     state = [_ref.read(contextProvider).update(context)];
   }
-}
-
-final transformScreenshotController =
-    StateNotifierProvider<TransformScreenshotController, List<Camera>>(
-        (ref) => TransformScreenshotController(ref));
-
-class TransformScreenshotController extends StateNotifier<List<Camera>> {
-  final Ref _ref;
-
-  TransformScreenshotController(this._ref) : super([]) {
-    // _subscribe();
-  }
-
-  screenshot() {
-    // print("update viewportController");
-    // state = _ref.refresh(lastChangesRepoProvider); // refreshes too often
-    state = [_ref.read(storeRepoProvider).transformScreenshot];
-
-    // print(state);
-    BuildContext context = _ref.read(contextProvider).context!;
-    // print(context);
-
-    takeScreenshot(context);
-
-    //restore transform
-  }
-
-//_ref.read(viewportController.notifier).updateState()
-  Future<dynamic> ShowCapturedWidget(
-    BuildContext context,
-    Uint8List capturedImage,
-  ) {
-    return showDialog(
-      useSafeArea: false,
-      context: context,
-      builder: (context) => Scaffold(
-        appBar: AppBar(
-          title: Text("Captured widget screenshot"),
-        ),
-        body: Center(
-            child: capturedImage != null
-                ? Image.memory(
-                    capturedImage,
-                  )
-                : Container()),
-      ),
-    );
-  }
-
-  takeScreenshot(context) {
-    _ref
-        .read(screenshotController)
-        .capture(
-          delay: const Duration(milliseconds: 500),
-        )
-        .then((capturedImage) {
-      ShowCapturedWidget(context, capturedImage!);
-    }).whenComplete(() {
-      Future.delayed(Duration(seconds: 1), () {
-        _ref.read(viewportController.notifier).updateState();
-      });
-    });
-
-    ;
-  }
-
-  //  takeScreenshot(context) {
-  //   _ref
-  //       .read(screenshotController)
-  //       .captureFromWidget(
-  //           InheritedTheme.captureAll(
-  //               context,
-  //               Material(
-  //                   child: ProviderScope(
-  //                       child: MaterialApp(
-  //                           theme: ThemeData(
-  //                             primarySwatch: Colors.lightBlue,
-  //                             visualDensity:
-  //                                 VisualDensity.adaptivePlatformDensity,
-  //                           ),
-  //                           debugShowCheckedModeBanner: false,
-  //                           home: CanvasScreenshot(transform: state[0]))))),
-  //           delay: Duration(seconds: 1))
-  //       .then((capturedImage) {
-  //     ShowCapturedWidget(context, capturedImage);
-  //   });
-  // }
 }
 
 ///
@@ -704,7 +576,7 @@ final currentNode = Provider<TreeNode>((ref) => throw UnimplementedError);
 class TreeNode {
   MapEntry<String, NodeView> node;
   final bool selected;
-  final List<Widget>? children;
+  final List<SuperBlock>? children;
 
   TreeNode({
     required this.node,

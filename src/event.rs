@@ -47,7 +47,8 @@ pub enum Event {
     CancelEdge(PortId),
     //
     // x, y, multiplier
-    Zoom(f64, f64, f64),
+    ScrollZoom(f64, f64, f64),
+    ScrollMoveScreen(f64, f64),
     //
     //StartCommandInput(String),
     //ModifyCommandInput(String),

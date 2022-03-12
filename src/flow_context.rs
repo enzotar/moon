@@ -1,7 +1,8 @@
+use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use crate::model::{Db, GraphId, NodeId, RunStatusEntry};
+use crate::model::{GraphId, NodeId};
 use crate::Confirm;
 use dashmap::DashMap;
 use futures::executor::block_on;
@@ -10,16 +11,17 @@ use sunshine_core::msg::Action;
 use sunshine_core::msg::QueryKind;
 use sunshine_core::store::Datastore;
 use sunshine_solana::FlowContext as InnerFlowContext;
+use sunshine_solana::RunState;
 use sunshine_solana::Schedule;
 use sunshine_solana::RUN_ID_MARKER;
-use tokio::runtime;
+
 use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct FlowContext {
     tx: mpsc::UnboundedSender<Packet>,
-    run_id: Arc<Mutex<Uuid>>,
+    run_id: Arc<Mutex<Uuid>>, // TODO use run id?
 }
 
 #[derive(Debug)]
@@ -38,9 +40,10 @@ enum Cmd {
 impl FlowContext {
     pub fn new(
         db: Arc<dyn Datastore>,
-        run_status: Arc<DashMap<NodeId, RunStatusEntry>>,
+        run_status: Arc<DashMap<NodeId, (RunState, Option<String>)>>,
         req_id: Arc<Mutex<u64>>,
         graph_id: Arc<Mutex<GraphId>>,
+        log_path: String,
     ) -> FlowContext {
         let run_id = Arc::new(Mutex::new(Uuid::new_v4()));
 
@@ -56,7 +59,9 @@ impl FlowContext {
 
             let flow_ctx = InnerFlowContext::new(db.clone());
 
-            std::fs::create_dir("SUNSHINE_LOGS").ok();
+            let path = Path::new(&log_path).join("SUNSHINE_LOGS");
+
+            std::fs::create_dir(path).ok();
 
             let current_run_id = run_id_mod.clone();
 
@@ -89,11 +94,11 @@ impl FlowContext {
 
                             let log_graph = db.read_graph(edge.to).await.unwrap();
 
-                            let log_content = format!("{:#?}", log_graph);
+                            let log_content = serde_json::to_string(&log_graph).unwrap();
 
                             std::fs::write(
                                 format!(
-                                    "SUNSHINE_LOGS/{}.log",
+                                    "{log_path}/SUNSHINE_LOGS/{}.log.json", // TODO fix path
                                     props.get("timestamp").unwrap().as_i64().unwrap(),
                                 ),
                                 log_content.as_bytes(),
@@ -109,22 +114,17 @@ impl FlowContext {
                                     .unwrap();
                                 let node_id = uuid::Uuid::from_str(node_id).unwrap();
 
-                                let entry = RunStatusEntry {
-                                    success: node
-                                        .properties
-                                        .get("success")
-                                        .map(|s| s.as_bool().unwrap())
-                                        .unwrap_or(false),
-                                    error: node
-                                        .properties
-                                        .get("error")
-                                        .map(|e| e.as_str().unwrap().to_owned()),
-                                    print_output: node
-                                        .properties
-                                        .get("__print_output")
-                                        .map(|e| e.as_str().unwrap().to_owned()),
-                                    running: node.properties.contains_key("running"),
-                                };
+                                let entry: RunState = serde_json::from_value(
+                                    node.properties.get("state").unwrap().clone(),
+                                )
+                                .unwrap();
+
+                                let print_output = node
+                                    .properties
+                                    .get("__print_output")
+                                    .map(|e| e.as_str().unwrap().to_owned());
+
+                                let entry = (entry, print_output);
 
                                 if let Some(before) =
                                     run_status.insert(NodeId(node_id), entry.clone())
