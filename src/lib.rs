@@ -442,7 +442,10 @@ impl RidStore<Msg> for Store {
                     let screen_x = 0.5 * state.canvas.width as f64;
                     let screen_y = 0.5 * state.canvas.height as f64;
 
-                    println!("screen zoom {} {} {} {}", screen_x, screen_y, state.transform.scale, new_zoom);
+                    println!(
+                        "screen zoom {} {} {} {}",
+                        screen_x, screen_y, state.transform.scale, new_zoom
+                    );
 
                     state.transform.x -= screen_x / state.transform.scale;
                     state.transform.y -= screen_y / state.transform.scale;
@@ -465,7 +468,10 @@ impl RidStore<Msg> for Store {
                     let screen_x = 0.5 * state.canvas.width as f64;
                     let screen_y = 0.5 * state.canvas.height as f64;
 
-                    println!("screen zoom {} {} {} {}", screen_x, screen_y, state.transform.scale, new_zoom);
+                    println!(
+                        "screen zoom {} {} {} {}",
+                        screen_x, screen_y, state.transform.scale, new_zoom
+                    );
 
                     state.transform.x -= screen_x / state.transform.scale;
                     state.transform.y -= screen_y / state.transform.scale;
@@ -485,9 +491,9 @@ impl RidStore<Msg> for Store {
                 let state = self.state.as_mut().unwrap();
 
                 let model = state.model_mut();
-                let mut nodes = model.nodes().values().filter(
-                    |node| matches!(node.data().kind, WidgetKind::Basic(BasicWidgetKind::Block))
-                );
+                let mut nodes = model.nodes().values().filter(|node| {
+                    matches!(node.data().kind, WidgetKind::Basic(BasicWidgetKind::Block))
+                });
                 let first_node = nodes.next();
 
                 if let Some(node) = first_node {
@@ -900,8 +906,6 @@ pub enum Msg {
     Import(String),
     Export(String, String),
     ResetZoom(String),
-    ZoomIn(String),
-    ZoomOut(String),
     FitNodesToScreen(String),
     CreateBookmark(String),
     GotoBookmark(String),
@@ -912,9 +916,8 @@ pub enum Msg {
     GenerateSeedPhrase(String),
     RemoveNode(String),
     SetMappingKind(String), // "mouse" | "touch"
-    //ScaleStart(String, String), // localFocalPoint.dx, localFocalPoint.dy
-    //ScaleUpdate(String, String, String), // localFocalPoint.dx, localFocalPoint.dy, scale 
-    //ScaleEnd(String, String), // localFocalPoint.dx, localFocalPoint.dy
+    ZoomIn(String),
+    ZoomOut(String),
 }
 
 #[rid::reply]
@@ -1211,8 +1214,7 @@ impl Store {
                     if new_zoom >= MIN_SCROLL_ZOOM && new_zoom <= MAX_SCROLL_ZOOM {
                         let screen_x = (x + state.transform.x) * state.transform.scale;
                         let screen_y = (y + state.transform.y) * state.transform.scale;
-
-                        println!("screen zoom {} {} {} {}", screen_x, screen_y, state.transform.scale, new_zoom);
+                        // println!("screen zoom {} {} {} {}", screen_x, screen_y, state.transform.scale, new_zoom);
 
                         state.transform.x -= screen_x / state.transform.scale;
                         state.transform.y -= screen_y / state.transform.scale;
@@ -1919,7 +1921,7 @@ impl Store {
             ui_state_debug: DebugData {
                 ui_state: serde_json::to_string(&state.ui_state).unwrap(),
                 mapping_kind: serde_json::to_string(&state.mapping_kind).unwrap(),
-                selected_node_ids: serde_json::to_string(&state.selected_node_ids).unwrap()
+                selected_node_ids: serde_json::to_string(&state.selected_node_ids).unwrap(),
             },
         };
 

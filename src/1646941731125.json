@@ -1,0 +1,464 @@
+{
+    "nodes": [
+        {
+            "node_id": "1c01bd9d-a0ab-11ec-8031-000000000000",
+            "properties": {
+                "original_props": {
+                    "COMMAND_MARKER": {
+                        "Simple": {
+                            "Const": {
+                                "Bool": true
+                            }
+                        }
+                    },
+                    "COMMAND_NAME_MARKER": "const",
+                    "START_NODE_MARKER": true,
+                    "TEXT_MARKER": "{\n \"Const\": {\n  \"Bool\": true\n }\n}",
+                    "ADDITIONAL_DATA_MARKER": "bool_true",
+                    "DIMENSIONS_MARKER": {
+                        "height": 110,
+                        "width": 300
+                    },
+                    "COORDS_MARKER": {
+                        "x": 0.0,
+                        "y": 0.0
+                    }
+                },
+                "original_node_id": "0df512fb-a0a2-11ec-8031-000000000000",
+                "kind": "Simple(\n    Const,\n)",
+                "name": "const",
+                "state": {
+                    "Success": 0
+                },
+                "inputs": {
+                    "STARTER_INPUT_MARKER": "Empty"
+                }
+            },
+            "outbound_edges": [
+                {
+                    "id": "1c030d16-a0ab-11ec-8041-000000000000",
+                    "from": "1c01bd9d-a0ab-11ec-8031-000000000000",
+                    "to": "1c0280a0-a0ab-11ec-8039-000000000000"
+                }
+            ],
+            "inbound_edges": [
+                {
+                    "id": "1c01e721-a0ab-11ec-8032-000000000000",
+                    "from": "1bfffc81-a0ab-11ec-802f-000000000000",
+                    "to": "1c01bd9d-a0ab-11ec-8031-000000000000"
+                }
+            ]
+        },
+        {
+            "node_id": "1c01ffc2-a0ab-11ec-8033-000000000000",
+            "properties": {
+                "original_props": {
+                    "COMMAND_MARKER": {
+                        "Simple": {
+                            "Const": {
+                                "String": "2jQk5rnXUEqM9DBkGpmo1jAkXrTgQAkKNKTmGQyW4fRgao3PHMfqqX7bGmpRvW6ba8UHU2td9w8S5Sib3ikTQPZy"
+                            }
+                        }
+                    },
+                    "COMMAND_NAME_MARKER": "const",
+                    "START_NODE_MARKER": true,
+                    "TEXT_MARKER": "{\n \"Const\": {\n  \"String\": \"2jQk5rnXUEqM9DBkGpmo1jAkXrTgQAkKNKTmGQyW4fRgao3PHMfqqX7bGmpRvW6ba8UHU2td9w8S5Sib3ikTQPZy\"\n }\n}",
+                    "ADDITIONAL_DATA_MARKER": "",
+                    "DIMENSIONS_MARKER": {
+                        "height": 300,
+                        "width": 300
+                    },
+                    "COORDS_MARKER": {
+                        "x": 0.0,
+                        "y": 0.0
+                    }
+                },
+                "original_node_id": "11007db1-a09d-11ec-8043-000000000000",
+                "kind": "Simple(\n    Const,\n)",
+                "name": "const",
+                "state": {
+                    "Success": 0
+                },
+                "inputs": {
+                    "STARTER_INPUT_MARKER": "Empty"
+                }
+            },
+            "outbound_edges": [
+                {
+                    "id": "1c032bcd-a0ab-11ec-8042-000000000000",
+                    "from": "1c01ffc2-a0ab-11ec-8033-000000000000",
+                    "to": "1c02c261-a0ab-11ec-803b-000000000000"
+                }
+            ],
+            "inbound_edges": [
+                {
+                    "id": "1c020b09-a0ab-11ec-8034-000000000000",
+                    "from": "1bfffc81-a0ab-11ec-802f-000000000000",
+                    "to": "1c01ffc2-a0ab-11ec-8033-000000000000"
+                }
+            ]
+        },
+        {
+            "node_id": "1c021def-a0ab-11ec-8035-000000000000",
+            "properties": {
+                "original_props": {
+                    "COMMAND_MARKER": {
+                        "Simple": {
+                            "Const": {
+                                "String": "image.jpg"
+                            }
+                        }
+                    },
+                    "COMMAND_NAME_MARKER": "const",
+                    "START_NODE_MARKER": true,
+                    "TEXT_MARKER": "{\n \"Const\": {\n  \"String\": \"image.jpg\"\n }\n}",
+                    "ADDITIONAL_DATA_MARKER": "",
+                    "DIMENSIONS_MARKER": {
+                        "height": 300,
+                        "width": 300
+                    },
+                    "COORDS_MARKER": {
+                        "x": 0.0,
+                        "y": 0.0
+                    }
+                },
+                "original_node_id": "2d0cd51d-a09d-11ec-804d-000000000000",
+                "kind": "Simple(\n    Const,\n)",
+                "name": "const",
+                "state": {
+                    "Success": 0
+                },
+                "inputs": {
+                    "STARTER_INPUT_MARKER": "Empty"
+                }
+            },
+            "outbound_edges": [
+                {
+                    "id": "1c033cbc-a0ab-11ec-8043-000000000000",
+                    "from": "1c021def-a0ab-11ec-8035-000000000000",
+                    "to": "1c0280a0-a0ab-11ec-8039-000000000000"
+                }
+            ],
+            "inbound_edges": [
+                {
+                    "id": "1c0227d8-a0ab-11ec-8036-000000000000",
+                    "from": "1bfffc81-a0ab-11ec-802f-000000000000",
+                    "to": "1c021def-a0ab-11ec-8035-000000000000"
+                }
+            ]
+        },
+        {
+            "node_id": "1c02379f-a0ab-11ec-8037-000000000000",
+            "properties": {
+                "original_props": {
+                    "COMMAND_MARKER": {
+                        "Simple": "Print"
+                    },
+                    "COMMAND_NAME_MARKER": "print",
+                    "COORDS_MARKER": {
+                        "x": 0.0,
+                        "y": 0.0
+                    },
+                    "TEXT_MARKER": "",
+                    "ADDITIONAL_DATA_MARKER": "",
+                    "DIMENSIONS_MARKER": {
+                        "height": 150,
+                        "width": 450
+                    }
+                },
+                "original_node_id": "560625f0-a09d-11ec-8057-000000000000",
+                "kind": "Simple(\n    Print,\n)",
+                "name": "print",
+                "state": {
+                    "Failed": [
+                        0,
+                        "can't receive input, quitting"
+                    ]
+                }
+            },
+            "outbound_edges": [],
+            "inbound_edges": [
+                {
+                    "id": "1c0244b3-a0ab-11ec-8038-000000000000",
+                    "from": "1bfffc81-a0ab-11ec-802f-000000000000",
+                    "to": "1c02379f-a0ab-11ec-8037-000000000000"
+                },
+                {
+                    "id": "1c034dee-a0ab-11ec-8044-000000000000",
+                    "from": "1c0280a0-a0ab-11ec-8039-000000000000",
+                    "to": "1c02379f-a0ab-11ec-8037-000000000000"
+                }
+            ]
+        },
+        {
+            "node_id": "1c0280a0-a0ab-11ec-8039-000000000000",
+            "properties": {
+                "original_props": {
+                    "COMMAND_MARKER": {
+                        "Solana": {
+                            "Nft": {
+                                "ArweaveUpload": {
+                                    "fee_payer": null,
+                                    "reward_mult": null,
+                                    "file_path": null,
+                                    "arweave_key_path": null,
+                                    "pay_with_solana": null
+                                }
+                            }
+                        }
+                    },
+                    "COMMAND_NAME_MARKER": "arweave_upload",
+                    "COORDS_MARKER": {
+                        "x": 0.0,
+                        "y": 0.0
+                    },
+                    "TEXT_MARKER": "",
+                    "ADDITIONAL_DATA_MARKER": "",
+                    "DIMENSIONS_MARKER": {
+                        "height": 280,
+                        "width": 300
+                    }
+                },
+                "original_node_id": "9ca710f7-a0a1-11ec-801c-000000000000",
+                "kind": "Solana(\n    Nft(\n        ArweaveUpload,\n    ),\n)",
+                "name": "arweave_upload",
+                "state": {
+                    "Failed": [
+                        95678,
+                        "failed to run command: ArLoader(\n    \"SolanaNetworkError\",\n)"
+                    ]
+                },
+                "inputs": {
+                    "reward_mult": {
+                        "F32": 3.0
+                    },
+                    "arweave_key_path": {
+                        "String": "/home/amir/code/rust/libraries/sunshine_flow/arweave-key-iI13Hg-83m6ZGlhc1ielZ6aprjWZB-RCxO7wH6c0_QQ.json"
+                    },
+                    "file_path": {
+                        "String": "image.jpg"
+                    },
+                    "fee_payer": {
+                        "Keypair": "2jQk5rnXUEqM9DBkGpmo1jAkXrTgQAkKNKTmGQyW4fRgao3PHMfqqX7bGmpRvW6ba8UHU2td9w8S5Sib3ikTQPZy"
+                    },
+                    "pay_with_solana": {
+                        "Bool": true
+                    }
+                }
+            },
+            "outbound_edges": [
+                {
+                    "id": "1c034dee-a0ab-11ec-8044-000000000000",
+                    "from": "1c0280a0-a0ab-11ec-8039-000000000000",
+                    "to": "1c02379f-a0ab-11ec-8037-000000000000"
+                }
+            ],
+            "inbound_edges": [
+                {
+                    "id": "1c028fac-a0ab-11ec-803a-000000000000",
+                    "from": "1bfffc81-a0ab-11ec-802f-000000000000",
+                    "to": "1c0280a0-a0ab-11ec-8039-000000000000"
+                },
+                {
+                    "id": "1c030d16-a0ab-11ec-8041-000000000000",
+                    "from": "1c01bd9d-a0ab-11ec-8031-000000000000",
+                    "to": "1c0280a0-a0ab-11ec-8039-000000000000"
+                },
+                {
+                    "id": "1c033cbc-a0ab-11ec-8043-000000000000",
+                    "from": "1c021def-a0ab-11ec-8035-000000000000",
+                    "to": "1c0280a0-a0ab-11ec-8039-000000000000"
+                },
+                {
+                    "id": "1c035e73-a0ab-11ec-8045-000000000000",
+                    "from": "1c02c261-a0ab-11ec-803b-000000000000",
+                    "to": "1c0280a0-a0ab-11ec-8039-000000000000"
+                },
+                {
+                    "id": "1c037d6d-a0ab-11ec-8046-000000000000",
+                    "from": "1c02e128-a0ab-11ec-803d-000000000000",
+                    "to": "1c0280a0-a0ab-11ec-8039-000000000000"
+                },
+                {
+                    "id": "1c039c1b-a0ab-11ec-8047-000000000000",
+                    "from": "1c02f847-a0ab-11ec-803f-000000000000",
+                    "to": "1c0280a0-a0ab-11ec-8039-000000000000"
+                }
+            ]
+        },
+        {
+            "node_id": "1c02c261-a0ab-11ec-803b-000000000000",
+            "properties": {
+                "original_props": {
+                    "COMMAND_MARKER": {
+                        "Solana": {
+                            "GenerateKeypair": {
+                                "seed_phrase": "None",
+                                "base58_str": "None",
+                                "passphrase": null,
+                                "save": "None"
+                            }
+                        }
+                    },
+                    "COMMAND_NAME_MARKER": "generate_keypair",
+                    "COORDS_MARKER": {
+                        "x": 0.0,
+                        "y": 0.0
+                    },
+                    "TEXT_MARKER": "",
+                    "ADDITIONAL_DATA_MARKER": "",
+                    "DIMENSIONS_MARKER": {
+                        "height": 230,
+                        "width": 300
+                    }
+                },
+                "original_node_id": "cc72be1a-a09c-11ec-801d-000000000000",
+                "kind": "Solana(\n    GenerateKeypair,\n)",
+                "name": "generate_keypair",
+                "state": {
+                    "Success": 0
+                },
+                "inputs": {
+                    "base58_str": {
+                        "String": "2jQk5rnXUEqM9DBkGpmo1jAkXrTgQAkKNKTmGQyW4fRgao3PHMfqqX7bGmpRvW6ba8UHU2td9w8S5Sib3ikTQPZy"
+                    }
+                }
+            },
+            "outbound_edges": [
+                {
+                    "id": "1c035e73-a0ab-11ec-8045-000000000000",
+                    "from": "1c02c261-a0ab-11ec-803b-000000000000",
+                    "to": "1c0280a0-a0ab-11ec-8039-000000000000"
+                }
+            ],
+            "inbound_edges": [
+                {
+                    "id": "1c02d30e-a0ab-11ec-803c-000000000000",
+                    "from": "1bfffc81-a0ab-11ec-802f-000000000000",
+                    "to": "1c02c261-a0ab-11ec-803b-000000000000"
+                },
+                {
+                    "id": "1c032bcd-a0ab-11ec-8042-000000000000",
+                    "from": "1c01ffc2-a0ab-11ec-8033-000000000000",
+                    "to": "1c02c261-a0ab-11ec-803b-000000000000"
+                }
+            ]
+        },
+        {
+            "node_id": "1c02e128-a0ab-11ec-803d-000000000000",
+            "properties": {
+                "original_props": {
+                    "COMMAND_MARKER": {
+                        "Simple": {
+                            "Const": {
+                                "String": "/home/amir/code/rust/libraries/sunshine_flow/arweave-key-iI13Hg-83m6ZGlhc1ielZ6aprjWZB-RCxO7wH6c0_QQ.json"
+                            }
+                        }
+                    },
+                    "COMMAND_NAME_MARKER": "const",
+                    "START_NODE_MARKER": true,
+                    "TEXT_MARKER": "{\n \"Const\": {\n  \"String\": \"/home/amir/code/rust/libraries/sunshine_flow/arweave-key-iI13Hg-83m6ZGlhc1ielZ6aprjWZB-RCxO7wH6c0_QQ.json\"\n }\n}",
+                    "ADDITIONAL_DATA_MARKER": "string",
+                    "DIMENSIONS_MARKER": {
+                        "height": 300,
+                        "width": 300
+                    },
+                    "COORDS_MARKER": {
+                        "x": 0.0,
+                        "y": 0.0
+                    }
+                },
+                "original_node_id": "e484d942-a09c-11ec-802e-000000000000",
+                "kind": "Simple(\n    Const,\n)",
+                "name": "const",
+                "state": {
+                    "Success": 0
+                },
+                "inputs": {
+                    "STARTER_INPUT_MARKER": "Empty"
+                }
+            },
+            "outbound_edges": [
+                {
+                    "id": "1c037d6d-a0ab-11ec-8046-000000000000",
+                    "from": "1c02e128-a0ab-11ec-803d-000000000000",
+                    "to": "1c0280a0-a0ab-11ec-8039-000000000000"
+                }
+            ],
+            "inbound_edges": [
+                {
+                    "id": "1c02eb0b-a0ab-11ec-803e-000000000000",
+                    "from": "1bfffc81-a0ab-11ec-802f-000000000000",
+                    "to": "1c02e128-a0ab-11ec-803d-000000000000"
+                }
+            ]
+        },
+        {
+            "node_id": "1c02f847-a0ab-11ec-803f-000000000000",
+            "properties": {
+                "original_props": {
+                    "COMMAND_MARKER": {
+                        "Simple": {
+                            "Const": {
+                                "F32": 3.0
+                            }
+                        }
+                    },
+                    "COMMAND_NAME_MARKER": "const",
+                    "START_NODE_MARKER": true,
+                    "TEXT_MARKER": "{\n \"Const\": {\n  \"F32\": 3.0\n }\n}",
+                    "ADDITIONAL_DATA_MARKER": "f32",
+                    "DIMENSIONS_MARKER": {
+                        "height": 175,
+                        "width": 300
+                    },
+                    "COORDS_MARKER": {
+                        "x": 0.0,
+                        "y": 0.0
+                    }
+                },
+                "original_node_id": "fc842a0b-a09c-11ec-8038-000000000000",
+                "kind": "Simple(\n    Const,\n)",
+                "name": "const",
+                "state": {
+                    "Success": 0
+                },
+                "inputs": {
+                    "STARTER_INPUT_MARKER": "Empty"
+                }
+            },
+            "outbound_edges": [
+                {
+                    "id": "1c039c1b-a0ab-11ec-8047-000000000000",
+                    "from": "1c02f847-a0ab-11ec-803f-000000000000",
+                    "to": "1c0280a0-a0ab-11ec-8039-000000000000"
+                }
+            ],
+            "inbound_edges": [
+                {
+                    "id": "1c0300cd-a0ab-11ec-8040-000000000000",
+                    "from": "1bfffc81-a0ab-11ec-802f-000000000000",
+                    "to": "1c02f847-a0ab-11ec-803f-000000000000"
+                }
+            ]
+        }
+    ],
+    "edges": {
+        "1c020b09-a0ab-11ec-8034-000000000000": {},
+        "1c02eb0b-a0ab-11ec-803e-000000000000": {},
+        "1c0227d8-a0ab-11ec-8036-000000000000": {},
+        "1c0244b3-a0ab-11ec-8038-000000000000": {},
+        "1c034dee-a0ab-11ec-8044-000000000000": {},
+        "1c035e73-a0ab-11ec-8045-000000000000": {},
+        "1c0300cd-a0ab-11ec-8040-000000000000": {},
+        "1c01e721-a0ab-11ec-8032-000000000000": {},
+        "1c030d16-a0ab-11ec-8041-000000000000": {},
+        "1c037d6d-a0ab-11ec-8046-000000000000": {},
+        "1c032bcd-a0ab-11ec-8042-000000000000": {},
+        "1c028fac-a0ab-11ec-803a-000000000000": {},
+        "1c02d30e-a0ab-11ec-803c-000000000000": {},
+        "1c033cbc-a0ab-11ec-8043-000000000000": {},
+        "1c039c1b-a0ab-11ec-8047-000000000000": {}
+    },
+    "state_id": 0
+}

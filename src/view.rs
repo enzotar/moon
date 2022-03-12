@@ -197,6 +197,9 @@ impl CommandView for GetLeftUsesCommand {
 impl CommandView for ArweaveUploadCommand {
     const VIEW_TYPE: NodeViewType = NodeViewType::ArweaveUpload;
 }
+impl CommandView for ArweaveNftUploadCommand {
+    const VIEW_TYPE: NodeViewType = NodeViewType::ArweaveNftUpload;
+}
 
 // TODO: list all commands
 pub const VIEW_COMMANDS: &'static [&'static dyn DynCommandView] = &[
@@ -223,6 +226,7 @@ pub const VIEW_COMMANDS: &'static [&'static dyn DynCommandView] = &[
     &ApproveUseAuthorityCommand,
     &GetLeftUsesCommand,
     &ArweaveUploadCommand,
+    &ArweaveNftUploadCommand,
 ];
 
 // TODO: Build once on initialization
@@ -403,6 +407,7 @@ pub enum NodeViewType {
     ApproveUseAuthority,
     GetLeftUses,
     ArweaveUpload,
+    ArweaveNftUpload,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]

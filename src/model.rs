@@ -1361,7 +1361,49 @@ impl Model {
         node_id
     }
 
-    pub fn delete_graph(&mut self, graph_id: GraphId) {}
+    /// TODO
+    pub fn delete_graph(&mut self, graph_id: GraphId) {
+        let mut node = block_on(
+            self.db
+                .0
+                .execute(Action::Query(QueryKind::ReadNode(graph_id.0))),
+        )
+        .unwrap()
+        .into_node()
+        .unwrap();
+
+        node.properties.remove(FLOW_GRAPH_MARKER.into()).unwrap();
+
+        node.properties
+            .insert("DELETED_GRAPH_MARKER".into(), JsonValue::Bool(true))
+            .unwrap();
+
+        block_on(self.db.0.execute(Action::Mutate(
+            self.graph_id().0,
+            MutateKind::UpdateNode((graph_id.0, node.properties)),
+        )))
+        .unwrap();
+    }
+
+    pub fn rename_graph(&mut self, graph_id: GraphId, new_name: String) {
+        let mut node = block_on(
+            self.db
+                .0
+                .execute(Action::Query(QueryKind::ReadNode(graph_id.0))),
+        )
+        .unwrap()
+        .into_node()
+        .unwrap();
+
+        node.properties
+            .insert("name".into(), JsonValue::String(new_name));
+
+        block_on(self.db.0.execute(Action::Mutate(
+            self.graph_id().0,
+            MutateKind::UpdateNode((graph_id.0, node.properties)),
+        )))
+        .unwrap();
+    }
 
     /// Remove node from model and db
     pub fn remove_node(&mut self, node_id: NodeId) {

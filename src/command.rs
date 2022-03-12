@@ -15,6 +15,7 @@ use sunshine_solana::commands::solana::get_balance;
 use sunshine_solana::commands::solana::mint_token;
 use sunshine_solana::commands::solana::nft;
 use sunshine_solana::commands::solana::nft::approve_use_authority;
+use sunshine_solana::commands::solana::nft::arweave_nft_upload;
 use sunshine_solana::commands::solana::nft::arweave_upload;
 use sunshine_solana::commands::solana::nft::create_master_edition;
 use sunshine_solana::commands::solana::nft::create_metadata_accounts;
@@ -75,6 +76,7 @@ pub const COMMANDS: &'static [&'static dyn DynCommand] = &[
     &ApproveUseAuthorityCommand,
     &GetLeftUsesCommand,
     &ArweaveUploadCommand,
+    &ArweaveNftUploadCommand,
 ];
 
 // TODO: Build once on initialization
@@ -252,6 +254,9 @@ pub struct GetLeftUsesCommand;
 
 #[derive(Copy, Clone, Debug)]
 pub struct ArweaveUploadCommand;
+
+#[derive(Copy, Clone, Debug)]
+pub struct ArweaveNftUploadCommand;
 
 impl Command for PrintCommand {
     const COMMAND_NAME: &'static str = "print";
@@ -884,6 +889,40 @@ impl Command for ArweaveUploadCommand {
                 reward_mult: None,
                 file_path: None,
                 arweave_key_path: None,
+                pay_with_solana: None,
+            },
+        )))
+    }
+}
+
+impl Command for ArweaveNftUploadCommand {
+    const COMMAND_NAME: &'static str = "arweave_nft_upload";
+    const WIDGET_NAME: &'static str = "ArweaveNftUpload";
+    const INPUTS: &'static [CommandInput] = &[
+        CommandInput::new("fee_payer", &[KEYPAIR]),
+        CommandInput::new("reward_mult", &[NUMBER]), //f32
+        CommandInput::new("arweave_key_path", &[STRING]),
+        CommandInput::new("metadata", &[NFT_METADATA]),
+        CommandInput::new("pay_with_solana", &[BOOL]),
+    ];
+    const OUTPUTS: &'static [CommandOutput] = &[
+        CommandOutput::new("metadata_url", "String"),
+        CommandOutput::new("metadata", "String"),
+        CommandOutput::new("fee_payer", "Keypair"),
+    ];
+    fn dimensions() -> NodeDimensions {
+        NodeDimensions {
+            height: calculate_node_height(Self),
+            width: 300,
+        }
+    }
+    fn config() -> CommandConfig {
+        CommandConfig::Solana(solana::Kind::Nft(nft::Command::ArweaveNftUpload(
+            arweave_nft_upload::ArweaveNftUpload {
+                fee_payer: None,
+                reward_mult: None,
+                arweave_key_path: None,
+                metadata: None,
                 pay_with_solana: None,
             },
         )))

@@ -37,13 +37,6 @@ class EventListener extends HookConsumerWidget {
     // final rejectList = ref.watch(focusRejectController);
     // print("rebuilding event listener");
 
-/*
-  https://api.flutter.dev/flutter/gestures/GestureScaleUpdateCallback.html
-  https://api.flutter.dev/flutter/gestures/ScaleStartDetails-class.html
-  https://api.flutter.dev/flutter/gestures/ScaleUpdateDetails-class.html
-  https://api.flutter.dev/flutter/gestures/ScaleEndDetails-class.html
-*/
-
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerSignal: (ev) {
@@ -79,6 +72,7 @@ class EventListener extends HookConsumerWidget {
             .toList();
         // print("inRejectList: $inRejectList");
         if (inRejectList.isEmpty) {
+          // print(ev.position);
           final inputProperties = {
             "buttons": ev.buttons,
             "device": ev.device,

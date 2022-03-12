@@ -132,6 +132,7 @@ SuperBlock WidgetChooser([nodeType, treeNode, inputNodes, outputNodes, parentId
     case "Utilize":
     case "ApproveUseAuthority":
     case "GetLeftUses":
+    case "ArweaveNftUpload":
     case "ArweaveUpload":
       {
         _widget = CommandWidget(

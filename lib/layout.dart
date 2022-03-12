@@ -332,17 +332,15 @@ class LayoutScreen extends HookConsumerWidget {
               // _transformationController.value = Matrix4.identity();
             },
           ),
-          TextButton.icon(
+          IconButton(
             icon: Icon(Icons.zoom_in),
-            label: Text("+"),
             onPressed: () {
               ref.read(storeRepoProvider).store.msgZoomIn("");
               // _transformationController.value = Matrix4.identity();
             },
           ),
-          TextButton.icon(
+          IconButton(
             icon: Icon(Icons.zoom_out),
-            label: Text("-"),
             onPressed: () {
               ref.read(storeRepoProvider).store.msgZoomOut("");
               // _transformationController.value = Matrix4.identity();
