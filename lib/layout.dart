@@ -332,6 +332,22 @@ class LayoutScreen extends HookConsumerWidget {
               // _transformationController.value = Matrix4.identity();
             },
           ),
+          TextButton.icon(
+            icon: Icon(Icons.zoom_in),
+            label: Text("+"),
+            onPressed: () {
+              ref.read(storeRepoProvider).store.msgZoomIn("");
+              // _transformationController.value = Matrix4.identity();
+            },
+          ),
+          TextButton.icon(
+            icon: Icon(Icons.zoom_out),
+            label: Text("-"),
+            onPressed: () {
+              ref.read(storeRepoProvider).store.msgZoomOut("");
+              // _transformationController.value = Matrix4.identity();
+            },
+          ),
         ],
       ),
       body: Stack(children: [
@@ -417,6 +433,8 @@ class DebugWidget extends HookConsumerWidget {
         Text(ref.read(storeRepoProvider).debugData.mappingKind,
             style: TextStyle(color: Colors.white)),
         Text(ref.read(storeRepoProvider).debugData.uiState,
+            style: TextStyle(color: Colors.white)),
+        Text(ref.read(storeRepoProvider).debugData.selectedNodeIds,
             style: TextStyle(color: Colors.white)),
       ]),
     );

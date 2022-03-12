@@ -501,7 +501,10 @@ fn generate_default_mapping(
     mapping_name: MappingKind,
 ) -> GlobalMapping<KeyboardMapping, MouseMapping> {
     let lmb = MouseSwitch("LeftMouseButton");
-    let rmb = MouseSwitch("RightMouseButton");
+    let rmb = match mapping_name {
+        MappingKind::Mouse => MouseSwitch("RightMouseButton"),
+        MappingKind::Touch => MouseSwitch("NonExistentMouseButton"),
+    };
     let click = Some(TimedEventData {
         kind: TimedReleaseEventKind::Click,
         num_possible_clicks: 1,

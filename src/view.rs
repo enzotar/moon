@@ -40,6 +40,7 @@ pub struct View {
 pub struct DebugData {
     pub ui_state: String,
     pub mapping_kind: String,
+    pub selected_node_ids: String,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq)]
