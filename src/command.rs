@@ -1,10 +1,12 @@
 use std::cmp;
 use std::collections::{HashMap, HashSet};
 
+use sunshine_solana::commands::simple::branch;
 use sunshine_solana::commands::simple::http_request;
 use sunshine_solana::commands::simple::ipfs_nft_upload;
 use sunshine_solana::commands::simple::ipfs_upload;
 use sunshine_solana::commands::simple::json_extract;
+use sunshine_solana::commands::simple::json_insert;
 use sunshine_solana::commands::solana;
 use sunshine_solana::commands::solana::add_pubkey;
 use sunshine_solana::commands::solana::create_account;
@@ -13,7 +15,6 @@ use sunshine_solana::commands::solana::generate_keypair;
 use sunshine_solana::commands::solana::generate_keypair::Arg;
 use sunshine_solana::commands::solana::get_balance;
 use sunshine_solana::commands::solana::mint_token;
-use sunshine_solana::commands::solana::nft;
 use sunshine_solana::commands::solana::nft::approve_use_authority;
 use sunshine_solana::commands::solana::nft::arweave_nft_upload;
 use sunshine_solana::commands::solana::nft::arweave_upload;
@@ -22,8 +23,10 @@ use sunshine_solana::commands::solana::nft::create_metadata_accounts;
 use sunshine_solana::commands::solana::nft::get_left_uses;
 use sunshine_solana::commands::solana::nft::update_metadata_accounts;
 use sunshine_solana::commands::solana::nft::utilize;
+use sunshine_solana::commands::solana::nft::{self, arweave_bundlr};
 use sunshine_solana::commands::solana::request_airdrop;
 use sunshine_solana::commands::solana::transfer;
+use sunshine_solana::commands::solana::transfer_solana;
 
 use sunshine_solana::{commands::simple::Command as SimpleCommand, CommandConfig};
 
@@ -56,9 +59,12 @@ pub const COMMANDS: &'static [&'static dyn DynCommand] = &[
     &PrintCommand,
     &ConstCommand,
     &JsonExtractCommand,
+    &JsonInsertCommand,
     &HttpRequestCommand,
     &IpfsUploadCommand,
     &IpfsNftUploadCommand,
+    &WaitCommand,
+    &BranchCommand,
     // Solana
     &CreateTokenCommand,
     &AddPubkeyCommand,
@@ -66,6 +72,7 @@ pub const COMMANDS: &'static [&'static dyn DynCommand] = &[
     &GenerateKeypairCommand,
     &MintTokenCommand,
     &TransferCommand,
+    &TransferSolanaCommand,
     &RequestAirdropCommand,
     &GetBalanceCommand,
     // NFTs
@@ -77,6 +84,7 @@ pub const COMMANDS: &'static [&'static dyn DynCommand] = &[
     &GetLeftUsesCommand,
     &ArweaveUploadCommand,
     &ArweaveNftUploadCommand,
+    &ArweaveBundlrCommand,
 ];
 
 // TODO: Build once on initialization
@@ -198,6 +206,9 @@ pub struct ConstCommand;
 pub struct JsonExtractCommand;
 
 #[derive(Copy, Clone, Debug)]
+pub struct JsonInsertCommand;
+
+#[derive(Copy, Clone, Debug)]
 pub struct HttpRequestCommand;
 
 #[derive(Copy, Clone, Debug)]
@@ -205,6 +216,12 @@ pub struct IpfsUploadCommand;
 
 #[derive(Copy, Clone, Debug)]
 pub struct IpfsNftUploadCommand;
+
+#[derive(Copy, Clone, Debug)]
+pub struct BranchCommand;
+
+#[derive(Copy, Clone, Debug)]
+pub struct WaitCommand;
 
 // SOLANA
 
@@ -225,6 +242,9 @@ pub struct MintTokenCommand;
 
 #[derive(Copy, Clone, Debug)]
 pub struct TransferCommand;
+
+#[derive(Copy, Clone, Debug)]
+pub struct TransferSolanaCommand;
 
 #[derive(Copy, Clone, Debug)]
 pub struct RequestAirdropCommand;
@@ -257,6 +277,9 @@ pub struct ArweaveUploadCommand;
 
 #[derive(Copy, Clone, Debug)]
 pub struct ArweaveNftUploadCommand;
+
+#[derive(Copy, Clone, Debug)]
+pub struct ArweaveBundlrCommand;
 
 impl Command for PrintCommand {
     const COMMAND_NAME: &'static str = "print";
@@ -318,10 +341,10 @@ impl Command for JsonExtractCommand {
     const COMMAND_NAME: &'static str = "json_extract";
     const WIDGET_NAME: &'static str = "JsonExtract";
     const INPUTS: &'static [CommandInput] = &[
-        CommandInput::new("pointer", &[STRING]),
-        CommandInput::new("arg", &[STRING]),
+        CommandInput::new("path", &[STRING]),
+        CommandInput::new("json", &[JSON]),
     ];
-    const OUTPUTS: &'static [CommandOutput] = &[CommandOutput::new("val", "String")]; //FIXME any value
+    const OUTPUTS: &'static [CommandOutput] = &[CommandOutput::new("value", "String")]; //FIXME any value
     fn dimensions() -> NodeDimensions {
         NodeDimensions {
             height: 300,
@@ -330,8 +353,32 @@ impl Command for JsonExtractCommand {
     }
     fn config() -> CommandConfig {
         CommandConfig::Simple(SimpleCommand::JsonExtract(json_extract::JsonExtract {
-            pointer: String::new(),
-            arg: String::new(),
+            path: None,
+            json: None,
+        }))
+    }
+}
+
+impl Command for JsonInsertCommand {
+    const COMMAND_NAME: &'static str = "json_insert";
+    const WIDGET_NAME: &'static str = "JsonInsert";
+    const INPUTS: &'static [CommandInput] = &[
+        CommandInput::new("path", &[STRING]),
+        CommandInput::new("json", &[JSON]),
+        CommandInput::new("value", &[STRING]),
+    ];
+    const OUTPUTS: &'static [CommandOutput] = &[CommandOutput::new("json", "String")]; //FIXME any value
+    fn dimensions() -> NodeDimensions {
+        NodeDimensions {
+            height: 300,
+            width: 300,
+        }
+    }
+    fn config() -> CommandConfig {
+        CommandConfig::Simple(SimpleCommand::JsonInsert(json_insert::JsonInsert {
+            path: None,
+            json: None,
+            value: None,
         }))
     }
 }
@@ -343,6 +390,8 @@ impl Command for HttpRequestCommand {
         CommandInput::new("method", &[STRING]),
         CommandInput::new("url", &[STRING]),
         CommandInput::new("auth_token", &[STRING]),
+        CommandInput::new("json_body", &[JSON]),
+        CommandInput::new("headers", &[JSON]),
     ];
     const OUTPUTS: &'static [CommandOutput] = &[CommandOutput::new("resp_body", "String")];
     fn dimensions() -> NodeDimensions {
@@ -356,6 +405,8 @@ impl Command for HttpRequestCommand {
             method: None,
             url: None,
             auth_token: None,
+            json_body: None,
+            headers: None,
         }))
     }
 }
@@ -414,6 +465,52 @@ impl Command for IpfsNftUploadCommand {
     }
 }
 
+impl Command for BranchCommand {
+    const COMMAND_NAME: &'static str = "branch";
+    const WIDGET_NAME: &'static str = "Branch";
+    const INPUTS: &'static [CommandInput] = &[
+        CommandInput::new("operator", &[STRING]), //change to operator
+        CommandInput::new("a", &[NUMBER]),
+        CommandInput::new("b", &[NUMBER]), //anytype
+    ];
+    const OUTPUTS: &'static [CommandOutput] = &[
+        CommandOutput::new("__true_branch", "Empty"),
+        CommandOutput::new("__false_branch", "Empty"), // TODO
+    ];
+    fn dimensions() -> NodeDimensions {
+        NodeDimensions {
+            height: calculate_node_height(Self),
+            width: 300,
+        }
+    }
+    fn config() -> CommandConfig {
+        CommandConfig::Simple(SimpleCommand::Branch(branch::Branch {
+            a: None,
+            b: None,
+            operator: None,
+        }))
+    }
+}
+
+impl Command for WaitCommand {
+    const COMMAND_NAME: &'static str = "wait";
+    const WIDGET_NAME: &'static str = "Wait";
+    const INPUTS: &'static [CommandInput] = &[
+        CommandInput::new("wait", &[STRING]),  //any type
+        CommandInput::new("value", &[STRING]), // any type
+    ];
+    const OUTPUTS: &'static [CommandOutput] = &[CommandOutput::new("value", "String")];
+    fn dimensions() -> NodeDimensions {
+        NodeDimensions {
+            height: calculate_node_height(Self),
+            width: 300,
+        }
+    }
+    fn config() -> CommandConfig {
+        CommandConfig::Simple(SimpleCommand::Wait)
+    }
+}
+
 impl Command for CreateTokenCommand {
     const COMMAND_NAME: &'static str = "create_token";
     const WIDGET_NAME: &'static str = "CreateToken";
@@ -427,6 +524,8 @@ impl Command for CreateTokenCommand {
     const OUTPUTS: &'static [CommandOutput] = &[
         CommandOutput::new("token", "Keypair"),
         CommandOutput::new("signature", "String"),
+        CommandOutput::new("fee_payer", "Keypair"),
+        CommandOutput::new("authority", "Keypair"),
     ];
     fn dimensions() -> NodeDimensions {
         NodeDimensions {
@@ -544,6 +643,7 @@ impl Command for MintTokenCommand {
     const OUTPUTS: &'static [CommandOutput] = &[
         CommandOutput::new("token", "Pubkey"),
         CommandOutput::new("signature", "String"),
+        CommandOutput::new("fee_payer", "Keypair"),
     ];
     fn dimensions() -> NodeDimensions {
         NodeDimensions {
@@ -601,6 +701,36 @@ impl Command for TransferCommand {
     }
 }
 
+impl Command for TransferSolanaCommand {
+    const COMMAND_NAME: &'static str = "transfer_solana";
+    const WIDGET_NAME: &'static str = "TransferSolana";
+    const INPUTS: &'static [CommandInput] = &[
+        CommandInput::new("sender", &[KEYPAIR]),
+        CommandInput::new("recipient", &[PUBKEY]),
+        CommandInput::new("amount", &[NUMBER]),
+    ];
+    const OUTPUTS: &'static [CommandOutput] = &[
+        CommandOutput::new("signature", "String"),
+        CommandOutput::new("sender", "Keypair"),
+        CommandOutput::new("recipient", "Pubkey"),
+    ];
+    fn dimensions() -> NodeDimensions {
+        NodeDimensions {
+            height: calculate_node_height(Self),
+            width: 300,
+        }
+    }
+    fn config() -> CommandConfig {
+        CommandConfig::Solana(solana::Kind::TransferSolana(
+            transfer_solana::TransferSolana {
+                sender: None,
+                recipient: None,
+                amount: None,
+            },
+        ))
+    }
+}
+
 impl Command for RequestAirdropCommand {
     const COMMAND_NAME: &'static str = "request_airdrop";
     const WIDGET_NAME: &'static str = "RequestAirdrop";
@@ -653,15 +783,11 @@ impl Command for CreateMetadataAccountsCommand {
         CommandInput::new("token_authority", &[PUBKEY]),
         CommandInput::new("fee_payer", &[KEYPAIR]),
         CommandInput::new("update_authority", &[KEYPAIR]),
-        CommandInput::new("name", &[STRING]),
-        CommandInput::new("symbol", &[STRING]),
         CommandInput::new("uri", &[STRING]),
-        CommandInput::new("creators", &[NFT_CREATORS]), //multi arg input
-        CommandInput::new("seller_fee_basis_points", &[NUMBER]), //u16
+        CommandInput::new("metadata", &[NFT_METADATA]),
         CommandInput::new("update_authority_is_signer", &[BOOL]),
         CommandInput::new("is_mutable", &[BOOL]),
-        CommandInput::new("collection", &[NFT_COLLECTION]), //multi arg input
-        CommandInput::new("uses", &[NTF_USES]),             //multi arg input
+        CommandInput::new("uses", &[NTF_USES]), //multi arg input
     ];
     const OUTPUTS: &'static [CommandOutput] = &[
         CommandOutput::new("signature", "String"),
@@ -682,14 +808,10 @@ impl Command for CreateMetadataAccountsCommand {
                 token_authority: None,
                 fee_payer: None,
                 update_authority: None,
-                name: None,
-                symbol: None,
                 uri: None,
-                creators: None,
-                seller_fee_basis_points: None,
+                metadata: None,
                 update_authority_is_signer: None,
                 is_mutable: None,
-                collection: None,
                 uses: None,
             },
         )))
@@ -704,7 +826,6 @@ impl Command for CreateMasterEditionCommand {
         CommandInput::new("token_authority", &[PUBKEY]),
         CommandInput::new("fee_payer", &[KEYPAIR]),
         CommandInput::new("update_authority", &[KEYPAIR]),
-        CommandInput::new("is_mutable", &[BOOL]),
         CommandInput::new("max_supply", &[NUMBER]),
     ];
     const OUTPUTS: &'static [CommandOutput] = &[
@@ -727,7 +848,6 @@ impl Command for CreateMasterEditionCommand {
                 token_authority: None,
                 fee_payer: None,
                 update_authority: None,
-                is_mutable: None,
                 max_supply: solana::nft::create_master_edition::Arg::Some(None), // TODO double check
             },
         )))
@@ -929,6 +1049,36 @@ impl Command for ArweaveNftUploadCommand {
     }
 }
 
+impl Command for ArweaveBundlrCommand {
+    const COMMAND_NAME: &'static str = "arweave_bundlr";
+    const WIDGET_NAME: &'static str = "ArweaveBundlr";
+    const INPUTS: &'static [CommandInput] = &[
+        CommandInput::new("fee_payer", &[KEYPAIR]),
+        CommandInput::new("metadata", &[NFT_METADATA]),
+        CommandInput::new("fund_bundlr", &[BOOL]),
+    ];
+    const OUTPUTS: &'static [CommandOutput] = &[
+        CommandOutput::new("metadata_url", "String"),
+        CommandOutput::new("metadata", "String"),
+        CommandOutput::new("fee_payer", "Keypair"),
+    ];
+    fn dimensions() -> NodeDimensions {
+        NodeDimensions {
+            height: calculate_node_height(Self),
+            width: 300,
+        }
+    }
+    fn config() -> CommandConfig {
+        CommandConfig::Solana(solana::Kind::Nft(nft::Command::ArweaveBundlr(
+            arweave_bundlr::ArweaveBundlr {
+                fee_payer: None,
+                metadata: None,
+                fund_bundlr: None,
+            },
+        )))
+    }
+}
+
 const PRINTABLE: TypeBound = TypeBound {
     name: "Printable",
     types: &[
@@ -942,12 +1092,13 @@ const PRINTABLE: TypeBound = TypeBound {
         "NftMetadata",
         "NftUses",
         "MetadataAccount",
+        "Json",
     ],
 };
 
 const PUBKEY: TypeBound = TypeBound {
     name: "Pubkey",
-    types: &["Pubkey", "Keypair"],
+    types: &["Pubkey"], // TODO if accepts pubkey, also accept keypair
 };
 
 const KEYPAIR: TypeBound = TypeBound {
@@ -993,6 +1144,11 @@ const NFT_METADATA: TypeBound = TypeBound {
 const METADATA_ACCOUNT: TypeBound = TypeBound {
     name: "MetadataAccount",
     types: &["MetadataAccount"],
+};
+
+const JSON: TypeBound = TypeBound {
+    name: "Json",
+    types: &["Json"],
 };
 
 /*

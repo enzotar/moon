@@ -31,7 +31,7 @@ func dummyCallsToPreventTreeShaking() {
     _to_dart_for_View();
     rid_view_debug(nil);
     rid_view_debug_pretty(nil);
-    // __include_dart_for_hash_map_string_nodeview();
+    // __include_dart_for_vec_graphentry();
     rid_view_graph_entry(nil);
     rid_view_nodes(nil);
     rid_view_flow_edges(nil);
@@ -46,27 +46,27 @@ func dummyCallsToPreventTreeShaking() {
     rid_view_bookmarks(nil);
     rid_view_solana_net(nil);
     rid_view_ui_state_debug(nil);
-    rid_export_rid_len_hash_map_string_nodeview(nil);
-    rid_export_rid_get_hash_map_string_nodeview(nil, nil);
-    rid_export_rid_contains_key_hash_map_string_nodeview(nil, nil);
-    rid_export_rid_keys_hash_map_string_nodeview(nil);
-    __include_dart_for_ridvec_string();
-    rid_free_ridvec_string(RidVec_Pointer_String());
-    rid_get_item_ridvec_string(RidVec_Pointer_String(), 0);
-    rid_export_rid_len_hash_map_string_edgeview(nil);
-    rid_export_rid_get_hash_map_string_edgeview(nil, nil);
-    rid_export_rid_contains_key_hash_map_string_edgeview(nil, nil);
-    rid_export_rid_keys_hash_map_string_edgeview(nil);
-    rid_len_vec_string(nil);
-    rid_get_item_vec_string(nil, 0);
     rid_len_vec_graphentry(nil);
     rid_get_item_vec_graphentry(nil, 0);
     rid_export_rid_len_hash_map_string_bookmarkview(nil);
     rid_export_rid_get_hash_map_string_bookmarkview(nil, nil);
     rid_export_rid_contains_key_hash_map_string_bookmarkview(nil, nil);
     rid_export_rid_keys_hash_map_string_bookmarkview(nil);
+    __include_dart_for_ridvec_string();
+    rid_free_ridvec_string(RidVec_Pointer_String());
+    rid_get_item_ridvec_string(RidVec_Pointer_String(), 0);
+    rid_export_rid_len_hash_map_string_nodeview(nil);
+    rid_export_rid_get_hash_map_string_nodeview(nil, nil);
+    rid_export_rid_contains_key_hash_map_string_nodeview(nil, nil);
+    rid_export_rid_keys_hash_map_string_nodeview(nil);
+    rid_len_vec_string(nil);
+    rid_get_item_vec_string(nil, 0);
     rid_len_vec_widgettextcommand(nil);
     rid_get_item_vec_widgettextcommand(nil, 0);
+    rid_export_rid_len_hash_map_string_edgeview(nil);
+    rid_export_rid_get_hash_map_string_edgeview(nil, nil);
+    rid_export_rid_contains_key_hash_map_string_edgeview(nil, nil);
+    rid_export_rid_keys_hash_map_string_edgeview(nil);
     _to_dart_for_DebugData();
     rid_debugdata_ui_state(nil);
     rid_debugdata_ui_state_len(nil);
@@ -216,5 +216,8 @@ func dummyCallsToPreventTreeShaking() {
     rid_msg_SetMappingKind(0, nil);
     rid_msg_ZoomIn(0, nil);
     rid_msg_ZoomOut(0, nil);
+    rid_msg_SetAdditionalData(0, nil, nil);
+    rid_msg_RenameGraph(0, nil, nil);
+    rid_msg_DeleteGraph(0, nil);
 }
 // <rid:prevent_tree_shake End>

@@ -12,6 +12,24 @@
        and touch or touchpad two-finger scroll (results in screen move)
 */
 
+/*
+    flutter-front-end
+        db to from  view
+    rust-front-end
+        db to from  model
+    rust-back-end
+        db
+
+    input (click with lmb where shift + !ctrl) -> behavior_widget
+
+    widget (click)
+
+    widget
+        destroy
+        add click handler
+    click on input_id
+*/
+
 mod api;
 mod command;
 mod event;
@@ -19,6 +37,7 @@ mod flow_context;
 mod input;
 mod model;
 mod state;
+mod storage;
 mod utils;
 mod view;
 
@@ -177,6 +196,22 @@ impl RidStore<Msg> for Store {
 
                 rid::post(Confirm::LoadGraph(req_id, "".to_owned()));
             }
+            Msg::DeleteGraph(graph_id) => {
+                let model = self.state.as_mut().unwrap().model_mut();
+                model.delete_graph(GraphId(Uuid::parse_str(&graph_id).unwrap()));
+
+                self.refresh_ui();
+
+                rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
+            }
+            Msg::RenameGraph(graph_id, new_name) => {
+                let model = self.state.as_mut().unwrap().model_mut();
+                model.rename_graph(GraphId(Uuid::parse_str(&graph_id).unwrap()), new_name);
+
+                self.refresh_ui();
+
+                rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
+            }
             Msg::ChangeSolanaNet(ev) => {
                 let model = self.state.as_mut().unwrap().model_mut();
                 let solana_net = match ev.as_str() {
@@ -221,10 +256,13 @@ impl RidStore<Msg> for Store {
                 .into_graph()
                 .unwrap();
 
-                println!("{:#?}", graph);
+                let graph = serde_json::to_string_pretty(&graph).unwrap();
 
-                dbg!(self.state.as_ref().unwrap().model());
-                rid::post(Confirm::ReceivedEvent(req_id, "".to_owned()));
+                // for console
+                println!("{:#?}", graph);
+                let model = dbg!(self.state.as_ref().unwrap().model());
+
+                rid::post(Confirm::ReceivedEvent(req_id, graph.to_owned()));
             }
             Msg::StartInput(_) => {
                 // when focus on textinput
@@ -256,6 +294,8 @@ impl RidStore<Msg> for Store {
                     }
                     _ => {}
                 }
+
+
             }*/
             // Msg::SetText(ev) => {
             //     // set text but try to apply command
@@ -732,6 +772,7 @@ impl RidStore<Msg> for Store {
 
                 rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
             }
+
             Msg::RemoveNode(node_id) => {
                 //println!("remove nodes {:?}", node_id);
                 let state = self.state.as_mut().unwrap();
@@ -794,6 +835,26 @@ impl RidStore<Msg> for Store {
                 self.refresh_ui();
 
                 rid::post(Confirm::UpdatedDimensions(req_id, dimensions.to_string()));
+            }
+            Msg::SetAdditionalData(node_id, value_type) => {
+                let child_id = NodeId(Uuid::parse_str(&node_id).unwrap());
+
+                let state = self.state.as_mut().unwrap();
+
+                // get sub node type: String, Json, Bool, Seed Phrase, etc.
+                let additional_data = &value_type;
+
+                //get config based on
+
+                // save to model
+                state
+                    .model_mut()
+                    .set_node_additional_data(&child_id, additional_data.clone());
+
+                // save to db
+                state
+                    .model_mut()
+                    .update_const_additional_in_db(child_id, additional_data);
             }
             Msg::SetMappingKind(kind) => {
                 let state = self.state.as_mut().unwrap();
@@ -918,6 +979,9 @@ pub enum Msg {
     SetMappingKind(String), // "mouse" | "touch"
     ZoomIn(String),
     ZoomOut(String),
+    SetAdditionalData(String, String),
+    RenameGraph(String, String),
+    DeleteGraph(String),
 }
 
 #[rid::reply]
@@ -937,6 +1001,7 @@ pub enum Confirm {
     RemoveNode(u64, String),
     UpdatedDimensions(u64, String),
     SendSeedPhrase(u64, String),
+    Debug(u64, String),
 }
 
 impl Store {
@@ -1364,24 +1429,22 @@ impl Store {
                                 RunState::Running => RunStateView::Running,
                                 RunState::Failed(_, _) => RunStateView::Failed,
                                 RunState::Success(_) => RunStateView::Success,
+                                RunState::Canceled => RunStateView::Canceled,
                             },
                             None => RunStateView::NotRunning,
                         },
                         elapsed_time: match state.model().run_status.get(node_id) {
                             Some(v) => match v.value().0 {
-                                RunState::WaitingInputs => 0,
-                                RunState::Running => 0,
                                 RunState::Failed(t, _) => t,
                                 RunState::Success(t) => t,
+                                _ => 0,
                             },
                             None => 0,
                         },
                         error: match state.model().run_status.get(node_id) {
                             Some(v) => match &v.value().0 {
-                                RunState::WaitingInputs => String::new(),
-                                RunState::Running => String::new(),
                                 RunState::Failed(_, e) => e.clone(),
-                                RunState::Success(_) => String::new(),
+                                _ => String::new(),
                             },
                             None => String::new(),
                         },
@@ -2010,7 +2073,7 @@ impl Store {
         //dbg!(&self.view.flow_edges);
         //dbg!(&self.last_view_changes.changed_flow_edges_ids);
         //dbg!(&self.view.highlighted);
-        //dbg!(&self.last_view_changes);
+        dbg!(&self.last_view_changes);
         //dbg!(&state.transform);
         //dbg!(&self.view.transform);
     }

@@ -142,6 +142,9 @@ impl CommandView for ConstCommand {
 impl CommandView for JsonExtractCommand {
     const VIEW_TYPE: NodeViewType = NodeViewType::JsonExtract;
 }
+impl CommandView for JsonInsertCommand {
+    const VIEW_TYPE: NodeViewType = NodeViewType::JsonInsert;
+}
 impl CommandView for HttpRequestCommand {
     const VIEW_TYPE: NodeViewType = NodeViewType::HttpRequest;
 }
@@ -151,6 +154,13 @@ impl CommandView for IpfsUploadCommand {
 
 impl CommandView for IpfsNftUploadCommand {
     const VIEW_TYPE: NodeViewType = NodeViewType::IpfsNftUpload;
+}
+impl CommandView for BranchCommand {
+    const VIEW_TYPE: NodeViewType = NodeViewType::Branch;
+}
+
+impl CommandView for WaitCommand {
+    const VIEW_TYPE: NodeViewType = NodeViewType::Wait;
 }
 impl CommandView for CreateTokenCommand {
     const VIEW_TYPE: NodeViewType = NodeViewType::CreateToken;
@@ -169,6 +179,10 @@ impl CommandView for MintTokenCommand {
 }
 impl CommandView for TransferCommand {
     const VIEW_TYPE: NodeViewType = NodeViewType::Transfer;
+}
+
+impl CommandView for TransferSolanaCommand {
+    const VIEW_TYPE: NodeViewType = NodeViewType::TransferSolana;
 }
 impl CommandView for RequestAirdropCommand {
     const VIEW_TYPE: NodeViewType = NodeViewType::RequestAirdrop;
@@ -200,15 +214,21 @@ impl CommandView for ArweaveUploadCommand {
 impl CommandView for ArweaveNftUploadCommand {
     const VIEW_TYPE: NodeViewType = NodeViewType::ArweaveNftUpload;
 }
+impl CommandView for ArweaveBundlrCommand {
+    const VIEW_TYPE: NodeViewType = NodeViewType::ArweaveBundlr;
+}
 
 // TODO: list all commands
 pub const VIEW_COMMANDS: &'static [&'static dyn DynCommandView] = &[
     &PrintCommand,
     &ConstCommand,
     &JsonExtractCommand,
+    &JsonInsertCommand,
     &HttpRequestCommand,
     &IpfsUploadCommand,
     &IpfsNftUploadCommand,
+    &WaitCommand,
+    &BranchCommand,
     // Solana
     &CreateTokenCommand,
     &AddPubkeyCommand,
@@ -216,6 +236,7 @@ pub const VIEW_COMMANDS: &'static [&'static dyn DynCommandView] = &[
     &GenerateKeypairCommand,
     &MintTokenCommand,
     &TransferCommand,
+    &TransferSolanaCommand,
     &RequestAirdropCommand,
     &GetBalanceCommand,
     // NFTs
@@ -227,6 +248,7 @@ pub const VIEW_COMMANDS: &'static [&'static dyn DynCommandView] = &[
     &GetLeftUsesCommand,
     &ArweaveUploadCommand,
     &ArweaveNftUploadCommand,
+    &ArweaveBundlrCommand,
 ];
 
 // TODO: Build once on initialization
@@ -372,6 +394,7 @@ pub enum RunStateView {
     Failed,
     Success,
     NotRunning,
+    Canceled,
 }
 
 #[rid::model]
@@ -387,9 +410,12 @@ pub enum NodeViewType {
     Print,
     Const,
     JsonExtract,
+    JsonInsert,
     HttpRequest,
     IpfsUpload,
     IpfsNftUpload,
+    Wait,
+    Branch,
     //
     CreateToken,
     AddPubkey,
@@ -397,6 +423,7 @@ pub enum NodeViewType {
     GenerateKeypair,
     MintToken,
     Transfer,
+    TransferSolana,
     RequestAirdrop,
     GetBalance,
     //
@@ -408,6 +435,7 @@ pub enum NodeViewType {
     GetLeftUses,
     ArweaveUpload,
     ArweaveNftUpload,
+    ArweaveBundlr,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]

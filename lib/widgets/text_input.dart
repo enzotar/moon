@@ -58,166 +58,169 @@ class TextInput extends SuperBlock {
     final double optionsMaxHeight = 200;
     final double optionsMaxWidth = treeNode.node.value.width.toDouble();
 
-    return ProviderScope(
-      overrides: [currentNode.overrideWithValue(treeNode)],
-      child: Positioned(
-        height: treeNode.node.value.height.toDouble(),
-        width: treeNode.node.value.width.toDouble(),
-        left: treeNode.node.value.x.toDouble(),
-        top: treeNode.node.value.y.toDouble(),
-        child: Card(
-          shape: ref.read(selectedNode(selected)),
-          child: Stack(
-            children: [
-              // Text(treeNode.node.key), // to debug node id
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 8, 30, 8),
-                child: Autocomplete(
-                  displayStringForOption: _displayStringForOption,
-                  fieldViewBuilder: (BuildContext context,
-                      TextEditingController textEditingController,
-                      FocusNode focusNode,
-                      VoidCallback onFieldSubmitted) {
-                    textEditingController.value =
-                        TextEditingValue(text: treeNode.node.value.text);
+    return
+        // ProviderScope(
+        //   overrides: [currentNode.overrideWithValue(treeNode)],
+        //   child:
+        Positioned(
+      height: treeNode.node.value.height.toDouble(),
+      width: treeNode.node.value.width.toDouble(),
+      left: treeNode.node.value.x.toDouble(),
+      top: treeNode.node.value.y.toDouble(),
+      child: Card(
+        shape: ref.read(selectedNode(selected)),
+        child: Stack(
+          children: [
+            // Text(treeNode.node.key), // to debug node id
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 8, 30, 8),
+              child: Autocomplete(
+                displayStringForOption: _displayStringForOption,
+                fieldViewBuilder: (BuildContext context,
+                    TextEditingController textEditingController,
+                    FocusNode focusNode,
+                    VoidCallback onFieldSubmitted) {
+                  textEditingController.value =
+                      TextEditingValue(text: treeNode.node.value.text);
 
-                    return TextFormField(
-                      decoration: const InputDecoration(
-                        hintText: 'press / for commands',
-                      ),
-                      controller:
-                          textEditingController, // check controller and focus
-                      focusNode: focusNode,
-                      autofocus: true,
-                      onTap: () {
-                        textEditingController.selection =
-                            TextSelection.fromPosition(TextPosition(
-                                offset: treeNode.node.value.text.length));
-                      },
-                      onChanged: (text) {
-                        // textEditingController.value = TextEditingValue(text: text);
-                        // print(text);
-                      },
-                      onEditingComplete: () {},
-                      onFieldSubmitted: (String value) {
-                        onFieldSubmitted();
-                        final commandNameReCase = textEditingController.text;
+                  return TextFormField(
+                    decoration: const InputDecoration(
+                      hintText: 'press / for commands',
+                    ),
+                    controller:
+                        textEditingController, // check controller and focus
+                    focusNode: focusNode,
+                    autofocus: true,
+                    onTap: () {
+                      textEditingController.selection =
+                          TextSelection.fromPosition(TextPosition(
+                              offset: treeNode.node.value.text.length));
+                    },
+                    onChanged: (text) {
+                      // textEditingController.value = TextEditingValue(text: text);
+                      // print(text);
+                    },
+                    onEditingComplete: () {},
+                    onFieldSubmitted: (String value) {
+                      onFieldSubmitted();
+                      final commandNameReCase = textEditingController.text;
 
-                        ReCase rc = ReCase(commandNameReCase);
-                        // convert back to snake_case since options have been recased
-                        final commandName = rc.snakeCase;
-                        print(commandName);
+                      ReCase rc = ReCase(commandNameReCase);
+                      // convert back to snake_case since options have been recased
+                      final commandName = rc.snakeCase;
+                      print(commandName);
 
-                        // prevent non-existent command from being called
-                        final match = _userOptions.where(((textCommand) {
-                          return textCommand.commandName == commandName;
-                        }));
-                        if (match.isNotEmpty &&
-                            commandName == match.first.commandName) {
-                          store.msgApplyCommand(
-                              commandName); // call ApplyCommand
-                          focusNode.unfocus();
-                        }
+                      // prevent non-existent command from being called
+                      final match = _userOptions.where(((textCommand) {
+                        return textCommand.commandName == commandName;
+                      }));
+                      if (match.isNotEmpty &&
+                          commandName == match.first.commandName) {
+                        store.msgApplyCommand(commandName); // call ApplyCommand
+                        focusNode.unfocus();
+                      }
 
-                        if (match.isEmpty) {
-                          final text = textEditingController.value.text;
-                          print(text);
-                          final inputProperties = {
-                            "nodeId": treeNode.node.key,
-                            "text": text
-                          };
-                          String inputEvent = JsonMapper.serialize(
-                              InputProperties(inputProperties));
-                          store.msgSetText(inputEvent);
-                        }
-                      },
-                    );
-                  },
-                  optionsBuilder: ((textEditingValue) {
-                    if (textEditingValue.text == '') {
-                      return const Iterable<rid.WidgetTextCommand>.empty();
-                    }
-                    if (textEditingValue.text.startsWith('/')) {
-                      // remove slash and pass to options
-                      final newTextEditingValue = textEditingValue.replaced(
-                          TextRange(start: 0, end: 1), "");
-                      return _userOptions.where((rid.WidgetTextCommand option) {
-                        return option
-                            .toString()
-                            .contains(newTextEditingValue.text.toLowerCase());
-                      });
-                    } else {
-                      return const Iterable<rid.WidgetTextCommand>.empty();
-                    }
-                  }),
-                  optionsViewBuilder: (BuildContext context,
-                      AutocompleteOnSelected<rid.WidgetTextCommand> onSelected,
-                      Iterable<rid.WidgetTextCommand> options) {
-                    return Align(
-                      alignment: Alignment.topLeft,
-                      child: Material(
-                        elevation: 4.0,
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                              maxHeight: optionsMaxHeight,
-                              maxWidth: optionsMaxWidth),
-                          child: ListView.builder(
-                            padding: EdgeInsets.zero,
-                            shrinkWrap: true,
-                            itemCount: options.length,
-                            itemBuilder: (BuildContext context, int index) {
-                              final rid.WidgetTextCommand option =
-                                  options.elementAt(index);
-                              return InkWell(
-                                onTap: () {
-                                  onSelected(option);
-                                  store.msgApplyCommand(
-                                      option.commandName); // call ApplyCommand
-                                },
-                                child: Builder(
-                                  builder: (BuildContext context) {
-                                    final bool highlight =
-                                        AutocompleteHighlightedOption.of(
-                                                context) ==
-                                            index;
-                                    if (highlight) {
-                                      SchedulerBinding.instance!
-                                          .addPostFrameCallback(
-                                        (Duration timeStamp) {
-                                          Scrollable.ensureVisible(context,
-                                              alignment: 0.5);
-                                        },
-                                      );
-                                    }
-                                    return Container(
-                                      color: highlight
-                                          ? Theme.of(context).focusColor
-                                          : null,
-                                      padding: const EdgeInsets.all(16.0),
-                                      child:
-                                          Text(_displayStringForOption(option)),
+                      if (match.isEmpty) {
+                        final text = textEditingController.value.text;
+                        print(text);
+                        final inputProperties = {
+                          "nodeId": treeNode.node.key,
+                          "text": text
+                        };
+                        String inputEvent = JsonMapper.serialize(
+                            InputProperties(inputProperties));
+                        store.msgSetText(inputEvent);
+                      }
+                    },
+                  );
+                },
+                optionsBuilder: ((textEditingValue) {
+                  if (textEditingValue.text == '') {
+                    return const Iterable<rid.WidgetTextCommand>.empty();
+                  }
+                  if (textEditingValue.text.startsWith('/')) {
+                    // remove slash and pass to options
+                    final newTextEditingValue = textEditingValue.replaced(
+                        TextRange(start: 0, end: 1), "");
+
+                    // recast to snake case to catch underscore
+                    ReCase rc = ReCase(newTextEditingValue.text);
+
+                    return _userOptions.where((rid.WidgetTextCommand option) {
+                      return option.toString().contains(rc.snakeCase);
+                    });
+                  } else {
+                    return const Iterable<rid.WidgetTextCommand>.empty();
+                  }
+                }),
+                optionsViewBuilder: (BuildContext context,
+                    AutocompleteOnSelected<rid.WidgetTextCommand> onSelected,
+                    Iterable<rid.WidgetTextCommand> options) {
+                  return Align(
+                    alignment: Alignment.topLeft,
+                    child: Material(
+                      elevation: 4.0,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                            maxHeight: optionsMaxHeight,
+                            maxWidth: optionsMaxWidth),
+                        child: ListView.builder(
+                          padding: EdgeInsets.zero,
+                          shrinkWrap: true,
+                          itemCount: options.length,
+                          itemBuilder: (BuildContext context, int index) {
+                            final rid.WidgetTextCommand option =
+                                options.elementAt(index);
+                            return InkWell(
+                              onTap: () {
+                                onSelected(option);
+                                store.msgApplyCommand(
+                                    option.commandName); // call ApplyCommand
+                              },
+                              child: Builder(
+                                builder: (BuildContext context) {
+                                  final bool highlight =
+                                      AutocompleteHighlightedOption.of(
+                                              context) ==
+                                          index;
+                                  if (highlight) {
+                                    SchedulerBinding.instance!
+                                        .addPostFrameCallback(
+                                      (Duration timeStamp) {
+                                        Scrollable.ensureVisible(context,
+                                            alignment: 0.5);
+                                      },
                                     );
-                                  },
-                                ),
-                              );
-                            },
-                          ),
+                                  }
+                                  return Container(
+                                    color: highlight
+                                        ? Theme.of(context).focusColor
+                                        : null,
+                                    padding: const EdgeInsets.all(16.0),
+                                    child:
+                                        Text(_displayStringForOption(option)),
+                                  );
+                                },
+                              ),
+                            );
+                          },
                         ),
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  );
+                },
               ),
-              Positioned(
-                right: 0,
-                child: ref.read(
-                  popUpMenuProvider(parentId),
-                ),
+            ),
+            Positioned(
+              right: 0,
+              child: ref.read(
+                popUpMenuProvider(parentId),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
+      // ),
     );
   }
 }

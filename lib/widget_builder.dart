@@ -73,11 +73,16 @@ WidgetTreeContent returnWidgetTreeFunction(
             },
           );
 
-          final treeNode = TreeNode(
-              children: buildWidgetTree(toVisitNodes, nodeId),
-              node: nodeEntry,
-              selected: false);
-          _ref.read(treeNodeController).add(treeNode);
+          final treeNode = _ref.read(treeNodeProvider(Tuple3(
+            nodeEntry,
+            false,
+            buildWidgetTree(toVisitNodes, nodeId),
+          )));
+          //  TreeNode(
+          //       children: buildWidgetTree(toVisitNodes, nodeId),
+          //       node: nodeEntry,
+          //       selected: false);
+          _ref.read(treeNodeRepoProvider).add(treeNode);
 
           final SuperBlock widget =
               WidgetChooser(nodeView.widgetType.name, treeNode);
@@ -86,9 +91,13 @@ WidgetTreeContent returnWidgetTreeFunction(
           nodeWidgets.add(widget);
         } else {
           // Create tree node
-          final treeNode =
-              TreeNode(children: null, node: nodeEntry, selected: false);
-          _ref.read(treeNodeController).add(treeNode);
+          final treeNode = _ref.read(treeNodeProvider(Tuple3(
+            nodeEntry,
+            false,
+            null,
+          )));
+          // TreeNode(children: null, node: nodeEntry, selected: false);
+          _ref.read(treeNodeRepoProvider).add(treeNode);
 
           //
 
@@ -172,6 +181,7 @@ WidgetTreeContent returnWidgetTreeFunction(
     return widgetList;
   }
 
+  _ref.read(treeNodeRepoProvider).clear();
   List<SuperBlock> result = buildWidgetTree(vertexNodes, null);
 
   /// reset visited edges

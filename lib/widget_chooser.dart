@@ -81,12 +81,15 @@ SuperBlock WidgetChooser([nodeType, treeNode, inputNodes, outputNodes, parentId
     case "Const":
       {
         _widget = CommandWidget(
-          // key: UniqueKey(),
+          key: ObjectKey(treeNode.hashCode),
           treeNode: treeNode,
           inputs: inputNodes,
           outputs: outputNodes,
           label: nodeType,
-          child: Const(treeNode: treeNode),
+          child: Const(
+            treeNode: treeNode,
+            key: UniqueKey(),
+          ),
           parentId: parentId,
         );
       }
@@ -113,9 +116,12 @@ SuperBlock WidgetChooser([nodeType, treeNode, inputNodes, outputNodes, parentId
       }
       break;
     case "JsonExtract":
+    case "JsonInsert":
     case "HttpRequest":
     case "IpfsUpload":
     case "IpfsNftUpload":
+    case "Wait":
+    case "Branch":
     //
     case "CreateToken":
     case "AddPubkey":
@@ -123,6 +129,7 @@ SuperBlock WidgetChooser([nodeType, treeNode, inputNodes, outputNodes, parentId
     case "GenerateKeypair":
     case "MintToken":
     case "Transfer":
+    case "TransferSolana":
     case "RequestAirdrop":
     case "GetBalance":
     //
@@ -134,6 +141,7 @@ SuperBlock WidgetChooser([nodeType, treeNode, inputNodes, outputNodes, parentId
     case "GetLeftUses":
     case "ArweaveNftUpload":
     case "ArweaveUpload":
+    case "ArweaveBundlr":
       {
         _widget = CommandWidget(
           // key: UniqueKey(),

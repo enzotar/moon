@@ -200,10 +200,6 @@ BOOL
       "seller_fee_basis_points": 15,
       "image": "image.jpg",
       "attributes": [],
-      "collection": {
-        "name": "Sunshine Collection",
-        "family": "SolShine"
-      },
       "properties": {
         "files": [
           {
@@ -212,7 +208,6 @@ BOOL
           }
         ],
         "category": "video",
-        "creators": []
       }
     }
   }
@@ -282,3 +277,81 @@ String(
 hot wallet
 2jQk5rnXUEqM9DBkGpmo1jAkXrTgQAkKNKTmGQyW4fRgao3PHMfqqX7bGmpRvW6ba8UHU2td9w8S5Sib3ikTQPZy
 
+pubkey
+7W3KHiYzPZjy2Be4NyZQi1PDQE152MXrBbivYKGLsmrS
+
+Bundlr Endpoints
+
+
+Get Balance
+https://node1.bundlr.network/account/balance/solana?address=7W3KHiYzPZjy2Be4NyZQi1PDQE152MXrBbivYKGLsmrS
+returns: {"balance":"0"}
+
+Get Price
+https://node1.bundlr.network/price/solana/1000
+
+/price/${currency}/${bytes}
+returns: 1530
+
+Get Address to Fund,      * Queries the bundler to get it's address for a specific currency
+https://node1.bundlr.network/info
+{"version":"0.2.0","addresses":{"arweave":"OXcT1sVRSA5eGwt2k6Yuz8-3e3g9WJi5uSE99CWqsBs","ethereum":"0xb4DE0833771eae55040b698aF5eB06d59E142C82","matic":"0xb4DE0833771eae55040b698aF5eB06d59E142C82","bnb":"0xb4DE0833771eae55040b698aF5eB06d59E142C82","avalanche":"0xb4DE0833771eae55040b698aF5eB06d59E142C82","solana":"DHyDV2ZjN3rB6qNGXS48dP5onfbZd3fAEz6C5HJwSqRD","arbitrum":"0xb4DE0833771eae55040b698aF5eB06d59E142C82","boba":"0xb4DE0833771eae55040b698aF5eB06d59E142C82","chainlink":"0xb4DE0833771eae55040b698aF5eB06d59E142C82","kyve":"0xb4DE0833771eae55040b698aF5eB06d59E142C82","fantom":"0xb4DE0833771eae55040b698aF5eB06d59E142C82","algorand":"DL7ZTTQMTFNXRF3367OTSNAZ3L2X676OJ4GGB3DXMUJ37CCKJ5RJMEO6RI"},"gateway":"arweave.net"}
+
+
+bundlr fund 50000 -h https://devnet.bundlr.network -w 4TmVkT4mh5xDcDGuFeb81GJdezhnEN7vNUhg5cLdPvBtsmWyt1qVkU5cN4U3Fffq4sAcbN6XXJomqgmNo6CjTNgi -c solana
+
+ --provider-url https://api.devnet.solana.com
+
+Transaction simulation failed: Attempt to debit an account but found no record of a prior credit. 
+    
+Error whilst funding: failed to send transaction: Transaction simulation failed: Attempt to debit an account but found no record of a prior credit. 
+
+
+Time elapsed 0s 
+failed to run command: SolanaClient(
+    ClientError {
+        request: Some(
+            SendTransaction,
+        ),
+        kind: RpcError(
+            RpcResponseError {
+                code: -32002,
+                message: "Transaction simulation failed: Error processing Instruction 0: custom program error: 0x25",
+                data: SendTransactionPreflightFailure(
+                    RpcSimulateTransactionResult {
+                        err: Some(
+                            InstructionError(
+                                0,
+                                Custom(
+                                    37,
+                                ),
+                            ),
+                        ),
+                        logs: Some(
+                            [
+                                "Program metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s invoke [1]",
+                                "Program log: Instruction: Create Metadata Accounts v2",
+                                "Program log: Transfer 5616720 lamports to the new account",
+                                "Program 11111111111111111111111111111111 invoke [2]",
+                                "Program 11111111111111111111111111111111 success",
+                                "Program log: Allocate space for the account",
+                                "Program 11111111111111111111111111111111 invoke [2]",
+                                "Program 11111111111111111111111111111111 success",
+                                "Program log: Assign the account to the owning program",
+                                "Program 11111111111111111111111111111111 invoke [2]",
+                                "Program 11111111111111111111111111111111 success",
+                                "Program log: Creators must be at least one if set",
+                                "Program metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s consumed 21317 of 200000 compute units",
+                                "Program metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s failed: custom program error: 0x25",
+                            ],
+                        ),
+                        accounts: None,
+                        units_consumed: Some(
+                            0,
+                        ),
+                    },
+                ),
+            },
+        ),
+    },
+)

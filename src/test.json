@@ -1,0 +1,24 @@
+{
+    "name": "Sunshine NFT",
+    "symbol": "SNFT",
+    "description": "Sunshine NFT",
+    "seller_fee_basis_points": 15,
+    "image": "https://arweave.net/XR7I64jrxGkEtDpxRJHY1phasMdlgXsh_xNSwWK1c2I",
+    "animation_url": null,
+    "external_url": null,
+    "attributes": [],
+    "collection": {
+        "name": "Sunshine Collection",
+        "family": "SolShine"
+    },
+    "properties": {
+        "files": [
+            {
+                "uri": "https://arweave.net/XR7I64jrxGkEtDpxRJHY1phasMdlgXsh_xNSwWK1c2I",
+                "type": "image/jpg"
+            }
+        ],
+        "category": "video",
+        "creators": []
+    }
+}

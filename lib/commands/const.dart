@@ -10,6 +10,7 @@ import 'package:moon/commands/const_subblocks/nft_metadata_form.dart';
 import 'package:moon/commands/const_subblocks/numbers_field.dart';
 import 'package:moon/commands/const_subblocks/seed_phrase_field.dart';
 import 'package:moon/commands/const_subblocks/string_field.dart';
+import 'package:moon/logger.dart';
 import 'package:moon/providers/const_dropdown.dart';
 import 'package:moon/providers/store_provider.dart';
 import 'package:moon/serialization/input_mapping.dart';
@@ -26,31 +27,44 @@ class Const extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    log.d("rebuilding Const ${treeNode.node.key}");
     final focusNode = useFocusNode();
     final dropDownFocusNode = useFocusNode();
     // final provider = ref.watch(changesController);
     final store = ref.read(storeRepoProvider).store;
-    ref.watch(nodeController);
+    ref.watch(
+        nodeController.select((value) => value.keys == treeNode.node.key));
 
     ValueNotifier<String> dropDownValue =
         treeNode.node.value.additionalData == ""
             ? useState("string")
             : useState(treeNode.node.value.additionalData);
 
-//workaround so child widgets don't rebuild on dropdown change but when it when widget rebuilds
+    // print("dropDownValue $dropDownValue");
+
+    //workaround so child widgets don't rebuild on dropdown change but when it when widget rebuilds
     final untrackedDropDownValue = treeNode.node.value.additionalData == ""
         ? "string"
         : treeNode.node.value.additionalData;
 
+    // print("untrackedDropDownValue $untrackedDropDownValue");
+
     final valueList = ref.read(dropDownValues(treeNode));
+    // print("valuelist $valueList");
 
     useEffect(() {
       dropDownValue.addListener(() {
         final MapEntry<String, Tuple4<String, int, int, Function>> choice =
-            valueList.entries.firstWhere(
-                (element) => element.value.item1 == dropDownValue.value);
+            valueList.entries.firstWhere((element) {
+          // print("element.value.item1 ${element.value.item1}");
+          // print("dropDownValue.value ${dropDownValue.value}");
+          return element.value.item1 == dropDownValue.value;
+        });
         // call setJson
         //update dimensions
+
+        // print("choice $choice");
+        // print("add listener dropDownValue $dropDownValue");
         store
             .msgUpdateDimensions(
           treeNode.node.key,
@@ -88,6 +102,7 @@ class Const extends HookConsumerWidget {
         )
         .values
         .toList();
+    // print(dropDownList);
 
     return Container(
       width: treeNode.node.value.width - 120,
@@ -113,7 +128,14 @@ class Const extends HookConsumerWidget {
                   isExpanded: true,
                   items: dropDownList,
                   onChanged: (value) {
+                    // print("on changed value $value");
                     dropDownValue.value = value.toString();
+                    // save to db and read from db
+                    // store.msgSetAdditionalData(
+                    //   treeNode.node.key,
+                    //   value.toString(),
+                    // );
+
                     // focusNode.requestFocus(); // FIXME
                   },
                   value: dropDownValue.value,

@@ -29,7 +29,8 @@ dashmap = "5.1.0"
 tiny-bip39 = "0.8.2"
 chrono = "0.4.19"
 # sunshine_dgraph = { path="../libraries/sunshine_dgraph", version = "0.1.0" }
-
+openssl = { version = "0.10", features = ["vendored"] }
+allo-isolate = "0.1.12"
 
 #[dependencies.solana-client]
 #git = "https://github.com/solana-labs/solana/"

@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:dart_json_mapper/dart_json_mapper.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -12,6 +13,8 @@ import 'package:moon/logger.dart';
 import 'package:moon/providers/store_provider.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
 import 'package:moon/serialization/input_mapping.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 
 import 'event_listener.dart';
 import 'package:file_picker/file_picker.dart';
@@ -83,6 +86,7 @@ class LayoutScreen extends HookConsumerWidget {
     final List<rid.GraphEntry> graphList =
         ref.read(storeRepoProvider).graph_list;
 
+    // remove current graph to re-add it at the top
     graphList.removeWhere((entry) => entry.id == graph_entry.id);
 
     List<DropdownMenuItem<String>> dropDownList = graphList.map(
@@ -167,20 +171,62 @@ class LayoutScreen extends HookConsumerWidget {
     // transformController.value.
     final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey();
 
+    /// Text renaming
+    final renameTextEditingController =
+        useTextEditingController(text: graph_entry.name);
+
+    final graph_name = ValueNotifier(graph_entry.name);
+
+    final update = useValueListenable(graph_name);
+
+    useEffect(() {
+      renameTextEditingController.text = update;
+    }, [update]);
+
+    final debug = useState("");
+
+    Future<void> _copyToClipboard(text) async {
+      await Clipboard.setData(ClipboardData(text: text));
+      ScaffoldMessenger.of(buildContext).showSnackBar(SnackBar(
+        content: Text('Copied to clipboard', textAlign: TextAlign.center),
+      ));
+      // Scaffold.of(context).showSnackBar(snackbar)
+    }
+
+// bookmark
+    final selected_nodes_ids = ref.read(storeRepoProvider).selected_node_ids;
+
+    final bookmarkTextController = useTextEditingController(text: "");
+
     return Scaffold(
       key: _scaffoldKey,
       drawer: Drawer(
-        backgroundColor: Colors.blueGrey[900],
+        backgroundColor: Color.fromARGB(255, 23, 30, 34),
         child: ListView(
           children: [
+            Image.asset("assets/logo-full-small.png"),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Divider(color: Colors.white),
+            ),
             TextButton.icon(
+              style: TextButton.styleFrom(
+                primary: Colors.blueGrey.shade400,
+              ),
               icon: Icon(Icons.mouse),
               label: Text("Set Input For Mouse"),
               onPressed: () {
                 ref.read(storeRepoProvider).store.msgSetMappingKind("mouse");
               },
             ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Divider(color: Colors.white),
+            ),
             TextButton.icon(
+              style: TextButton.styleFrom(
+                primary: Colors.blueGrey.shade400,
+              ),
               icon: Icon(Icons.laptop),
               label: Text("Set Input For Trackpad"),
               onPressed: () {
@@ -192,22 +238,27 @@ class LayoutScreen extends HookConsumerWidget {
               child: Divider(color: Colors.white),
             ),
             TextButton.icon(
+              style: TextButton.styleFrom(
+                primary: Colors.blueGrey.shade400,
+              ),
               icon: Icon(Icons.save),
               label: Text("export"),
               onPressed: () async {
-                final timestamp =
-                    DateTime.now().millisecondsSinceEpoch.toString();
+                DateTime now = DateTime.now();
+                String formattedDate =
+                    DateFormat("yyyy-MM-dd--hhmmaa").format(now).toLowerCase();
+
                 final filename = ref.read(storeRepoProvider).graph_entry.name +
                     " - " +
-                    timestamp; // TODO fix datetime format
-                print(filename);
+                    formattedDate;
+                log.v(filename);
                 String? path = await FilePicker.platform.saveFile(
                     fileName: filename,
                     type: FileType.custom,
                     allowedExtensions: ["json"]);
 
                 if (path != null) {
-                  print(path);
+                  log.v(path);
                   store.msgExport(path, filename);
                 }
               },
@@ -217,6 +268,9 @@ class LayoutScreen extends HookConsumerWidget {
               child: Divider(color: Colors.white),
             ),
             TextButton.icon(
+              style: TextButton.styleFrom(
+                primary: Colors.blueGrey.shade400,
+              ),
               icon: Icon(Icons.folder_open_rounded),
               label: Text("import"),
               onPressed: () {
@@ -228,12 +282,213 @@ class LayoutScreen extends HookConsumerWidget {
               padding: const EdgeInsets.all(8.0),
               child: Divider(color: Colors.white),
             ),
-            TextButton(
-              child: Text("debug"),
+            TextButton.icon(
+              style: TextButton.styleFrom(
+                primary: Colors.blueGrey.shade400,
+              ),
+              icon: Icon(Icons.bug_report_outlined),
+              label: Text("debug"),
               onPressed: () {
-                store.msgDebug("debug");
+                Future<void> _showMyDialog() async {
+                  return showDialog<void>(
+                    context: buildContext,
+                    barrierDismissible: true, // user must tap button!
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: const Text('Debug'),
+                        content: SingleChildScrollView(
+                          child: ListBody(
+                            children: <Widget>[
+                              Text(
+                                debug.value,
+                                maxLines: 8,
+                              )
+                            ],
+                          ),
+                        ),
+                        actions: <Widget>[
+                          TextButton(
+                            style: TextButton.styleFrom(
+                                // primary: Colors.blueGrey[300],
+                                backgroundColor: Colors.green,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10))),
+                            child: const Text('Copy',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                )),
+                            onPressed: () {
+                              _copyToClipboard(debug.value);
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                          VerticalDivider(
+                            width: 60,
+                          ),
+                          TextButton(
+                            child: const Text('Close',
+                                style: TextStyle(color: Colors.blueGrey)),
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                }
+
+                store.msgDebug("debug").then((value) {
+                  debug.value = value.data!;
+                  _showMyDialog();
+                });
               },
             ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Divider(color: Colors.white),
+            ),
+            TextButton.icon(
+              style: TextButton.styleFrom(
+                primary: Colors.blueGrey.shade400,
+              ),
+              icon: Icon(Icons.drive_file_rename_outline),
+              label: Text("rename graph"),
+              onPressed: () {
+                Future<void> _showMyDialog() async {
+                  return showDialog<void>(
+                    context: buildContext,
+                    barrierDismissible: true, // user must tap button!
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: const Text('Rename Graph'),
+                        content: SingleChildScrollView(
+                          child: ListBody(
+                            children: <Widget>[
+                              TextField(
+                                controller: renameTextEditingController,
+                              )
+                            ],
+                          ),
+                        ),
+                        actions: <Widget>[
+                          TextButton(
+                            style: TextButton.styleFrom(
+                                // primary: Colors.blueGrey[300],
+                                backgroundColor: Colors.green,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10))),
+                            child: const Text('Rename',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                )),
+                            onPressed: () {
+                              store.msgRenameGraph(graph_entry.id,
+                                  renameTextEditingController.text);
+
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                          VerticalDivider(
+                            width: 60,
+                          ),
+                          TextButton(
+                            child: const Text('Cancel',
+                                style: TextStyle(color: Colors.blueGrey)),
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                }
+
+                _showMyDialog();
+              },
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Divider(color: Colors.white),
+            ),
+            TextButton.icon(
+              style: TextButton.styleFrom(
+                primary: Colors.blueGrey.shade400,
+              ),
+              icon: Icon(Icons.delete_outline),
+              label: Text(
+                "delete graph",
+              ),
+              onPressed: () {
+                Future<void> _showMyDialog() async {
+                  return showDialog<void>(
+                    context: buildContext,
+                    barrierDismissible: true, // user must tap button!
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: const Text('Delete Graph'),
+                        content: SingleChildScrollView(
+                          child: ListBody(
+                            children: <Widget>[
+                              Text(
+                                  "You are about to delete: ${graph_entry.name}"),
+                            ],
+                          ),
+                        ),
+                        actions: <Widget>[
+                          TextButton(
+                            style: TextButton.styleFrom(
+                                // primary: Colors.blueGrey[300],
+                                backgroundColor: Colors.red,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10))),
+                            child: const Text('DELETE',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                )),
+                            onPressed: () {
+                              print(graphList.length);
+                              if (graphList.length == 0) {
+                                store.msgDeleteGraph(graph_entry.id);
+                                store.msgLoadGraph("new");
+                              }
+                              if (graphList.length > 0) {
+                                store.msgDeleteGraph(graph_entry.id);
+                                final loadGraph = graphList.firstWhere(
+                                    (element) => element.id != graph_entry.id);
+                                store.msgLoadGraph(loadGraph.id);
+                              }
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                          VerticalDivider(
+                            width: 60,
+                          ),
+                          TextButton(
+                            child: const Text('Cancel',
+                                style: TextStyle(color: Colors.blueGrey)),
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                }
+
+                _showMyDialog();
+              },
+            ),
+            Container(
+              height: 60,
+            ),
+            Center(
+                child: Text(
+              "Space Operator, Alpha Version",
+              style: TextStyle(color: Colors.white),
+            ))
           ],
         ),
       ),
@@ -255,10 +510,14 @@ class LayoutScreen extends HookConsumerWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(0, 0, 10, 0),
-                child: Text("Flow Name:", style: TextStyle(color: Colors.blue)),
+                child: Text("Flow Name:",
+                    style: TextStyle(color: Colors.blueGrey.shade400)),
               ),
               DropdownButton(
-                  style: TextStyle(color: Colors.blue),
+                  style: TextStyle(
+                    color: Colors.amber,
+                  ),
+                  dropdownColor: Colors.blueGrey.shade900,
                   alignment: AlignmentDirectional.bottomCenter,
                   items: dropDownList,
                   value: graph_entry.id,
@@ -269,17 +528,39 @@ class LayoutScreen extends HookConsumerWidget {
           ),
         ),
         actions: [
-          DebugWidget(),
+          // DebugWidget(),
           TextButton.icon(
+              style: TextButton.styleFrom(
+                primary: Colors.blueGrey.shade400,
+              ),
               icon: Icon(Icons.bookmark_add_outlined),
               onPressed: () {
-                ref.read(contextController.notifier).update(buildContext);
-
-                store.msgCreateBookmark("add_bookmark").then(
-                      (value) => store.msgBookmarkScreenshot(value.data!),
-                    );
+                if (bookmarkTextController.value.text != "") {
+                  ref.read(contextController.notifier).update(buildContext);
+                  store
+                      .msgCreateBookmark(bookmarkTextController.value.text)
+                      .then(
+                        (value) => store.msgBookmarkScreenshot(value.data!),
+                      );
+                  bookmarkTextController.value = TextEditingValue.empty;
+                }
               },
-              label: Text("Bookmark Nodes")),
+              label: Text("Bookmark")),
+          Container(
+              width: 80,
+              child: TextField(
+                decoration: InputDecoration(
+                  label: Text(
+                    "enter name",
+                    style: TextStyle(
+                        color: Colors.blueGrey.shade400, fontSize: 10),
+                  ),
+                  // hintText: "bookmark name",
+                  // hintStyle: TextStyle(color: Colors.white, fontSize: 10),
+                ),
+                controller: bookmarkTextController,
+                style: TextStyle(color: Colors.blueGrey.shade400),
+              )),
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: VerticalDivider(color: Colors.white),
@@ -298,12 +579,18 @@ class LayoutScreen extends HookConsumerWidget {
                 }),
           ),
           TextButton.icon(
+              style: TextButton.styleFrom(
+                primary: Colors.blueGrey.shade400,
+              ),
               icon: Icon(Icons.play_arrow_rounded),
               onPressed: () {
                 store.msgDeploy("deploy", timeout: Duration(minutes: 120));
               },
               label: Text("Deploy")),
           TextButton.icon(
+              style: TextButton.styleFrom(
+                primary: Colors.blueGrey.shade400,
+              ),
               icon: Icon(Icons.stop),
               onPressed: () {
                 store.msgUnDeploy("undeploy");
@@ -314,6 +601,9 @@ class LayoutScreen extends HookConsumerWidget {
             child: VerticalDivider(color: Colors.white),
           ),
           TextButton.icon(
+            style: TextButton.styleFrom(
+              primary: Colors.blueGrey.shade400,
+            ),
             icon: Icon(Icons.fit_screen),
             label: Text("fit to screen"),
             onPressed: () {
@@ -325,6 +615,9 @@ class LayoutScreen extends HookConsumerWidget {
             },
           ),
           TextButton.icon(
+            style: TextButton.styleFrom(
+              primary: Colors.blueGrey.shade400,
+            ),
             icon: Icon(Icons.restart_alt_rounded),
             label: Text("reset zoom"),
             onPressed: () {
@@ -334,6 +627,7 @@ class LayoutScreen extends HookConsumerWidget {
           ),
           IconButton(
             icon: Icon(Icons.zoom_in),
+            color: Colors.blueGrey.shade400,
             onPressed: () {
               ref.read(storeRepoProvider).store.msgZoomIn("");
               // _transformationController.value = Matrix4.identity();
@@ -341,6 +635,7 @@ class LayoutScreen extends HookConsumerWidget {
           ),
           IconButton(
             icon: Icon(Icons.zoom_out),
+            color: Colors.blueGrey.shade400,
             onPressed: () {
               ref.read(storeRepoProvider).store.msgZoomOut("");
               // _transformationController.value = Matrix4.identity();
@@ -368,25 +663,36 @@ class LayoutScreen extends HookConsumerWidget {
             );
           },
         ),
-        // Image.asset(
-        //   "assets/logo-full-small.png",
-        //   height: 100,
-        // ),
-
+        Positioned(
+          bottom: 0,
+          right: 0,
+          child: Image.asset(
+            "assets/logo-full-small.png",
+            height: 75,
+          ),
+        ),
         Row(
           children: [
-            if (!hideDrawer.value) const BookmarkManager(),
-            // Container(
-            //   decoration: BoxDecoration(color: Colors.blueGrey[800]),
-            //   child: ListView.separated(
-            //     separatorBuilder: ((context, index) => const Divider()),
-            //     itemBuilder: ((context, index) {
-            //       return commandList[index];
-            //     }),
-            //     itemCount: commandList.length,
-            //     // children: commandList,
-            //   ),
-            // ),
+            if (!hideDrawer.value)
+              Column(
+                children: [
+                  const BookmarkManager(),
+                  Expanded(
+                    child: Container(
+                      width: 270,
+                      decoration: BoxDecoration(color: Colors.blueGrey[800]),
+                      child: ListView.separated(
+                        separatorBuilder: ((context, index) => const Divider()),
+                        itemBuilder: ((context, index) {
+                          return commandList[index];
+                        }),
+                        itemCount: commandList.length,
+                        // children: commandList,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () {

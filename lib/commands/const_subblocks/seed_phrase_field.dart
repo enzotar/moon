@@ -6,6 +6,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
 import 'package:moon/commands/const.dart';
+import 'package:moon/logger.dart';
 import 'package:tuple/tuple.dart';
 import 'package:flutter/services.dart';
 
@@ -18,6 +19,8 @@ class SeedTextField extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    log.d(
+        "rebuilding Seed ${treeNode.node.value.widgetType} ${treeNode.node.key}");
     Future<void> _copyToClipboard(text) async {
       await Clipboard.setData(ClipboardData(text: text));
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -176,10 +179,12 @@ class SeedTextField extends HookConsumerWidget {
                               .then((value) => controller.value =
                                   TextEditingValue(text: value.data!));
                         },
-                        icon: Icon(Icons.refresh_outlined),
+                        icon: Icon(Icons.refresh_outlined,
+                            color: Colors.blueGrey),
                         label: Text(
                           "Generate new seed",
-                          style: TextStyle(fontSize: 12),
+                          style:
+                              TextStyle(fontSize: 12, color: Colors.blueGrey),
                         ),
                       ),
                       Padding(
@@ -187,13 +192,14 @@ class SeedTextField extends HookConsumerWidget {
                         child: Divider(color: Colors.white),
                       ),
                       TextButton.icon(
-                        icon: Icon(Icons.copy),
+                        icon: Icon(Icons.copy, color: Colors.blueGrey),
                         onPressed: () {
                           _copyToClipboard(controller.value.text);
                         },
                         label: Text(
                           "Copy",
-                          style: TextStyle(fontSize: 12),
+                          style:
+                              TextStyle(fontSize: 12, color: Colors.blueGrey),
                         ),
                       ),
                     ],

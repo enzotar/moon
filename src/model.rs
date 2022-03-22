@@ -1361,8 +1361,9 @@ impl Model {
         node_id
     }
 
-    /// TODO
+    /// TODO fix delete graph on indra side
     pub fn delete_graph(&mut self, graph_id: GraphId) {
+        //
         let mut node = block_on(
             self.db
                 .0
@@ -1375,17 +1376,25 @@ impl Model {
         node.properties.remove(FLOW_GRAPH_MARKER.into()).unwrap();
 
         node.properties
-            .insert("DELETED_GRAPH_MARKER".into(), JsonValue::Bool(true))
-            .unwrap();
+            .insert("DELETED_GRAPH_MARKER".into(), JsonValue::Bool(true));
 
         block_on(self.db.0.execute(Action::Mutate(
             self.graph_id().0,
             MutateKind::UpdateNode((graph_id.0, node.properties)),
         )))
         .unwrap();
+
+        // Update GRAPH LIST
+        // self.graph_list.retain(|item| {
+        //     dbg!(item);
+        //     dbg!(graph_id);
+        //     item.id != graph_id.0.to_string()
+        // });
+        // dbg!(self.graph_list.clone());
     }
 
     pub fn rename_graph(&mut self, graph_id: GraphId, new_name: String) {
+        // remove from db
         let mut node = block_on(
             self.db
                 .0
@@ -1396,13 +1405,28 @@ impl Model {
         .unwrap();
 
         node.properties
-            .insert("name".into(), JsonValue::String(new_name));
+            .insert("name".into(), JsonValue::String(new_name.clone()));
 
         block_on(self.db.0.execute(Action::Mutate(
             self.graph_id().0,
             MutateKind::UpdateNode((graph_id.0, node.properties)),
         )))
         .unwrap();
+
+        // update in from model
+
+        {
+            let graph_entry = self
+                .graph_list
+                .iter_mut()
+                .find(|entry| entry.id == graph_id.0.to_string())
+                .unwrap();
+
+            *graph_entry = GraphEntry {
+                id: graph_id.0.to_string(),
+                name: new_name,
+            };
+        }
     }
 
     /// Remove node from model and db

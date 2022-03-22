@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:recase/recase.dart';
+import 'package:moon/logger.dart';
 import 'package:moon/providers/popup_menu.dart';
 import 'package:moon/providers/store_provider.dart';
-import '../widgets/block.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
 import 'package:flutter/services.dart';
+import 'package:moon/widgets/block.dart';
 
 class CommandWidget extends SuperBlock {
   CommandWidget({
@@ -27,6 +28,9 @@ class CommandWidget extends SuperBlock {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    log.d(
+        "rebuilding Command ${treeNode.node.value.widgetType} ${treeNode.node.key}");
+
     Future<void> _copyToClipboard(text) async {
       await Clipboard.setData(ClipboardData(text: text));
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -35,8 +39,9 @@ class CommandWidget extends SuperBlock {
       // Scaffold.of(context).showSnackBar(snackbar)
     }
 
-    ref.watch(nodeController);
     final store = ref.read(storeRepoProvider).store;
+    ref.watch(
+        nodeController.select((value) => value.keys == treeNode.node.key));
     final selectedIds = ref.watch(selectedNodeIds);
     final selected = selectedIds.contains(parentId);
     final timeElapsed = Duration(milliseconds: treeNode.node.value.elapsedTime);
@@ -104,7 +109,11 @@ class CommandWidget extends SuperBlock {
                                       rid.RunStateView.Failed
                                   ? Color(
                                       Color.fromARGB(255, 255, 143, 135).value)
-                                  : Color.fromARGB(255, 255, 255, 255)),
+                                  : treeNode.node.value.runState ==
+                                          rid.RunStateView.Canceled
+                                      ? Color(Color.fromARGB(255, 185, 185, 185)
+                                          .value)
+                                      : Colors.white),
                       margin: EdgeInsets.fromLTRB(0, 0, 0, 0),
                       child: Container(
                         decoration: BoxDecoration(

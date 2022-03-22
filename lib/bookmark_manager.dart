@@ -15,46 +15,65 @@ class BookmarkManager extends HookConsumerWidget {
     final store = ref.read(storeRepoProvider).store;
 
     return Container(
-      width: 300,
+      height: 300,
+      width: 270,
       decoration: BoxDecoration(color: Colors.blueGrey[800]),
-      child: ListView.separated(
-        separatorBuilder: ((context, index) => const Divider()),
-        itemBuilder: ((context, index) {
-          final bookmark = bookmarks.entries.elementAt(index);
+      child: Column(
+        children: [
+          Container(
+            width: 270,
+            color: Colors.blueGrey,
+            child: Padding(
+                padding: EdgeInsets.all(8),
+                child: Text(
+                  "Bookmarks",
+                  style: TextStyle(color: Colors.amberAccent, fontSize: 14),
+                )),
+          ),
+          Expanded(
+            child: ListView.separated(
+              separatorBuilder: ((context, index) => const Divider()),
+              itemBuilder: ((context, index) {
+                final bookmark = bookmarks.entries.elementAt(index);
 
-          return GestureDetector(
-              onTap: () {
-                store.msgGotoBookmark(bookmark.key);
-              },
-              child: Container(
-                decoration: BoxDecoration(color: Colors.black12),
-                child: Dismissible(
-                  background: Container(
-                    alignment: Alignment.centerRight,
-                    color: Colors.red,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(0, 0, 10, 0),
-                      child: Icon(Icons.cancel),
-                    ),
-                  ),
-                  direction: DismissDirection.endToStart,
-                  onDismissed: (direction) {
-                    store.msgDeleteBookmark(bookmark.key);
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content:
-                          Text('Deleted bookmark', textAlign: TextAlign.center),
+                return GestureDetector(
+                    onTap: () {
+                      store.msgGotoBookmark(bookmark.key);
+                    },
+                    child: Container(
+                      height: 50,
+                      decoration: BoxDecoration(color: Colors.black12),
+                      child: Dismissible(
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          color: Colors.red,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(0, 0, 10, 0),
+                            child: Icon(Icons.cancel),
+                          ),
+                        ),
+                        direction: DismissDirection.endToStart,
+                        onDismissed: (direction) {
+                          store.msgDeleteBookmark(bookmark.key);
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text('Deleted bookmark',
+                                textAlign: TextAlign.center),
+                          ));
+                        },
+                        key: UniqueKey(),
+                        child: Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(bookmark.value.name.toString(),
+                              style: TextStyle(color: Colors.white)),
+                        ),
+                      ),
                     ));
-                  },
-                  key: UniqueKey(),
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(bookmark.value.nodes.toString()),
-                  ),
-                ),
-              ));
-        }),
-        itemCount: bookmarks.length,
-        // children: commandList,
+              }),
+              itemCount: bookmarks.length,
+              // children: commandList,
+            ),
+          ),
+        ],
       ),
     );
   }

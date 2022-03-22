@@ -3,10 +3,12 @@ import 'dart:collection';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:plugin/generated/rid_api.dart';
+import 'package:moon/logger.dart';
 import 'package:moon/providers/bookmark.dart';
 
 import 'package:moon/widget_builder.dart';
 import 'package:moon/widgets/block.dart';
+import 'package:tuple/tuple.dart';
 
 /// STORE REPO
 ///
@@ -118,6 +120,16 @@ class StoreRepo {
 
     debugData = Store.instance.view.uiStateDebug;
   }
+
+  updateGraphEntry() {
+    // store = Store.instance;
+    graph_entry = Store.instance.view.graphEntry;
+  }
+
+  updateGraphList() {
+    // store = Store.instance;
+    graph_list = Store.instance.view.graphList;
+  }
 }
 
 final lastChangesRepoProvider = Provider<LastChangesRepo>((ref) {
@@ -167,7 +179,7 @@ class LastChangesRepo {
     _subscribe();
   }
 
-  update_all_changes() {
+  update_all_last_changes() {
     // print("updating last changes");
     this.changed_nodes_ids = Store.instance.lastViewChanges.changedNodesIds;
     this.changed_flow_edges_ids =
@@ -198,8 +210,9 @@ class LastChangesRepo {
     final _streams = rid.replyChannel.stream;
 
     _streams.listen((ev) {
-      _read(storeRepoProvider).updateDebugData();
-      _read(debugController.notifier).updateState();
+      // DEBUG
+      // _read(storeRepoProvider).updateDebugData();
+      // _read(debugController.notifier).updateState();
       switch (ev.type) {
         case Confirm.RequestRefresh:
           {
@@ -216,7 +229,7 @@ class LastChangesRepo {
         case Confirm.UpdatedDimensions:
           {
             // print("updated node dimensions");
-            update_all_changes();
+            update_all_last_changes();
 
             // List<String>? added_ids = this
             //     .changed_nodes_ids
@@ -241,7 +254,7 @@ class LastChangesRepo {
         case Confirm.RefreshUI:
           {
             // print("refresh UI");
-            update_all_changes();
+            update_all_last_changes();
 
             List<String>? added_ids = this
                 .changed_nodes_ids
@@ -249,30 +262,33 @@ class LastChangesRepo {
                 .where((element) => element.value.kind == NodeChangeKind.Added)
                 .map((e) => e.key)
                 .toList();
+
             // print("added ids $added_ids");
 
-            if (this.changed_nodes_ids.isNotEmpty && added_ids.isEmpty) {
-              // print("changed nodes");
+            if (this.changed_nodes_ids.isNotEmpty &&
+                !this.changed_nodes_ids.keys.contains("dummy_node") &&
+                added_ids.isEmpty) {
+              log.v("changed nodes");
 
               _read(storeRepoProvider).update_nodes();
-
-              _read(nodeController.notifier).updateState(changed_nodes_ids);
               _read(storeRepoProvider).updateFlowEdges();
-
               _read(edgeController.notifier).updateState();
+
+              _read(treeNodeController.notifier).updateNodes(changed_nodes_ids);
+              // _read(nodeController.notifier).updateState(changed_nodes_ids);
 
               _read(changesController.notifier).updateState();
             }
 
             if (this.changed_flow_edges_ids.isNotEmpty) {
-              // print("changed flow edges");
+              log.v("changed flow edges");
 
               _read(storeRepoProvider).updateFlowEdges();
               // update nodes for edges to includes flow edges?
               _read(storeRepoProvider).updateHighlighted();
 
               _read(edgeController.notifier).updateState();
-              _read(changesController.notifier).updateState();
+              // _read(changesController.notifier).updateState();
             }
 
             if (this.is_transform_changed) {
@@ -282,7 +298,10 @@ class LastChangesRepo {
               _read(viewportController.notifier).updateState();
             }
             if (this.is_graph_changed) {
-              // print("is graph changed");
+              print("is graph changed");
+              _read(storeRepoProvider).updateGraphEntry();
+              _read(storeRepoProvider).updateGraphList();
+
               _read(graphController.notifier).updateState();
             }
             if (this.is_bookmark_changed) {
@@ -309,7 +328,7 @@ class LastChangesRepo {
         case Confirm.ApplyCommand: //must recreate tree
         case Confirm.CreateNode:
           {
-            update_all_changes();
+            update_all_last_changes();
 
             _read(storeRepoProvider).update_nodes();
             _read(widgetTreeController.notifier).build_tree();
@@ -321,7 +340,7 @@ class LastChangesRepo {
           {
             // find node, unfocus it
 
-            update_all_changes();
+            update_all_last_changes();
 
             _read(storeRepoProvider).updateAll();
 
@@ -335,7 +354,7 @@ class LastChangesRepo {
           break;
         case Confirm.Initialized:
           {
-            update_all_changes();
+            update_all_last_changes();
 
             _read(storeRepoProvider).updateAll();
 
@@ -349,7 +368,7 @@ class LastChangesRepo {
           break;
         case Confirm.LoadGraph:
           {
-            update_all_changes();
+            update_all_last_changes();
 
             _read(storeRepoProvider).updateAll();
 
@@ -564,14 +583,18 @@ class StoreController extends StateNotifier<HashMap<String, NodeView>> {
   updateState(HashMap<String, NodeChange> node_change) {
     // print("update node controller state ");
     _ref
-        .read(treeNodeController)
-        .updateNode(node_change.keys.toList()); // does not account for removed
+        .read(treeNodeController.notifier)
+        .updateNodes(node_change); // does not account for removed
 
     state = _ref.read(storeRepoProvider).nodes;
   }
 }
 
-final currentNode = Provider<TreeNode>((ref) => throw UnimplementedError);
+///
+final treeNodeProvider = Provider.family<TreeNode, Tuple3>(
+  (ref, tuple3) => TreeNode(
+      node: tuple3.item1, selected: tuple3.item2, children: tuple3.item3),
+);
 
 class TreeNode {
   MapEntry<String, NodeView> node;
@@ -585,6 +608,7 @@ class TreeNode {
   });
 }
 
+///
 final treeNodeRepoProvider = Provider<TreeNodeRepo>((ref) {
   return TreeNodeRepo(ref.read);
 });
@@ -604,9 +628,10 @@ class TreeNodeRepo {
     return treeNodes;
   }
 
-  updateNode(List<String> nodeIds) {
+  updateNodes(List<String> nodeIds) {
     // print("treeNodes $nodeIds");
-    final list = _read(storeRepoProvider)
+
+    final potentialUpdatableNodes = _read(storeRepoProvider)
         .nodes
         .entries
         .where((element) =>
@@ -616,10 +641,22 @@ class TreeNodeRepo {
         .map((e) => e.key);
 
     nodeIds.forEach((nodeId) {
-      if (list.contains(nodeId)) {
+      if (potentialUpdatableNodes.contains(nodeId)) {
         // print("update treeNodeRepo $nodeId");
-        final treeNode = get(nodeId);
-        treeNode.node = _read(storeRepoProvider)
+        // final treeNode = get(nodeId);
+        // final index =
+        //     treeNodes.indexWhere((element) => element.node.key == nodeId);
+
+        // treeNodes[index].node = _read(storeRepoProvider)
+        //     .nodes
+        //     .entries
+        //     .where((element) => element.key == nodeId)
+        //     .first;
+
+        final index =
+            treeNodes.indexWhere((element) => element.node.key == nodeId);
+
+        treeNodes[index].node = _read(storeRepoProvider)
             .nodes
             .entries
             .where((element) => element.key == nodeId)
@@ -631,7 +668,9 @@ class TreeNodeRepo {
   }
 
   TreeNode get(node_id) {
-    // print("get TreeNode $node_id");
+    print(treeNodes.length);
+    print(_read(treeNodeRepoProvider).treeNodes.length);
+    print("get TreeNode $node_id");
 
     return treeNodes
         .where((element) => element.node.key == node_id)
@@ -639,31 +678,49 @@ class TreeNodeRepo {
   }
 }
 
+///
 final treeNodeController =
-    StateNotifierProvider<TreeNodeController, TreeNodeRepo>(
+    StateNotifierProvider<TreeNodeController, HashMap<int, List<TreeNode>>>(
         (ref) => TreeNodeController(ref));
 
-class TreeNodeController extends StateNotifier<TreeNodeRepo> {
+class TreeNodeController extends StateNotifier<HashMap<int, List<TreeNode>>> {
   final Ref _ref;
 
-  TreeNodeController(this._ref) : super(TreeNodeRepo(_ref.read));
+  TreeNodeController(this._ref) : super(HashMap<int, List<TreeNode>>()) {
+    init();
+  }
+  init() {
+    state = HashMap.from({
+      DateTime.now().millisecondsSinceEpoch:
+          _ref.read(treeNodeRepoProvider).treeNodes
+    });
+  }
 
   add(node) {
     // print("add to tree repo");
-
-    state = _ref.read(treeNodeRepoProvider).add(node);
+    state = HashMap.from({
+      DateTime.now().millisecondsSinceEpoch:
+          _ref.read(treeNodeRepoProvider).add(node)
+    });
   }
 
   clear() {
     // print("clear node controller state");
 
-    state = _ref.read(treeNodeRepoProvider).clear();
+    state = HashMap.from({
+      DateTime.now().millisecondsSinceEpoch:
+          _ref.read(treeNodeRepoProvider).clear()
+    });
   }
 
-  updateNode(node_ids) {
-    // print("treeNodeController updateNode in treeRepo");
-
-    state = _ref.read(treeNodeRepoProvider).updateNode(node_ids);
+  updateNodes(HashMap<String, NodeChange> node_ids) {
+    print("treeNodeController updateNode in treeRepo");
+    _ref.read(treeNodeRepoProvider).updateNodes(node_ids.keys.toList());
+    // state = []; // workaround otherwise Riverpod doesn't see any changes
+    state = HashMap.from({
+      DateTime.now().millisecondsSinceEpoch:
+          _ref.read(treeNodeRepoProvider).treeNodes
+    });
   }
 }
 
