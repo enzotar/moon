@@ -4,7 +4,6 @@ import 'package:path_provider/path_provider.dart';
 
 import 'package:moon/commands/const_subblocks/file_picker.dart';
 
-import 'package:moon/layout.dart';
 import 'package:moon/utils/clipboard.dart';
 import 'package:moon/utils/launch_url_in_browser.dart';
 import 'package:moon/utils/logger.dart';
@@ -221,10 +220,13 @@ class DrawerWidget extends HookConsumerWidget {
               label: insertTextButton("Open Run Logs Folder"),
               onPressed: () async {
                 final persistentDir = await getApplicationSupportDirectory();
-                final String uri =
-                    "file:" + persistentDir.absolute.path + "/run_logs";
-                print(uri);
-                if (!await launch(uri)) throw 'Could not launch $uri';
+                final String uriPath =
+                    persistentDir.absolute.path + "/run_logs";
+
+                final Uri uri = Uri.file(uriPath);
+                if (!await launch(uri.toString()))
+                  throw 'Could not launch $uri';
+
                 Navigator.of(buildContext).pop();
               },
             ),

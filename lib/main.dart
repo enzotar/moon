@@ -25,6 +25,9 @@ void main() async {
   final tempDir = await getTemporaryDirectory();
   final persistentDir = await getApplicationSupportDirectory();
   print(persistentDir);
+
+  final docDir = await getApplicationDocumentsDirectory();
+  print(docDir);
   initializeJsonMapper();
 
   final initEvent = {

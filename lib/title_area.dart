@@ -4,6 +4,11 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:moon/providers/store_provider.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
 import 'package:moon/providers/templates.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'dart:async';
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:path_provider/path_provider.dart';
 
 class TitleArea extends HookConsumerWidget {
   const TitleArea({Key? key}) : super(key: key);
@@ -102,15 +107,36 @@ class TitleArea extends HookConsumerWidget {
                               ...templatesProvider.entries.map(
                                 (entry) {
                                   return GestureDetector(
-                                    onTap: () {
-                                      store
-                                          .msgImport(
-                                              "assets/templates/${entry.value.item4}.json",
-                                              timeout: Duration(seconds: 60))
-                                          .then((value) =>
-                                              Navigator.of(context).pop())
-                                          .then((value) =>
-                                              store.msgFitNodesToScreen(""));
+                                    onTap: () async {
+                                      Future<void> writeToFile(
+                                          ByteData data, String path) {
+                                        final buffer = data.buffer;
+                                        return new File(path).writeAsBytes(
+                                            buffer.asUint8List(
+                                                data.offsetInBytes,
+                                                data.lengthInBytes));
+                                      }
+
+//read and write
+                                      final filename =
+                                          '${entry.value.item4}.json';
+                                      var bytes = await rootBundle
+                                          .load("assets/templates/$filename");
+                                      String dir =
+                                          (await getTemporaryDirectory()).path;
+                                      writeToFile(bytes, '$dir/$filename')
+                                          .then((value) {
+                                        print(dir);
+                                        print(filename);
+                                        store
+                                            .msgImport("$dir/$filename",
+                                                timeout: Duration(seconds: 60))
+                                            .then((value) =>
+                                                Navigator.of(context).pop())
+                                            .then((value) =>
+                                                store.msgFitNodesToScreen(""));
+                                      });
+//write to app path
                                     },
                                     child: Padding(
                                       padding: const EdgeInsets.all(8.0),
@@ -160,7 +186,9 @@ class TitleArea extends HookConsumerWidget {
                                                   // height: 300,
                                                   // width: 200,
                                                   child: Image.asset(
-                                                      "assets/templates/${entry.value.item4}.png")),
+                                                "assets/templates/${entry.value.item4}.png",
+                                                //bundle: rootBundle,
+                                              )),
                                             ),
                                           ],
                                         ),
