@@ -1,6 +1,3 @@
-import 'dart:io';
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:plugin/generated/rid_api.dart';
@@ -34,9 +31,6 @@ void main() async {
     "canvasHeight": 950,
   };
 
-  print(initEvent);
-  // final screen = Screen();
-  // print(screen);
   String event = JsonMapper.serialize(InputProperties(initEvent));
 
   await Store.instance.msgInitialize(event); /*initializeEvent*/
@@ -46,11 +40,11 @@ void main() async {
   // rid_ffi.rid_export_handle_input2(1);
 
   runApp(ProviderScope(child: MyApp()));
-  print(
-    JsonMapper.serialize(
-      InputProperties({"propertyName": "property"}),
-    ),
-  );
+  // print(
+  //   JsonMapper.serialize(
+  //     InputProperties({"propertyName": "property"}),
+  //   ),
+  // );
 }
 
 class MyApp extends StatelessWidget {
@@ -58,8 +52,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'Dragonfly',
+        title: 'Space Operator',
         theme: ThemeData(
+          fontFamily: 'Inter',
           primarySwatch: Colors.lightBlue,
           visualDensity: VisualDensity.adaptivePlatformDensity,
         ),
@@ -68,7 +63,6 @@ class MyApp extends StatelessWidget {
             ));
   }
 }
-
 
 // /// https://blog.gskinner.com/archives/2020/03/flutter-simplify-platform-detection-responsive-sizing.html
 // class Screen {

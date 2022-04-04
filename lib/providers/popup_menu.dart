@@ -13,27 +13,27 @@ final popUpMenuProvider = Provider.family<PopupMenuButton, String>((
 
   return PopupMenuButton(
     color: Colors.blueGrey[900],
-    icon: Icon(Icons.more_horiz),
+    icon: const Icon(Icons.more_horiz),
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
     itemBuilder: (context) {
       return [
         PopupMenuItem<int>(
           onTap: () {},
           value: 0,
-          child: Text(
+          child: const Text(
             "",
-            style: TextStyle(color: Color.fromARGB(255, 153, 175, 185)),
+            style: const TextStyle(color: Color.fromARGB(255, 153, 175, 185)),
           ),
         ),
         PopupMenuItem<int>(
           onTap: () {
             // print(FocusScope.of(context).focusedChild);
-            store.msgRemoveNode(node_id);
+            store.msgRemoveNode(node_id, timeout: Duration(minutes: 1));
           },
           value: 1,
-          child: Text(
+          child: const Text(
             "delete",
-            style: TextStyle(color: Color.fromARGB(255, 153, 175, 185)),
+            style: const TextStyle(color: Color.fromARGB(255, 153, 175, 185)),
           ),
         ),
       ];

@@ -23,6 +23,7 @@ pub struct View {
     pub nodes: HashMap<String, NodeView>,
     pub flow_edges: HashMap<String, EdgeView>,
     pub selected_node_ids: Vec<String>,
+    pub selected_command_ids: Vec<String>,
     pub selection: Selection, // TODO Implement
     pub command: Command,     // not used
     pub text_commands: Vec<WidgetTextCommand>,
@@ -115,6 +116,7 @@ pub enum NodeChangeKind {
     Added,
     Removed,
     Modified,
+    AddedOrModified, // temporary
 }
 
 pub trait CommandView: crate::command::Command {
@@ -162,14 +164,14 @@ impl CommandView for BranchCommand {
 impl CommandView for WaitCommand {
     const VIEW_TYPE: NodeViewType = NodeViewType::Wait;
 }
-impl CommandView for CreateTokenCommand {
-    const VIEW_TYPE: NodeViewType = NodeViewType::CreateToken;
+impl CommandView for CreateMintAccountCommand {
+    const VIEW_TYPE: NodeViewType = NodeViewType::CreateMintAccount;
 }
-impl CommandView for AddPubkeyCommand {
-    const VIEW_TYPE: NodeViewType = NodeViewType::AddPubkey;
-}
-impl CommandView for CreateAccountCommand {
-    const VIEW_TYPE: NodeViewType = NodeViewType::CreateAccount;
+// impl CommandView for AddPubkeyCommand {
+//     const VIEW_TYPE: NodeViewType = NodeViewType::AddPubkey;
+// }
+impl CommandView for CreateTokenAccountCommand {
+    const VIEW_TYPE: NodeViewType = NodeViewType::CreateTokenAccount;
 }
 impl CommandView for GenerateKeypairCommand {
     const VIEW_TYPE: NodeViewType = NodeViewType::GenerateKeypair;
@@ -177,8 +179,8 @@ impl CommandView for GenerateKeypairCommand {
 impl CommandView for MintTokenCommand {
     const VIEW_TYPE: NodeViewType = NodeViewType::MintToken;
 }
-impl CommandView for TransferCommand {
-    const VIEW_TYPE: NodeViewType = NodeViewType::Transfer;
+impl CommandView for TransferTokenCommand {
+    const VIEW_TYPE: NodeViewType = NodeViewType::TransferToken;
 }
 
 impl CommandView for TransferSolanaCommand {
@@ -199,6 +201,16 @@ impl CommandView for CreateMasterEditionCommand {
 impl CommandView for UpdateMetadataAccountsCommand {
     const VIEW_TYPE: NodeViewType = NodeViewType::UpdateMetadataAccounts;
 }
+
+impl CommandView for VerifyCollectionCommand {
+    const VIEW_TYPE: NodeViewType = NodeViewType::VerifyCollection;
+}
+impl CommandView for ApproveCollectionAuthorityCommand {
+    const VIEW_TYPE: NodeViewType = NodeViewType::ApproveCollectionAuthority;
+}
+impl CommandView for SignMetadataCommand {
+    const VIEW_TYPE: NodeViewType = NodeViewType::SignMetadata;
+}
 impl CommandView for UtilizeCommand {
     const VIEW_TYPE: NodeViewType = NodeViewType::Utilize;
 }
@@ -208,14 +220,18 @@ impl CommandView for ApproveUseAuthorityCommand {
 impl CommandView for GetLeftUsesCommand {
     const VIEW_TYPE: NodeViewType = NodeViewType::GetLeftUses;
 }
-impl CommandView for ArweaveUploadCommand {
-    const VIEW_TYPE: NodeViewType = NodeViewType::ArweaveUpload;
-}
+// impl CommandView for ArweaveUploadCommand {
+//     const VIEW_TYPE: NodeViewType = NodeViewType::ArweaveUpload;
+// }
+// impl CommandView for ArweaveNftUploadCommand {
+//     const VIEW_TYPE: NodeViewType = NodeViewType::ArweaveNftUpload;
+// }
 impl CommandView for ArweaveNftUploadCommand {
     const VIEW_TYPE: NodeViewType = NodeViewType::ArweaveNftUpload;
 }
-impl CommandView for ArweaveBundlrCommand {
-    const VIEW_TYPE: NodeViewType = NodeViewType::ArweaveBundlr;
+
+impl CommandView for ArweaveFileUploadCommand {
+    const VIEW_TYPE: NodeViewType = NodeViewType::ArweaveFileUpload;
 }
 
 // TODO: list all commands
@@ -230,12 +246,12 @@ pub const VIEW_COMMANDS: &'static [&'static dyn DynCommandView] = &[
     &WaitCommand,
     &BranchCommand,
     // Solana
-    &CreateTokenCommand,
-    &AddPubkeyCommand,
-    &CreateAccountCommand,
+    &CreateMintAccountCommand,
+    // &AddPubkeyCommand,
+    &CreateTokenAccountCommand,
     &GenerateKeypairCommand,
     &MintTokenCommand,
-    &TransferCommand,
+    &TransferTokenCommand,
     &TransferSolanaCommand,
     &RequestAirdropCommand,
     &GetBalanceCommand,
@@ -243,12 +259,16 @@ pub const VIEW_COMMANDS: &'static [&'static dyn DynCommandView] = &[
     &CreateMetadataAccountsCommand,
     &CreateMasterEditionCommand,
     &UpdateMetadataAccountsCommand,
+    &VerifyCollectionCommand,
+    &ApproveCollectionAuthorityCommand,
+    &SignMetadataCommand,
     &UtilizeCommand,
     &ApproveUseAuthorityCommand,
     &GetLeftUsesCommand,
-    &ArweaveUploadCommand,
+    // &ArweaveUploadCommand,
+    // &ArweaveNftUploadCommand,
     &ArweaveNftUploadCommand,
-    &ArweaveBundlrCommand,
+    &ArweaveFileUploadCommand,
 ];
 
 // TODO: Build once on initialization
@@ -284,6 +304,10 @@ pub fn generate_default_text_commands() -> Vec<WidgetTextCommand> {
                         .iter()
                         .map(|&value| value.to_owned())
                         .collect(),
+                    required: input.required.to_owned(),
+                    tooltip: input.tooltip.to_owned(),
+                    has_default: input.has_default.to_owned(),
+                    default_value: input.default_value.to_owned(),
                 })
                 .collect(),
             outputs: command
@@ -292,6 +316,18 @@ pub fn generate_default_text_commands() -> Vec<WidgetTextCommand> {
                 .map(|output| TextCommandOutput {
                     name: output.name.to_owned(),
                     kind: output.r#type.to_owned(),
+                    passthrough: output.passthrough.to_owned(),
+                    tooltip: output.tooltip.to_owned(),
+                })
+                .collect(),
+            description: command.description().to_owned(),
+            availability: command
+                .availability()
+                .iter()
+                .map(|solana_net| match solana_net {
+                    SolanaNet::Devnet => "devnet".to_string(),
+                    SolanaNet::Testnet => "testnet".to_string(),
+                    SolanaNet::Mainnet => "mainnet".to_string(),
                 })
                 .collect(),
         })
@@ -305,6 +341,7 @@ impl Default for View {
             nodes: HashMap::default(),
             flow_edges: HashMap::default(),
             selected_node_ids: Vec::default(),
+            selected_command_ids: Vec::default(),
             selection: Selection::default(),
             command: Default::default(),
             text_commands: generate_default_text_commands(),
@@ -343,8 +380,10 @@ pub struct Command {
 pub struct WidgetTextCommand {
     pub command_name: String,
     pub widget_name: String,
+    pub description: String,
     pub inputs: Vec<TextCommandInput>,
     pub outputs: Vec<TextCommandOutput>,
+    pub availability: Vec<String>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -352,6 +391,10 @@ pub struct WidgetTextCommand {
 pub struct TextCommandInput {
     pub name: String,
     pub acceptable_kinds: Vec<String>,
+    pub required: bool,
+    pub tooltip: String,
+    pub has_default: bool,
+    pub default_value: String,
 }
 
 #[derive(rid::Config, Debug, Clone, Eq, PartialEq)]
@@ -359,6 +402,8 @@ pub struct TextCommandInput {
 pub struct TextCommandOutput {
     pub name: String,
     pub kind: String,
+    pub passthrough: bool,
+    pub tooltip: String,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -384,6 +429,12 @@ pub struct NodeView {
     pub error: String,
     pub print_output: String,
     pub additional_data: String,
+    pub required: bool,
+    pub tooltip: String,
+    pub type_bounds: String,
+    pub passthrough: bool,
+    pub default_value: String,
+    pub has_default: bool,
 }
 
 #[rid::model]
@@ -417,12 +468,12 @@ pub enum NodeViewType {
     Wait,
     Branch,
     //
-    CreateToken,
-    AddPubkey,
-    CreateAccount,
+    CreateMintAccount,
+    // AddPubkey,
+    CreateTokenAccount,
     GenerateKeypair,
     MintToken,
-    Transfer,
+    TransferToken,
     TransferSolana,
     RequestAirdrop,
     GetBalance,
@@ -430,12 +481,16 @@ pub enum NodeViewType {
     CreateMetadataAccounts,
     CreateMasterEdition,
     UpdateMetadataAccounts,
+    VerifyCollection,
+    ApproveCollectionAuthority,
+    SignMetadata,
     Utilize,
     ApproveUseAuthority,
     GetLeftUses,
-    ArweaveUpload,
+    // ArweaveUpload,
+    // ArweaveNftUpload,
     ArweaveNftUpload,
-    ArweaveBundlr,
+    ArweaveFileUpload,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]

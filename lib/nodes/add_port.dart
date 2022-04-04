@@ -3,9 +3,9 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
 
 import 'package:flutter/material.dart';
+import 'package:moon/nodes/input_disk.dart';
 import 'package:moon/nodes/port_entry.dart';
 import 'package:moon/providers/store_provider.dart';
-import 'package:moon/widget_input.dart';
 import 'package:tuple/tuple.dart';
 
 enum PortType { output, input }
@@ -18,167 +18,66 @@ List<Widget> addPort(
   Ref _ref,
   String commandName,
 ) {
-// find the command
-  final textCommand = _ref
-      .read(storeRepoProvider)
-      .text_commands
-      .where((element) => element.widgetName == commandName)
-      .toList();
-
   return ports.values.map((nodeEntry) {
     // find filled ports
 
-//     // get first acceptable kind
-//     final outputType = outputName.name;
-
     if (nodeEntry.item2.widgetType == rid.NodeViewType.WidgetInput) {
-      final inputName = textCommand[0].inputs.where((input) {
-        // print(input.name);
-        // print(nodeEntry.item2.text);
-        return input.name == nodeEntry.item2.text;
-      }).toList();
-      final inputType = inputName[0].acceptableKinds[0];
-
-      return InputWidget(
+      return InputPort(
+        key: ObjectKey(nodeEntry),
         nodeEntry: nodeEntry,
-        inputType: inputType,
-        // key: UniqueKey(),
+        commandName: commandName,
       );
     } else {
-      final outputName = textCommand[0]
-          .outputs
-          .where((output) => output.name == nodeEntry.item2.text)
-          .toList();
-
-      final outputType = outputName[0].kind;
-
       return OutputPort(
+        key: ObjectKey(nodeEntry),
         nodeEntry: nodeEntry,
-        outputType: outputType,
-        // key: UniqueKey(),
+        commandName: commandName,
       );
     }
   }).toList();
 }
 
-class InputWidget extends HookConsumerWidget {
-  const InputWidget({
+class InputPort extends HookConsumerWidget {
+  const InputPort({
     Key? key,
     required this.nodeEntry,
-    required this.inputType,
+    required this.commandName,
   }) : super(key: key);
 
   final Tuple2<String, rid.NodeView> nodeEntry;
   // final List edges;
-  final String inputType;
+  final String commandName;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final provider = ref.watch(edgeController);
-    ref.watch(nodeController);
-    // find highlighted ports
-    List<String> highlightedPort = ref.watch(storeRepoProvider).highlighted;
-
-    // get latest node entry
-    final newNodeEntry = ref
-        .read(nodeController)
-        .entries
-        .where((element) => element.key == nodeEntry.item1)
-        .single;
-
-    List<String> inboundEdges = newNodeEntry.value.flowInboundEdges;
-    List<String> outboundEdges = newNodeEntry.value.flowOutboundEdges;
-    List edges = [...inboundEdges, ...outboundEdges];
-
-    final dummy = provider.values.where(
-      (element) {
-        return element.to == nodeEntry.item1;
-      },
-    ).toList();
-
-    // final edgeEntries =
-    //     ref.read(storeRepoProvider).flow_edges.entries.where(((element) {
-    //   return edges.contains(element.key);
-    // })).toList();
-
-    return Container(
-      width: 120,
-      height: 50,
-      decoration: BoxDecoration(
-        // backgroundBlendMode: BlendMode.multiply,
-        color: Colors.transparent,
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 30,
-            child: edges.length <= 1
-                ? ElevatedButton(
-                    onHover: (value) {},
-                    // color:
-                    //     edges.contains(nodeEntry.key) ? Colors.green : Colors.white,
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      primary: edges.length == 1 || dummy.isNotEmpty
-                          ? Colors.amber
-                          : highlightedPort.contains(nodeEntry.item1)
-                              ? Color.fromARGB(255, 168, 216, 114)
-                              : Colors.white,
-                      fixedSize: const Size(30, 30),
-                      shape: const CircleBorder(
-                        side: BorderSide(
-                          color: Colors.black26,
-                          style: BorderStyle.solid,
-                        ),
-                      ),
-                    ),
-                    child: edges.length > 1
-                        ? Text(
-                            edges.length.toString(),
-                            textAlign: TextAlign.center,
-                          )
-                        : null,
-                  )
-                : Tooltip(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(5),
-                      color: Colors.red,
-                    ),
-                    height: 50,
-                    padding: const EdgeInsets.all(8.0),
-                    preferBelow: false,
-                    textStyle:
-                        const TextStyle(fontSize: 24, color: Colors.white),
-                    // showDuration: const Duration(seconds: 2),
-                    // waitDuration: const Duration(seconds: 0),
-                    message:
-                        "multiple edges not yet supported, remove one edge",
-                    child: ElevatedButton(
-                      onHover: (value) {},
-                      // color:
-                      //     edges.contains(nodeEntry.key) ? Colors.green : Colors.white,
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(
-                        primary: Colors.red,
-                        fixedSize: const Size(30, 30),
-                        shape: const CircleBorder(
-                          side: BorderSide(
-                            color: Colors.black26,
-                            style: BorderStyle.solid,
-                          ),
-                        ),
-                      ),
-                      child: Text(
-                        edges.length.toString(),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
+    // print("rebuilding input port");
+    return Tooltip(
+        // triggerMode: TooltipTriggerMode.longPress,
+        waitDuration: const Duration(milliseconds: 850),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(5),
+          border: Border.all(color: Colors.blueGrey.shade700, width: 1),
+          color: Colors.lightBlue.shade50,
+        ),
+        height: 50,
+        padding: const EdgeInsets.all(8.0),
+        preferBelow: false,
+        textStyle: const TextStyle(fontSize: 18, color: Colors.black87),
+        message: nodeEntry.item2.tooltip,
+        child: Container(
+          width: 120,
+          height: 50,
+          decoration: const BoxDecoration(
+            // backgroundBlendMode: BlendMode.multiply,
+            color: Colors.transparent,
           ),
-          PortEntry(PortType.input, inputType, nodeEntry)
-        ],
-      ),
-    );
+          child: Row(
+            children: [
+              InputDisk(nodeEntry: nodeEntry, key: ObjectKey(nodeEntry.item2)),
+              BasicPort(PortType.input, nodeEntry, commandName)
+            ],
+          ),
+        ));
   }
 }
 
@@ -186,34 +85,48 @@ class OutputPort extends HookConsumerWidget {
   const OutputPort({
     Key? key,
     required this.nodeEntry,
-    required this.outputType,
+    required this.commandName,
   }) : super(key: key);
 
   final Tuple2<String, rid.NodeView> nodeEntry;
-  final String outputType;
+  final String commandName;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final provider = ref.watch(edgeController);
-    ref.watch(nodeController);
+    // print(nodeEntry.item1);
 
     // find highlighted ports
-    List<String> highlightedPort = ref.watch(storeRepoProvider).highlighted;
-    final newNodeEntry = ref
-        .read(nodeController)
-        .entries
-        .where((element) => element.key == nodeEntry.item1)
-        .single;
+    String? highlighted = ref.watch(highlightedPort.select((list) {
+      final match = list.where((element) => element == nodeEntry.item1);
+      if (match.isNotEmpty) {
+        // print("is highlighted");
+        return match.first;
+      }
+    }));
 
-    List<String> inboundEdges = newNodeEntry.value.flowInboundEdges;
-    List<String> outboundEdges = newNodeEntry.value.flowOutboundEdges;
-    List edges = [...inboundEdges, ...outboundEdges];
+    List<String> edges = [];
 
-    final dummy = provider.values.where(
-      (element) {
-        return element.from == nodeEntry.item1;
-      },
-    ).toList();
+    bool currentlyDragged = false;
+    ref.watch(nodeController.select((map) {
+      final mapList = map.entries.where(
+        (entry) => entry.key == nodeEntry.item1,
+      );
+      if (mapList.isNotEmpty) {
+        // print("get outbound edges");
+        edges = mapList.first.value.flowOutboundEdges;
+
+        final dummy = ref
+            .read(edgeController)
+            .entries
+            .where((element) => element.key == "dummy_edge");
+
+        if (dummy.isNotEmpty && dummy.first.value.from == nodeEntry.item1)
+          currentlyDragged = true;
+        return mapList.first.value.flowOutboundEdges;
+      }
+      ;
+    }));
+    // print(edges);
 
     return Container(
       width: 120,
@@ -224,7 +137,7 @@ class OutputPort extends HookConsumerWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          PortEntry(PortType.output, outputType, nodeEntry),
+          BasicPort(PortType.output, nodeEntry, commandName),
           Container(
             width: 30,
             child: ElevatedButton(
@@ -233,9 +146,10 @@ class OutputPort extends HookConsumerWidget {
               //     edges.contains(nodeEntry.key) ? Colors.green : Colors.white,
               onPressed: () {},
               style: ElevatedButton.styleFrom(
-                primary: edges.length > 1 || dummy.isNotEmpty
+                primary: (edges.length > 0 || currentlyDragged == true) &&
+                        highlighted == null
                     ? Colors.amber
-                    : highlightedPort.contains(nodeEntry.item1)
+                    : highlighted != null
                         ? Color.fromARGB(255, 168, 216, 114)
                         : Colors.white,
                 fixedSize: const Size(30, 30),
@@ -259,48 +173,3 @@ class OutputPort extends HookConsumerWidget {
     );
   }
 }
-// Container(
-//         width: 120,
-//         height: 50,
-//         decoration: BoxDecoration(
-//           color: highlightedPort.contains(nodeEntry.item1)
-//               ? Colors.yellowAccent
-//               : Colors.transparent,
-//         ),
-//         child: Row(
-//           mainAxisAlignment: MainAxisAlignment.end,
-//           children: [
-//             Padding(
-//               padding: const EdgeInsets.fromLTRB(0, 0, 5, 0),
-//               child: Text(
-//                 nodeEntry.item2.text,
-//                 style: TextStyle(),
-//                 maxLines: 2,
-//                 overflow: TextOverflow.ellipsis,
-//               ),
-//             ),
-//             Container(
-//               width: 30,
-//               child: ElevatedButton(
-//                 onHover: (value) {},
-//                 // color:
-//                 //     edges.contains(nodeEntry.key) ? Colors.green : Colors.white,
-//                 onPressed: () {},
-//                 style: ElevatedButton.styleFrom(
-//                   primary: edges.contains(nodeEntry.item1)
-//                       ? Colors.yellow
-//                       : Colors.white,
-//                   // fixedSize: const Size(30, 30),
-//                   shape: const CircleBorder(
-//                     side: BorderSide(
-//                       color: Colors.black12,
-//                       style: BorderStyle.solid,
-//                     ),
-//                   ),
-//                 ),
-//                 child: null,
-//               ),
-//             ),
-//           ],
-//         ),
-//       );

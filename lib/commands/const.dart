@@ -4,13 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
-import 'package:moon/commands/const_subblocks/bool_field.dart';
-import 'package:moon/commands/const_subblocks/json_text_field.dart';
-import 'package:moon/commands/const_subblocks/nft_metadata_form.dart';
-import 'package:moon/commands/const_subblocks/numbers_field.dart';
-import 'package:moon/commands/const_subblocks/seed_phrase_field.dart';
-import 'package:moon/commands/const_subblocks/string_field.dart';
-import 'package:moon/logger.dart';
+
+import 'package:moon/utils/logger.dart';
 import 'package:moon/providers/const_dropdown.dart';
 import 'package:moon/providers/store_provider.dart';
 import 'package:moon/serialization/input_mapping.dart';
@@ -27,11 +22,12 @@ class Const extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    log.d("rebuilding Const ${treeNode.node.key}");
+    log.v("rebuilding Const ${treeNode.node.key}");
     final focusNode = useFocusNode();
     final dropDownFocusNode = useFocusNode();
     // final provider = ref.watch(changesController);
     final store = ref.read(storeRepoProvider).store;
+
     ref.watch(
         nodeController.select((value) => value.keys == treeNode.node.key));
 
@@ -54,7 +50,7 @@ class Const extends HookConsumerWidget {
 
     useEffect(() {
       dropDownValue.addListener(() {
-        final MapEntry<String, Tuple4<String, int, int, Function>> choice =
+        final MapEntry<String, Tuple3<String, int, int>> choice =
             valueList.entries.firstWhere((element) {
           // print("element.value.item1 ${element.value.item1}");
           // print("dropDownValue.value ${dropDownValue.value}");
@@ -107,7 +103,7 @@ class Const extends HookConsumerWidget {
     return Container(
       width: treeNode.node.value.width - 120,
       child: Padding(
-        padding: EdgeInsetsDirectional.fromSTEB(10, 10, 10, 10),
+        padding: const EdgeInsetsDirectional.fromSTEB(10, 10, 10, 10),
         child: Container(
           // decoration: BoxDecoration(
           //   color: Color(0xFFEEEEEE),
@@ -161,9 +157,9 @@ String createJson<T>(T value, String nodeId, [String? type]) {
 
   if (type != null) {
     inputProperties = {type: value};
-    var outerMap = {"Const": inputProperties};
+    final outerMap = {"Const": inputProperties};
     outer = JsonMapper.serialize(InputProperties(outerMap));
-    var combined = {"nodeId": nodeId, "text": outer};
+    final combined = {"nodeId": nodeId, "text": outer};
     // print(combined);
 
     return JsonMapper.serialize(InputProperties(combined));
@@ -176,10 +172,10 @@ String createJson<T>(T value, String nodeId, [String? type]) {
     // String output = JsonMapper.serialize(InputProperties(inputProperties));
 
     // outerMap = value as Map<String, dynamic>;
-    var outerMap = {"Const": value};
+    final outerMap = {"Const": value};
     outer = JsonMapper.serialize(InputProperties(outerMap));
 
-    var combined = {"nodeId": nodeId, "text": outer};
+    final combined = {"nodeId": nodeId, "text": outer};
     // print(combined);
 
     return JsonMapper.serialize(InputProperties(combined));

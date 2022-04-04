@@ -104,7 +104,7 @@ class NftMetadataForm extends HookConsumerWidget {
               Text("File URL", style: TextStyle(fontSize: 20)),
               const SizedBox(height: 10),
               TextButton.icon(
-                icon: Icon(Icons.folder_open_rounded),
+                icon: const Icon(Icons.folder_open_rounded),
                 label: Text("Open file picker"),
                 onPressed: () async {
                   FilePickerResult? result =
@@ -117,7 +117,7 @@ class NftMetadataForm extends HookConsumerWidget {
                         size: result.files.single.size);
                     filePathController.value =
                         TextEditingValue(text: result.files.single.path!);
-                    print(file);
+                    // print(file);
                   } else {
                     // User canceled the picker
                   }
@@ -132,6 +132,38 @@ class NftMetadataForm extends HookConsumerWidget {
                 maxLines: 2,
                 onChanged: _onChanged,
                 controller: filePathController,
+                // // valueTransformer: (text) => num.tryParse(text),
+                // validator: FormBuilderValidators.compose([
+                //   FormBuilderValidators.required(context),
+                //   FormBuilderValidators.numeric(context),
+                //   FormBuilderValidators.max(context, 70),
+                // ]),
+                keyboardType: TextInputType.multiline,
+              ),
+              FormBuilderTextField(
+                name: 'Animation URL',
+                decoration: InputDecoration(
+                  labelText: 'Animation URL',
+                ),
+                minLines: 2,
+                maxLines: 2,
+                onChanged: _onChanged,
+                // // valueTransformer: (text) => num.tryParse(text),
+                // validator: FormBuilderValidators.compose([
+                //   FormBuilderValidators.required(context),
+                //   FormBuilderValidators.numeric(context),
+                //   FormBuilderValidators.max(context, 70),
+                // ]),
+                keyboardType: TextInputType.multiline,
+              ),
+              FormBuilderTextField(
+                name: 'External URL',
+                decoration: InputDecoration(
+                  labelText: 'External URL',
+                ),
+                minLines: 2,
+                maxLines: 2,
+                onChanged: _onChanged,
                 // // valueTransformer: (text) => num.tryParse(text),
                 // validator: FormBuilderValidators.compose([
                 //   FormBuilderValidators.required(context),

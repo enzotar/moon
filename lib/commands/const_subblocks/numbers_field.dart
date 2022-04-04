@@ -6,6 +6,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
 import 'package:moon/commands/const.dart';
+import 'package:moon/providers/focus_reject.dart';
 
 import 'package:moon/providers/store_provider.dart';
 
@@ -31,7 +32,7 @@ class NumberTextField extends HookConsumerWidget {
                 .toString());
     final store = ref.read(storeRepoProvider).store;
 
-    // ReCase rc = ReCase(numberType);
+    // final ReCase rc = ReCase(numberType);
     ValueNotifier<String> _error = useState("");
     ValueNotifier<bool> decodeSucceeded = useState(false);
 
@@ -44,7 +45,7 @@ class NumberTextField extends HookConsumerWidget {
           treeNode.node.key,
           numberType.toString().toUpperCase(),
         );
-        store.msgSendJson(inputEvent);
+        store.msgSendJson(inputEvent, timeout: Duration(minutes: 1));
       }
     }
 
@@ -127,9 +128,9 @@ class NumberTextField extends HookConsumerWidget {
                 focusedErrorBorder: InputBorder.none,
                 errorBorder: InputBorder.none,
                 errorText: _error.value,
-                border: OutlineInputBorder(),
-                enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(
+                border: const OutlineInputBorder(),
+                enabledBorder: const UnderlineInputBorder(
+                  borderSide: const BorderSide(
                     color: Color(0x00000000),
                     width: 1,
                   ),
@@ -139,14 +140,14 @@ class NumberTextField extends HookConsumerWidget {
                   ),
                 ),
                 disabledBorder: InputBorder.none,
-                focusedBorder: UnderlineInputBorder(
+                focusedBorder: const UnderlineInputBorder(
                   borderSide: BorderSide(
                     color: Color(0x00000000),
                     width: 2,
                   ),
                   borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(2.0),
-                    topRight: Radius.circular(2.0),
+                    topLeft: const Radius.circular(2.0),
+                    topRight: const Radius.circular(2.0),
                   ),
                 ),
               ),

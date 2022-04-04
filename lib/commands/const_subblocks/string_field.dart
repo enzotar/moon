@@ -6,6 +6,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
 import 'package:moon/commands/const.dart';
+import 'package:moon/providers/focus_reject.dart';
 
 import 'package:moon/providers/store_provider.dart';
 
@@ -26,16 +27,18 @@ class StringTextField extends HookConsumerWidget {
             ? jsonDecode(treeNode.node.value.text)["Const"]["String"]
             : treeNode.node.value.text);
     final store = ref.read(storeRepoProvider).store;
+    ValueNotifier<String> stringContent = useState("");
 
     saveToDb() {
-      final text = controller.value.text.trimRight();
+      final text = stringContent.value.trimRight();
 
       final inputEvent = createJson(
         text,
         treeNode.node.key,
         "String",
       );
-      store.msgSendJson(inputEvent);
+      // print(text);
+      store.msgSendJson(inputEvent, timeout: Duration(minutes: 1));
     }
 
     useEffect(() {
@@ -92,6 +95,7 @@ class StringTextField extends HookConsumerWidget {
                 scrollController: scrollController,
 
                 onChanged: (value) {
+                  stringContent.value = value;
                   // print(focusNode);
 
                   // final inputProperties = {
@@ -111,7 +115,7 @@ class StringTextField extends HookConsumerWidget {
                 controller: controller,
                 obscureText: false,
                 decoration: InputDecoration(
-                  enabledBorder: OutlineInputBorder(
+                  enabledBorder: const OutlineInputBorder(
                     borderSide: BorderSide(
                       color: Color.fromARGB(255, 255, 255, 255),
                       width: 1,

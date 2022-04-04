@@ -35,6 +35,7 @@ class FileState {
 
 class ReadFile {
   ReadFile({this.treeNodeText = "", this.loadedFrom = ""}) {
+    print("read file ${this.treeNodeText}");
     if (this.treeNodeText != "") {
       this.path = jsonDecode(treeNodeText!)["Const"]["String"];
       this.loadedFrom = "db";
@@ -102,13 +103,12 @@ class FilePickerField extends HookConsumerWidget {
     saveToDb() {
       if (decodeSucceeded.value == true) {
         final text = _store.state.file!.path;
-        print(text);
         final inputEvent = createJson(
           text,
           treeNode.node.key,
           "String",
         );
-        store.msgSendJson(inputEvent);
+        store.msgSendJson(inputEvent, timeout: Duration(minutes: 1));
       }
     }
 
@@ -141,7 +141,7 @@ class FilePickerField extends HookConsumerWidget {
                     saveToDb();
                   }
                 },
-                child: Center(child: Icon(Icons.folder_open_outlined)),
+                child: Center(child: const Icon(Icons.folder_open_outlined)),
               ),
             ),
           if (_store.state.file != null) ...[
@@ -164,7 +164,7 @@ class FilePickerField extends HookConsumerWidget {
                   ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.folder_open_rounded),
+                  icon: const Icon(Icons.folder_open_rounded),
                   onPressed: () async {
                     decodeSucceeded.value = false;
 
@@ -241,10 +241,10 @@ Future<PlatformFile?> filePicker(FileType fileType, List<String>? extensions,
         switch (action) {
           case PickerFollowAction.Import:
             {
-              ref
-                  .read(storeRepoProvider)
-                  .store
-                  .msgImport(file.path!, timeout: Duration(hours: 8));
+              final store = ref.read(storeRepoProvider).store;
+              store
+                  .msgImport(file.path!, timeout: Duration(hours: 8))
+                  .then((value) => store.msgFitNodesToScreen(""));
               return Future.value(file);
             }
           case PickerFollowAction.Save:

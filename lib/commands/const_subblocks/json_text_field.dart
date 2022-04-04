@@ -7,6 +7,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
 import 'package:recase/recase.dart';
 import 'package:moon/commands/const.dart';
+import 'package:moon/providers/focus_reject.dart';
 import 'package:moon/providers/store_provider.dart';
 import 'package:tuple/tuple.dart';
 
@@ -22,7 +23,8 @@ class JsonTextField extends HookConsumerWidget {
     var controller = useTextEditingController(
         text: treeNode.node.value.text == ""
             ? ""
-            : jsonEncode(jsonDecode(treeNode.node.value.text)["Const"]));
+            : jsonEncode(
+                jsonDecode(treeNode.node.value.text)["Const"]["Json"]));
     final store = ref.read(storeRepoProvider).store;
 
     ValueNotifier<Tuple2<String, int?>> _error = useState(Tuple2("", null));
@@ -32,11 +34,15 @@ class JsonTextField extends HookConsumerWidget {
     void saveToDb() {
       if (decodeSucceeded.value == true) {
         final text = decodedJson.value;
-        final output =
-            createJson<Map<String, dynamic>>(text, treeNode.node.key, null);
-
+        // final output =
+        //     createJson<Map<String, dynamic>>(text, treeNode.node.key, null);
+        final output = createJson(
+          text,
+          treeNode.node.key,
+          "Json",
+        );
         // print(output);
-        store.msgSendJson(output);
+        store.msgSendJson(output, timeout: Duration(minutes: 1));
       }
     }
 
@@ -53,7 +59,7 @@ class JsonTextField extends HookConsumerWidget {
             focusRect.right + 15,
             focusRect.top + treeNode.node.value.height - 120 + 30,
           );
-          print(rect.size);
+          // print(rect.size);
           ref.read(focusRejectController.notifier).set([rect]);
         } else {
           saveToDb();
@@ -114,7 +120,7 @@ class JsonTextField extends HookConsumerWidget {
                 },
                 controller: controller,
                 decoration: InputDecoration(
-                  enabledBorder: OutlineInputBorder(
+                  enabledBorder: const OutlineInputBorder(
                     borderSide: BorderSide(
                       color: Color.fromARGB(255, 255, 255, 255),
                       width: 1,
@@ -122,13 +128,13 @@ class JsonTextField extends HookConsumerWidget {
                   ),
                   errorText:
                       _error.value.item1 == "" ? null : _error.value.item1,
-                  focusedErrorBorder: OutlineInputBorder(
+                  focusedErrorBorder: const OutlineInputBorder(
                     borderSide: BorderSide(
                       color: Color.fromARGB(255, 255, 0, 0),
                       width: 1,
                     ),
                   ),
-                  errorBorder: OutlineInputBorder(
+                  errorBorder: const OutlineInputBorder(
                     borderSide: BorderSide(
                       color: Color.fromARGB(255, 255, 0, 0),
                       width: 1,

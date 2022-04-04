@@ -1,13 +1,15 @@
 import 'dart:collection';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:plugin/generated/rid_api.dart';
-import 'package:moon/logger.dart';
+import 'package:moon/utils/logger.dart';
 import 'package:moon/providers/bookmark.dart';
 
 import 'package:moon/widget_builder.dart';
 import 'package:moon/widgets/block.dart';
+import 'package:moon/widgets/edge.dart';
 import 'package:tuple/tuple.dart';
 
 /// STORE REPO
@@ -25,6 +27,7 @@ class StoreRepo {
   HashMap<String, NodeView> nodes;
   HashMap<String, EdgeView> flow_edges;
   List<String> selected_node_ids;
+  List<String> selected_command_ids;
   Selection selection;
   Command command;
   List<WidgetTextCommand> text_commands;
@@ -41,6 +44,7 @@ class StoreRepo {
         this.nodes = Store.instance.view.nodes,
         this.flow_edges = Store.instance.view.flowEdges,
         this.selected_node_ids = Store.instance.view.selectedNodeIds,
+        this.selected_command_ids = Store.instance.view.selectedCommandIds,
         this.selection = Store.instance.view.selection,
         this.command = Store.instance.view.command,
         this.text_commands = Store.instance.view.textCommands,
@@ -50,7 +54,7 @@ class StoreRepo {
         this.transformScreenshot = Store.instance.view.transformScreenshot,
         this.bookmarks = Store.instance.view.bookmarks,
         this.debugData = Store.instance.view.uiStateDebug {
-    // print("init StoreRepo");
+    // log.v("init StoreRepo");
 
     updateAll();
   }
@@ -61,6 +65,7 @@ class StoreRepo {
     this.nodes = Store.instance.view.nodes;
     this.flow_edges = Store.instance.view.flowEdges;
     this.selected_node_ids = Store.instance.view.selectedNodeIds;
+    this.selected_command_ids = Store.instance.view.selectedCommandIds;
     this.selection = Store.instance.view.selection;
     this.command = Store.instance.view.command;
     this.text_commands = Store.instance.view.textCommands;
@@ -70,11 +75,10 @@ class StoreRepo {
     this.bookmarks = Store.instance.view.bookmarks;
     this.transformScreenshot = Store.instance.view.transformScreenshot;
     this.debugData = Store.instance.view.uiStateDebug;
-    ;
   }
 
   update_nodes() {
-    // print("update StoreRepo nodes, number of nodes:");
+    // log.v("update StoreRepo nodes, number of nodes:");
 
     // store = Store.instance;
     nodes = Store.instance.view.nodes;
@@ -113,6 +117,7 @@ class StoreRepo {
     // store = Store.instance;
 
     selected_node_ids = Store.instance.view.selectedNodeIds;
+    selected_command_ids = Store.instance.view.selectedCommandIds;
   }
 
   updateDebugData() {
@@ -175,12 +180,12 @@ class LastChangesRepo {
         this.is_graph_changed = Store.instance.lastViewChanges.isGraphChanged,
         this.is_bookmark_changed =
             Store.instance.lastViewChanges.isBookmarkChanged {
-    // print("init LastChangesRepo");
+    // log.v("init LastChangesRepo");
     _subscribe();
   }
 
   update_all_last_changes() {
-    // print("updating last changes");
+    // log.v("updating last changes");
     this.changed_nodes_ids = Store.instance.lastViewChanges.changedNodesIds;
     this.changed_flow_edges_ids =
         Store.instance.lastViewChanges.changedFlowEdgesIds;
@@ -203,10 +208,14 @@ class LastChangesRepo {
     this.is_bookmark_changed = Store.instance.lastViewChanges.isBookmarkChanged;
   }
 
+  update_changed_node_ids() {
+    this.changed_nodes_ids = Store.instance.lastViewChanges.changedNodesIds;
+  }
+
   // StreamSubscription<PostedConfirm>? _streams;
 
   void _subscribe() {
-    // print("subscribe");
+    // log.v("subscribe");
     final _streams = rid.replyChannel.stream;
 
     _streams.listen((ev) {
@@ -216,7 +225,9 @@ class LastChangesRepo {
       switch (ev.type) {
         case Confirm.RequestRefresh:
           {
-            _read(storeRepoProvider).store.msgRefresh("refresh");
+            _read(storeRepoProvider)
+                .store
+                .msgRefresh("refresh", timeout: Duration(minutes: 1));
           }
           break;
         case Confirm.RefreshStatus:
@@ -226,34 +237,63 @@ class LastChangesRepo {
             _read(nodeController.notifier).init();
           }
           break;
-        case Confirm.UpdatedDimensions:
+        case Confirm.RefreshNode:
           {
-            // print("updated node dimensions");
+            update_changed_node_ids();
+            // log.v(changed_nodes_ids);
+
+            _read(storeRepoProvider).updateFlowEdges();
+            _read(storeRepoProvider).update_nodes();
+            _read(treeNodeController.notifier).updateNodes(changed_nodes_ids);
+
+            //  if node ids are received as String
+            // List selectedNodes = jsonDecode(ev.data!);
+            // List<String> selectedNodesString =
+            //     selectedNodes.map((value) => value.toString()).toList();
+            // _read(treeNodeController.notifier)
+            //     .updateNodesList(selectedNodesString);
+
+            _read(edgeController.notifier).updateState();
+          }
+          break;
+        case Confirm.RefreshDraggedEdge:
+          {
+            print("refresh dragged edge");
             update_all_last_changes();
 
-            // List<String>? added_ids = this
-            //     .changed_nodes_ids
-            //     .entries
-            //     .where((element) => element.value.kind == NodeChangeKind.Added)
-            //     .map((e) => e.key)
-            //     .toList();
+            _read(storeRepoProvider).updateFlowEdges();
+
+            // set highlighted only on drag edge start
+            if (ev.data == "start") {
+              _read(storeRepoProvider).update_nodes();
+              _read(storeRepoProvider).updateHighlighted();
+
+              _read(highlightedPort.notifier).updateState();
+              _read(nodeController.notifier).updateState(changed_nodes_ids);
+            }
+
+            _read(edgeController.notifier).updateState();
+          }
+          break;
+        case Confirm.UpdatedDimensions:
+          {
+            log.v("updated node dimensions");
+            update_all_last_changes();
+
             _read(storeRepoProvider).update_nodes();
             _read(storeRepoProvider).updateFlowEdges();
 
             _read(widgetTreeController.notifier).build_tree();
+
             _read(nodeController.notifier).updateState(changed_nodes_ids);
             _read(edgeController.notifier).updateState();
-
-            // _read(edgeController.notifier).updateState();
-
-            // _read(edgeController.notifier).updateState();
 
             _read(changesController.notifier).updateState();
           }
           break;
         case Confirm.RefreshUI:
           {
-            // print("refresh UI");
+            log.v("refresh UI");
             update_all_last_changes();
 
             List<String>? added_ids = this
@@ -263,12 +303,12 @@ class LastChangesRepo {
                 .map((e) => e.key)
                 .toList();
 
-            // print("added ids $added_ids");
+            // log.v("added ids $added_ids");
 
             if (this.changed_nodes_ids.isNotEmpty &&
                 !this.changed_nodes_ids.keys.contains("dummy_node") &&
                 added_ids.isEmpty) {
-              log.v("changed nodes");
+              log.v("changed nodes - dummy node");
 
               _read(storeRepoProvider).update_nodes();
               _read(storeRepoProvider).updateFlowEdges();
@@ -280,43 +320,60 @@ class LastChangesRepo {
               _read(changesController.notifier).updateState();
             }
 
-            if (this.changed_flow_edges_ids.isNotEmpty) {
+            if (this.changed_flow_edges_ids.isNotEmpty &&
+                ev.data != "end_edge") {
               log.v("changed flow edges");
 
               _read(storeRepoProvider).updateFlowEdges();
+
               // update nodes for edges to includes flow edges?
               _read(storeRepoProvider).updateHighlighted();
+              _read(highlightedPort.notifier).updateState();
 
               _read(edgeController.notifier).updateState();
               // _read(changesController.notifier).updateState();
             }
+            if (this.changed_flow_edges_ids.isNotEmpty &&
+                ev.data == "end_edge") {
+              print("end flow edges");
 
+              _read(storeRepoProvider).updateFlowEdges();
+              _read(storeRepoProvider).update_nodes();
+              _read(storeRepoProvider).updateHighlighted();
+
+              _read(highlightedPort.notifier).updateState();
+              _read(nodeController.notifier).updateState(changed_nodes_ids);
+
+              _read(edgeController.notifier).updateState();
+            }
             if (this.is_transform_changed) {
-              // print("is transform changed");
+              log.v("is transform changed");
               _read(storeRepoProvider).updateViewport();
 
               _read(viewportController.notifier).updateState();
             }
             if (this.is_graph_changed) {
-              print("is graph changed");
+              log.v("is graph changed");
               _read(storeRepoProvider).updateGraphEntry();
               _read(storeRepoProvider).updateGraphList();
 
               _read(graphController.notifier).updateState();
             }
             if (this.is_bookmark_changed) {
-              // print("is bookmark changed");
+              log.v("is bookmark changed");
 
               _read(storeRepoProvider).updateBookmarks();
               _read(bookmarkController.notifier).updateState();
             }
             if (this.is_transform_screenshot_changed) {
-              // print("is transform screenshot changed");
+              log.v("is transform screenshot changed");
               _read(storeRepoProvider).updateTransformScreenshot();
               _read(viewportController.notifier).updateToScreenshot();
               _read(transformScreenshotController.notifier).screenshot();
             }
-            if (this.is_selected_node_ids_changed) {
+            if (this.is_selected_node_ids_changed || ev.data == "selection") {
+              log.v("selected node id changed ${ev.data}");
+
               _read(storeRepoProvider).updateSelectedNodeIds();
               _read(selectedNodeIds.notifier).updateState();
             }
@@ -327,24 +384,29 @@ class LastChangesRepo {
 
         case Confirm.ApplyCommand: //must recreate tree
         case Confirm.CreateNode:
+        case Confirm.UnDeployed:
           {
+            log.v("apply command, create node or undeployed");
             update_all_last_changes();
 
             _read(storeRepoProvider).update_nodes();
+            _read(storeRepoProvider).updateSelectedNodeIds();
+
             _read(widgetTreeController.notifier).build_tree();
             _read(nodeController.notifier).updateState(changed_nodes_ids);
             _read(changesController.notifier).updateState();
+            _read(selectedNodeIds.notifier).updateState();
           }
           break; //
         case Confirm.RemoveNode:
           {
             // find node, unfocus it
-
+            log.v("removing node");
             update_all_last_changes();
 
             _read(storeRepoProvider).updateAll();
-
             _read(widgetTreeController.notifier).build_tree();
+            _read(nodeController.notifier).init();
             _read(edgeController.notifier).updateState();
             _read(bookmarkController.notifier).updateState();
 
@@ -354,6 +416,7 @@ class LastChangesRepo {
           break;
         case Confirm.Initialized:
           {
+            log.v("init");
             update_all_last_changes();
 
             _read(storeRepoProvider).updateAll();
@@ -367,7 +430,10 @@ class LastChangesRepo {
           }
           break;
         case Confirm.LoadGraph:
+          // case Confirm.DeleteGraph:
           {
+            log.v("load graph");
+
             update_all_last_changes();
 
             _read(storeRepoProvider).updateAll();
@@ -408,7 +474,7 @@ class DebugController extends StateNotifier<List<DebugData>> {
   }
 
   updateState() {
-    // print("update changesController");
+    // log.v("update changesController");
     state = [_ref.read(storeRepoProvider).debugData];
   }
 }
@@ -425,7 +491,7 @@ class ChangesController extends StateNotifier<LastChangesRepo> {
   }
 
   updateState() {
-    // print("update changesController");
+    // log.v("update changesController");
     state = _ref.read(lastChangesRepoProvider);
   }
 }
@@ -437,12 +503,28 @@ class SelectedNodeIds extends StateNotifier<List<String>> {
   final Ref _ref;
 
   SelectedNodeIds(this._ref) : super([]) {
-    // _subscribe();
+    updateState();
   }
 
   updateState() {
-    // print("update selectedNodeIds");
+    // log.v("update selectedNodeIds");
     state = _ref.read(storeRepoProvider).selected_node_ids;
+  }
+}
+
+final highlightedPort = StateNotifierProvider<HighlightedPort, List<String>>(
+    (ref) => HighlightedPort(ref));
+
+class HighlightedPort extends StateNotifier<List<String>> {
+  final Ref _ref;
+
+  HighlightedPort(this._ref) : super([]) {
+    updateState();
+  }
+
+  updateState() {
+    // log.v("update selectedNodeIds");
+    state = _ref.read(storeRepoProvider).highlighted;
   }
 }
 
@@ -458,7 +540,7 @@ class GraphController extends StateNotifier<List<GraphEntry>> {
   }
 
   updateState() {
-    // print("update changesController");
+    // log.v("update changesController");
     state = [_ref.read(storeRepoProvider).graph_entry];
   }
 }
@@ -496,46 +578,6 @@ class StoredContextController extends StateNotifier<List<BuildContext>> {
 }
 
 ///
-final focusRejectProvider = Provider<FocusReject>((ref) {
-  return FocusReject(ref.read);
-});
-
-class FocusReject {
-  final Reader _read;
-  List<Rect> rects;
-  FocusReject(this._read) : this.rects = [Rect.fromLTRB(0, 0, 0, 0)];
-
-  set all(List<Rect> list) {
-    // print("setting $list");
-
-    rects = list;
-  }
-}
-
-final focusRejectController =
-    StateNotifierProvider<FocusRejectController, List<Rect>>(
-        (ref) => FocusRejectController(ref));
-
-class FocusRejectController extends StateNotifier<List<Rect>> {
-  final Ref _ref;
-
-  FocusRejectController(this._ref) : super([]) {
-    // _subscribe();
-  }
-  set(List<Rect> list) {
-    // print("set $list");
-    _ref.read(focusRejectProvider).all = list;
-    updateState();
-  }
-
-  updateState() {
-    // print("update focus rejection list");
-    // state = _ref.refresh(lastChangesRepoProvider); // refreshes too often
-    state = _ref.read(focusRejectProvider).rects;
-  }
-}
-
-///
 //////
 final edgeController =
     StateNotifierProvider<EdgeController, HashMap<String, EdgeView>>(
@@ -548,7 +590,7 @@ class EdgeController extends StateNotifier<HashMap<String, EdgeView>> {
 
   final Ref _ref;
   init() {
-    // print("init nodeController state");
+    // log.v("init nodeController state");
 
     state = _ref.read(storeRepoProvider).flow_edges;
   }
@@ -575,13 +617,13 @@ class StoreController extends StateNotifier<HashMap<String, NodeView>> {
   }
 
   init() {
-    // print("init nodeController state");
+    // log.v("init nodeController state");
 
     state = _ref.read(storeRepoProvider).nodes;
   }
 
   updateState(HashMap<String, NodeChange> node_change) {
-    // print("update node controller state ");
+    // log.v("update node controller state ");
     _ref
         .read(treeNodeController.notifier)
         .updateNodes(node_change); // does not account for removed
@@ -629,7 +671,7 @@ class TreeNodeRepo {
   }
 
   updateNodes(List<String> nodeIds) {
-    // print("treeNodes $nodeIds");
+    // log.v("treeNodes $nodeIds");
 
     final potentialUpdatableNodes = _read(storeRepoProvider)
         .nodes
@@ -642,7 +684,7 @@ class TreeNodeRepo {
 
     nodeIds.forEach((nodeId) {
       if (potentialUpdatableNodes.contains(nodeId)) {
-        // print("update treeNodeRepo $nodeId");
+        // log.v("update treeNodeRepo $nodeId");
         // final treeNode = get(nodeId);
         // final index =
         //     treeNodes.indexWhere((element) => element.node.key == nodeId);
@@ -668,9 +710,9 @@ class TreeNodeRepo {
   }
 
   TreeNode get(node_id) {
-    print(treeNodes.length);
-    print(_read(treeNodeRepoProvider).treeNodes.length);
-    print("get TreeNode $node_id");
+    log.v(treeNodes.length);
+    log.v(_read(treeNodeRepoProvider).treeNodes.length);
+    log.v("get TreeNode $node_id");
 
     return treeNodes
         .where((element) => element.node.key == node_id)
@@ -697,7 +739,7 @@ class TreeNodeController extends StateNotifier<HashMap<int, List<TreeNode>>> {
   }
 
   add(node) {
-    // print("add to tree repo");
+    // log.v("add to tree repo");
     state = HashMap.from({
       DateTime.now().millisecondsSinceEpoch:
           _ref.read(treeNodeRepoProvider).add(node)
@@ -705,7 +747,7 @@ class TreeNodeController extends StateNotifier<HashMap<int, List<TreeNode>>> {
   }
 
   clear() {
-    // print("clear node controller state");
+    // log.v("clear node controller state");
 
     state = HashMap.from({
       DateTime.now().millisecondsSinceEpoch:
@@ -713,8 +755,18 @@ class TreeNodeController extends StateNotifier<HashMap<int, List<TreeNode>>> {
     });
   }
 
+  updateNodesList(List<String> node_ids) {
+    log.v("treeNodeController updateNode in treeRepo");
+    _ref.read(treeNodeRepoProvider).updateNodes(node_ids);
+    // state = []; // workaround otherwise Riverpod doesn't see any changes
+    state = HashMap.from({
+      DateTime.now().millisecondsSinceEpoch:
+          _ref.read(treeNodeRepoProvider).treeNodes
+    });
+  }
+
   updateNodes(HashMap<String, NodeChange> node_ids) {
-    print("treeNodeController updateNode in treeRepo");
+    log.v("treeNodeController updateNode in treeRepo");
     _ref.read(treeNodeRepoProvider).updateNodes(node_ids.keys.toList());
     // state = []; // workaround otherwise Riverpod doesn't see any changes
     state = HashMap.from({
@@ -731,9 +783,11 @@ class WidgetTreeContent {
   final HashMap<String, EdgeView> visitedEdgeElements;
   final HashMap<String, NodeView> visitedNodeViews;
   final List<SuperBlock> nodeWidgets;
+  // final List<EdgeWidget> edgeWidgets;
 
   WidgetTreeContent({
     required this.nodeWidgets,
+    // required this.edgeWidgets,
     required this.visitedEdgeElements,
     required this.visitedNodeViews,
   });
@@ -748,7 +802,7 @@ class WidgetTreeRepo {
   Ref _ref;
 
   WidgetTreeRepo(this._ref) {
-    print("init widget tree");
+    log.v("init widget tree");
     //clear
     _ref.read(treeNodeController).clear();
     this.tree = build();
@@ -758,7 +812,7 @@ class WidgetTreeRepo {
     // clear treeNodeRepo
     _ref.read(treeNodeController).clear();
 
-    print("building tree");
+    log.v("building tree");
 
     final HashMap<String, NodeView> nodes = _ref.read(storeRepoProvider).nodes;
     final HashMap<String, NodeView> vertexNodes = HashMap.fromEntries(nodes
@@ -782,7 +836,7 @@ class WidgetTreeController extends StateNotifier<WidgetTreeRepo> {
   WidgetTreeController(this._ref) : super(WidgetTreeRepo(_ref));
 
   build_tree() {
-    print("widgetTreeController build tree");
+    log.v("widgetTreeController build tree");
 
     // _read(widgetTreeProvider).build();
 
@@ -795,7 +849,7 @@ class WidgetTreeController extends StateNotifier<WidgetTreeRepo> {
 //     Store store = Store.instance;
 
 //     final channel = rid.replyChannel.stream.where((event) {
-//       // print(event);
+//       // log.v(event);
 //       return event.type == Confirm.Refresh;
 //     });
 

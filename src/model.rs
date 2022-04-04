@@ -32,6 +32,7 @@ use uuid::Uuid;
 use std::str::FromStr;
 
 use crate::command::commands_map;
+use crate::command::TypeBound;
 use crate::command::INPUT_SIZE;
 use crate::flow_context::FlowContext;
 
@@ -80,7 +81,7 @@ pub struct BookmarkId(pub Uuid);
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct GraphEntry {
     id: String,
-    name: String,
+    pub name: String,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
@@ -255,6 +256,11 @@ pub struct InputModel {
     pub local_coords: Coords,
     pub label: String,
     pub index: i64,
+    pub required: bool,
+    pub tooltip: String,
+    pub type_bounds: String,
+    pub has_default: bool,
+    pub default_value: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -264,6 +270,9 @@ pub struct OutputModel {
     pub local_coords: Coords,
     pub label: String,
     pub index: i64,
+    pub passthrough: bool,
+    pub tooltip: String,
+    pub type_bound: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
@@ -387,10 +396,11 @@ impl Model {
 
         let graph_id = Arc::new(Mutex::new(GraphId(graph_id)));
 
-        // let graph_entry = graph_list
-        //     .into_iter()
-        //     .find(|entry| entry.id == graph_id.lock().unwrap().0.to_string())
-        //     .unwrap();
+        let graph_entry = graph_list
+            .clone()
+            .into_iter()
+            .find(|entry| entry.id == graph_id.lock().unwrap().0.to_string())
+            .unwrap();
 
         let mut model = Self {
             db: Db(db.clone()),
@@ -408,6 +418,7 @@ impl Model {
                 run_status.clone(),
                 req_id.clone(),
                 graph_id.clone(),
+                graph_entry,
                 log_path,
             ),
             run_status,
@@ -560,8 +571,8 @@ impl Model {
         //     .unwrap();
 
         // let timestamp = chrono::offset::Utc::now().timestamp_millis();
-        dbg!(path.clone());
-        dbg!(filename.clone());
+        // dbg!(path.clone());
+        // dbg!(filename.clone());
         std::fs::write(
             format!("{}.json", path),
             serde_json::to_vec(&graph).unwrap(),
@@ -599,9 +610,39 @@ impl Model {
 
             node_id_map.insert(node.node_id, new_node_id);
 
+            if !node.properties.contains_key("BOOKMARKS") {
+                block_on(self.db.0.execute(Action::Mutate(
+                    graph_id,
+                    MutateKind::CreateNodeWithId((new_node_id, node.properties.clone())),
+                )))
+                .unwrap();
+            }
+        }
+
+        // update node ids in bookmarks
+        for node in graph
+            .nodes
+            .iter()
+            .filter(|node| node.properties.contains_key("BOOKMARKS"))
+        {
+            let mut properties = node.properties.clone();
+
+            let bookmarks = properties
+                .get_mut("BOOKMARKS")
+                .unwrap()
+                .as_array_mut()
+                .unwrap();
+
+            bookmarks.iter_mut().for_each(|bookmark| {
+                let bookmark_id = bookmark.as_str().unwrap();
+                *bookmark =
+                    serde_json::to_value(node_id_map[&Uuid::from_str(bookmark_id).unwrap()])
+                        .unwrap();
+            });
+
             block_on(self.db.0.execute(Action::Mutate(
                 graph_id,
-                MutateKind::CreateNodeWithId((new_node_id, node.properties.clone())),
+                MutateKind::CreateNodeWithId((node_id_map[&node.node_id], properties)),
             )))
             .unwrap();
         }
@@ -958,9 +999,18 @@ impl Model {
                     .outputs
                     .iter()
                     .find(|(_output_id, output)| {
+                        // dbg!(output.label.clone());
+                        // dbg!(props.get(OUTPUT_ARG_NAME_MARKER).unwrap().as_str().unwrap());
+
                         output.command_id.0 == edge.from
                             && output.label
                                 == props.get(OUTPUT_ARG_NAME_MARKER).unwrap().as_str().unwrap()
+                    })
+                    .inspect(|(id, m)| {
+                        // dbg!(m.label.clone());
+                        // dbg!(props.get(OUTPUT_ARG_NAME_MARKER).unwrap().as_str().unwrap());
+
+                        // println!("{:#?}", m.label)
                     })
                     .unwrap();
 
@@ -1048,12 +1098,42 @@ impl Model {
 
         let commands_map = commands_map();
         let command = commands_map.get(command_name).unwrap();
-        let inputs: Vec<_> = command.inputs().iter().map(|input| input.name).collect();
-        let outputs: Vec<_> = command.outputs().iter().map(|output| output.name).collect();
+        let inputs: Vec<(String, bool, String, String, bool, String)> = command
+            .inputs()
+            .iter()
+            .map(|input| {
+                let mut type_bounds = input.acceptable_types().into_iter().collect::<Vec<&str>>();
+                type_bounds.sort_by_key(|&name| name.to_lowercase());
 
+                (
+                    input.name.to_owned(),
+                    input.required.to_owned(),
+                    input.tooltip.to_owned(),
+                    type_bounds.join(", ").as_str().to_owned(),
+                    input.has_default.to_owned(),
+                    input.default_value.to_owned(),
+                )
+            })
+            .collect();
+        let outputs: Vec<(String, String, bool, String)> = command
+            .outputs()
+            .iter()
+            .map(|output| {
+                (
+                    output.name.to_owned(),
+                    output.r#type.to_owned(),
+                    output.passthrough.to_owned(),
+                    output.tooltip.to_owned(),
+                )
+            })
+            .collect();
+
+        // let required:bool = command.inputs().iter().map(|input| input.required).collect();
+        // command.inputs().iter().map(|input| input.type_bounds)
+        //label: &str, required: bool, tooltip: &str, port_type: &[TypeBound]
         let mut y = Y_INPUT_OFFSET - INPUT_OFFSET;
         let mut index = 0;
-        let input = |label: &str| {
+        let input = |input_data: (String, bool, String, String, bool, String)| {
             y += INPUT_OFFSET;
             index += 1;
             InputModel {
@@ -1063,15 +1143,20 @@ impl Model {
                     x: X_INPUT_OFFSET as f64, // - INPUT_OFFSET,
                     y: y as f64,
                 },
-                label: label.to_owned(),
+                label: input_data.0,
                 command_id: node_id,
+                required: input_data.1,
+                tooltip: input_data.2,
+                type_bounds: input_data.3,
+                has_default: input_data.4,
+                default_value: input_data.5,
             }
         };
 
         let mut y = Y_INPUT_OFFSET - INPUT_OFFSET;
         let mut index = 0;
 
-        let output = |label: &str| {
+        let output = |output_data: (String, String, bool, String)| {
             y += INPUT_OFFSET;
             index += 1;
             OutputModel {
@@ -1082,14 +1167,17 @@ impl Model {
                     x: (width - INPUT_OFFSET) as f64,
                     y: y as f64,
                 },
-                label: label.to_owned(),
+                label: output_data.0,
                 command_id: node_id,
+                type_bound: output_data.1,
+                passthrough: output_data.2,
+                tooltip: output_data.3,
             }
         };
 
         (
-            inputs.iter().copied().map(input).collect(),
-            outputs.iter().copied().map(output).collect(),
+            inputs.into_iter().map(input).collect(),
+            outputs.into_iter().map(output).collect(),
         )
     }
 
@@ -1611,7 +1699,7 @@ impl Model {
             OUTPUT_ARG_NAME_MARKER.into(),
             serde_json::to_value(&output_model.label).unwrap(),
         );
-        dbg!(properties.clone());
+        // dbg!(properties.clone());
 
         let edge_id = block_on(self.db.0.execute(Action::Mutate(
             self.graph_id().0,
@@ -1667,7 +1755,7 @@ impl Model {
         let mut properties = Properties::new();
 
         properties.insert(BLOCK_TO_CMD_EDGE_MARKER.into(), JsonValue::Bool(true));
-        dbg!(edge.clone());
+        // dbg!(edge.clone());
         let edge_id = block_on(self.db.0.execute(Action::Mutate(
             self.graph_id().0,
             MutateKind::CreateEdge(CreateEdge {
@@ -1768,6 +1856,9 @@ impl Model {
                 },
                 label: output_model.label.clone(),
                 index: output_model.index,
+                passthrough: output_model.passthrough,
+                tooltip: output_model.tooltip.to_owned(),
+                type_bound: output_model.type_bound.to_owned(),
             }
         }
     }

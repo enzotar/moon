@@ -3,7 +3,7 @@ description: A new Flutter project.
 
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 
-version: 1.0.0+1
+version: 0.1.0
 
 environment:
   sdk: ">=2.13.0 <3.0.0"
@@ -25,6 +25,7 @@ dependencies:
   # json_schema: ^4.0.0
   # circular_menu: ^1.2.3
   # flutter_json_view: ^0.3.0
+  url_launcher: ^6.0.20
 
   plugin:
     path: plugin
@@ -44,4 +45,62 @@ flutter:
   uses-material-design: true
   assets:
       - assets/logo-full-small.png
-      - assets/const.png
+      - assets/templates/
+  fonts:
+    - family: Inter
+      fonts: 
+        - asset: assets/fonts/Inter-Black.otf
+          weight: 900
+        - asset: assets/fonts/Inter-BlackItalic.otf
+          style: italic
+          weight: 900
+        - asset: assets/fonts/Inter-ExtraBold.otf
+          style: normal
+          weight: 800
+        - asset: assets/fonts/Inter-ExtraBoldItalic.otf
+          style: italic
+          weight: 800
+        - asset: assets/fonts/Inter-Bold.otf
+          style: normal
+          weight: 700       
+        - asset: assets/fonts/Inter-BoldItalic.otf
+          style: italic
+          weight: 700
+        - asset: assets/fonts/Inter-SemiBold.otf
+          style: normal
+          weight: 600       
+        - asset: assets/fonts/Inter-SemiBoldItalic.otf
+          style: italic
+          weight: 600
+        - asset: assets/fonts/Inter-Medium.otf
+          style: normal
+          weight: 500       
+        - asset: assets/fonts/Inter-MediumItalic.otf
+          style: italic
+          weight: 500
+        - asset: assets/fonts/Inter-Regular.otf
+          style: normal
+          weight: 400
+        - asset: assets/fonts/Inter-Italic.otf
+          style: italic
+          weight: 400
+        - asset: assets/fonts/Inter-Light.otf
+          style: normal
+          weight: 300
+        - asset: assets/fonts/Inter-LightItalic.otf
+          style: italic
+          weight: 300
+        - asset: assets/fonts/Inter-ExtraLight.otf
+          style: normal
+          weight: 200
+        - asset: assets/fonts/Inter-ExtraLightItalic.otf
+          style: italic
+          weight: 200
+        - asset: assets/fonts/Inter-Thin.otf
+          style: normal
+          weight: 100
+        - asset: assets/fonts/Inter-ThinItalic.otf
+          style: italic
+          weight: 100
+      
+

@@ -1,14 +1,13 @@
 import 'dart:collection';
 
-import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
 import 'package:moon/nodes/add_port.dart';
 import 'package:moon/providers/store_provider.dart';
 import 'package:moon/widget_chooser.dart';
 import 'package:moon/widgets/block.dart';
-import 'logger.dart';
-import 'package:flutter/material.dart';
+import 'utils/logger.dart';
+
 import 'package:tuple/tuple.dart';
 
 /// Serve Data Function
@@ -83,9 +82,10 @@ WidgetTreeContent returnWidgetTreeFunction(
           //       node: nodeEntry,
           //       selected: false);
           _ref.read(treeNodeRepoProvider).add(treeNode);
-
-          final SuperBlock widget =
-              WidgetChooser(nodeView.widgetType.name, treeNode);
+          final SuperBlock widget = WidgetChooser(
+            treeNode,
+            nodeView.widgetType.name,
+          );
 
           widgetList.add(widget);
           nodeWidgets.add(widget);
@@ -104,7 +104,7 @@ WidgetTreeContent returnWidgetTreeFunction(
           if (nodeEntry.value.widgetType.name == "WidgetTextInput") {
             // IS A TEXT INPUT
             final SuperBlock widget = WidgetChooser(
-                nodeView.widgetType.name, treeNode, null, null, parentId);
+                treeNode, nodeView.widgetType.name, null, null, parentId);
 
             widgetList.add(widget);
             nodeWidgets.add(widget);
@@ -163,12 +163,13 @@ WidgetTreeContent returnWidgetTreeFunction(
 
             /// Command
             final SuperBlock widget = WidgetChooser(
-              nodeView.widgetType.name,
-              treeNode,
-              inputs,
-              outputs,
-              parentId, //parent block id for convenience
-            );
+                treeNode,
+                nodeView.widgetType.name,
+                inputs,
+                outputs,
+                parentId,
+                _ref //parent block id for convenience
+                );
 
             widgetList.add(widget);
             nodeWidgets.add(widget);
@@ -183,6 +184,8 @@ WidgetTreeContent returnWidgetTreeFunction(
 
   _ref.read(treeNodeRepoProvider).clear();
   List<SuperBlock> result = buildWidgetTree(vertexNodes, null);
+  // List<EdgeWidget> edges =
+  //     visitedEdgeElements.entries.map((e) => addEdgeWidget(e)).toList();
 
   /// reset visited edges
   final isVisitedEdgeElements = visitedEdgeElements;
@@ -191,6 +194,7 @@ WidgetTreeContent returnWidgetTreeFunction(
 
   final WidgetTreeContent widgetTree = WidgetTreeContent(
     nodeWidgets: result,
+    // edgeWidgets: edges,
     visitedEdgeElements: isVisitedEdgeElements,
     visitedNodeViews: isVisitedNodeElements,
   );

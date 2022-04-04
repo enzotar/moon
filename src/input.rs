@@ -1263,6 +1263,8 @@ struct FlutterKeyboardEvent {
 pub enum FlutterPointerKind {
     #[serde(rename = "PointerDeviceKind.mouse")]
     Mouse,
+    #[serde(rename = "PointerDeviceKind.touch")]
+    Touch,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize)]
@@ -1288,6 +1290,7 @@ impl Input {
 
         let device = match event.kind {
             FlutterPointerKind::Mouse => Device::Mouse(event.device),
+            FlutterPointerKind::Touch => Device::Mouse(event.device), // FIXME windows trackpad
         };
 
         let mapping_cache = match context.mapping_kind {
@@ -1410,7 +1413,7 @@ impl Input {
         };
 
         let event: FlutterKeyboardEvent = serde_json::from_str(&msg).unwrap();
-        println!("{:?} {:?}", context.ui_state, event);
+        // println!("{:?} {:?}", context.ui_state, event);
         let switch = KeyboardSwitch(event.key_label);
         let events: Vec<_> = match event.runtime_type {
             FlutterKeyboardEventKind::KeyDownEvent => {

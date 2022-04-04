@@ -6,7 +6,8 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
 import 'package:moon/commands/const.dart';
-import 'package:moon/logger.dart';
+import 'package:moon/providers/focus_reject.dart';
+import 'package:moon/utils/logger.dart';
 import 'package:tuple/tuple.dart';
 import 'package:flutter/services.dart';
 
@@ -50,7 +51,7 @@ class SeedTextField extends HookConsumerWidget {
         treeNode.node.key,
         "String",
       );
-      store.msgSendJson(inputEvent);
+      store.msgSendJson(inputEvent, timeout: Duration(minutes: 1));
     }
 
     useEffect(() {
@@ -179,7 +180,7 @@ class SeedTextField extends HookConsumerWidget {
                               .then((value) => controller.value =
                                   TextEditingValue(text: value.data!));
                         },
-                        icon: Icon(Icons.refresh_outlined,
+                        icon: const Icon(Icons.refresh_outlined,
                             color: Colors.blueGrey),
                         label: Text(
                           "Generate new seed",
@@ -192,7 +193,7 @@ class SeedTextField extends HookConsumerWidget {
                         child: Divider(color: Colors.white),
                       ),
                       TextButton.icon(
-                        icon: Icon(Icons.copy, color: Colors.blueGrey),
+                        icon: const Icon(Icons.copy, color: Colors.blueGrey),
                         onPressed: () {
                           _copyToClipboard(controller.value.text);
                         },

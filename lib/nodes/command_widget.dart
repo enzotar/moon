@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:recase/recase.dart';
-import 'package:moon/logger.dart';
+import 'package:moon/utils/clipboard.dart';
 import 'package:moon/providers/popup_menu.dart';
 import 'package:moon/providers/store_provider.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
-import 'package:flutter/services.dart';
 import 'package:moon/widgets/block.dart';
 
 class CommandWidget extends SuperBlock {
@@ -28,26 +27,42 @@ class CommandWidget extends SuperBlock {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    log.d(
-        "rebuilding Command ${treeNode.node.value.widgetType} ${treeNode.node.key}");
+    // print(
+    //     "rebuilding Command ${treeNode.node.value.widgetType} ${treeNode.node.key}");
 
-    Future<void> _copyToClipboard(text) async {
-      await Clipboard.setData(ClipboardData(text: text));
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Copied to clipboard', textAlign: TextAlign.center),
-      ));
-      // Scaffold.of(context).showSnackBar(snackbar)
-    }
+    // Future<void> _copyToClipboard(text) async {
+    //   await Clipboard.setData(ClipboardData(text: text));
+    //   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+    //     content: Text('Copied to clipboard', textAlign: TextAlign.center),
+    //   ));
+    //   // Scaffold.of(context).showSnackBar(snackbar)
+    // }
 
+    // final provider = ref.watch(nodeController.select((value) {
+    //   if (value.keys.contains(treeNode.node.key)) {
+    //     print("rebuilding provider");
+    //     return value.keys.first;
+    //   }
+    // }));
+
+    // final selectedIds = ref.watch(selectedNodeIds.select((selectionList) {
+    //   if (selectionList.isNotEmpty) {
+    //     final selectedNodes =
+    //         selectionList.where((node_id) => node_id == parentId);
+    //     if (selectedNodes.isNotEmpty) {
+    //       print("rebuilding selection");
+    //       return selectedNodes.first;
+    //     }
+    //   }
+    // }));
     final store = ref.read(storeRepoProvider).store;
-    ref.watch(
-        nodeController.select((value) => value.keys == treeNode.node.key));
-    final selectedIds = ref.watch(selectedNodeIds);
-    final selected = selectedIds.contains(parentId);
+    final selected =
+        ref.watch(selectedNodeIds.select((value) => value.contains(parentId)));
+    // final selected = selectedIds ? true : false;
     final timeElapsed = Duration(milliseconds: treeNode.node.value.elapsedTime);
 
-    ReCase rc = ReCase(label);
-
+    final ReCase rc = ReCase(label);
+    // print(treeNode.node.value.runState);
     return Container(
       // decoration: selected
       //     ? BoxDecoration(boxShadow: [
@@ -69,10 +84,10 @@ class CommandWidget extends SuperBlock {
                 ),
                 Center(
                   child: Padding(
-                    padding: EdgeInsets.fromLTRB(0, 0, 0, 5),
+                    padding: const EdgeInsets.fromLTRB(0, 0, 0, 5),
                     child: Text(
                       rc.titleCase,
-                      style: TextStyle(
+                      style: const TextStyle(
                           color: Colors.white,
                           fontSize: 20.00,
                           fontWeight: FontWeight.bold),
@@ -114,7 +129,7 @@ class CommandWidget extends SuperBlock {
                                       ? Color(Color.fromARGB(255, 185, 185, 185)
                                           .value)
                                       : Colors.white),
-                      margin: EdgeInsets.fromLTRB(0, 0, 0, 0),
+                      margin: const EdgeInsets.fromLTRB(0, 0, 0, 0),
                       child: Container(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(5),
@@ -182,7 +197,7 @@ class CommandWidget extends SuperBlock {
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.red,
-                        borderRadius: BorderRadius.only(
+                        borderRadius: const BorderRadius.only(
                             bottomRight: Radius.circular(5),
                             bottomLeft: Radius.circular(5)),
                         border: Border.all(color: Colors.red, width: 2),
@@ -196,15 +211,16 @@ class CommandWidget extends SuperBlock {
                             Expanded(
                               child: Text(
                                 "Time elapsed ${timeElapsed.inSeconds}s \n${treeNode.node.value.error}",
-                                style: TextStyle(fontSize: 12),
+                                style: const TextStyle(fontSize: 12),
                                 textAlign: TextAlign.left,
                               ),
                             ),
                             IconButton(
-                                icon: Icon(Icons.copy),
+                                icon: const Icon(Icons.copy),
                                 onPressed: () {
-                                  _copyToClipboard(
-                                      "Time elapsed ${timeElapsed.inSeconds}s \n${treeNode.node.value.error}");
+                                  copyToClipboard(
+                                      "Time elapsed ${timeElapsed.inSeconds}s \n${treeNode.node.value.error}",
+                                      context);
                                 }),
                           ],
                         ),
@@ -221,7 +237,7 @@ class CommandWidget extends SuperBlock {
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.red,
-                        borderRadius: BorderRadius.only(
+                        borderRadius: const BorderRadius.only(
                             bottomRight: Radius.circular(5),
                             bottomLeft: Radius.circular(5)),
                         border: Border.all(color: Colors.red, width: 2),
@@ -235,14 +251,15 @@ class CommandWidget extends SuperBlock {
                             Expanded(
                               child: Text(
                                 "${treeNode.node.value.error}",
-                                style: TextStyle(fontSize: 12),
+                                style: const TextStyle(fontSize: 12),
                                 textAlign: TextAlign.left,
                               ),
                             ),
                             IconButton(
-                                icon: Icon(Icons.copy),
+                                icon: const Icon(Icons.copy),
                                 onPressed: () {
-                                  _copyToClipboard(treeNode.node.value.error);
+                                  copyToClipboard(
+                                      treeNode.node.value.error, context);
                                 }),
                           ],
                         ),
@@ -264,7 +281,35 @@ class CommandWidget extends SuperBlock {
                         padding: const EdgeInsets.all(8.0),
                         child: Text("Run time: ${timeElapsed.inSeconds}s"),
                       ),
-                    ))
+                    )),
+              if (treeNode.node.value.runState == rid.RunStateView.Running &&
+                  treeNode.node.value.runState != rid.RunStateView.Canceled)
+                Center(
+                  child: TweenAnimationBuilder<Duration>(
+                      duration: const Duration(minutes: 600),
+                      tween: Tween(
+                          begin: Duration.zero, end: Duration(minutes: 600)),
+                      onEnd: () {
+                        // print('Timer ended');
+                      },
+                      builder: (BuildContext context, Duration duration,
+                          Widget? child) {
+                        String twoDigits(int n) => n.toString().padLeft(2, "0");
+
+                        String twoDigitMinutes =
+                            twoDigits(duration.inMinutes.remainder(60));
+                        String twoDigitSeconds =
+                            twoDigits(duration.inSeconds.remainder(60));
+                        return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 5),
+                            child: Text('$twoDigitMinutes:$twoDigitSeconds',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                    color: Colors.blueGrey,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 30)));
+                      }),
+                ),
             ],
           ),
         ],

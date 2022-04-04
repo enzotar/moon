@@ -172,7 +172,7 @@ impl State {
         self.model.set_node_coords(node_id, coords)
     }
 
-    pub fn apply_command(&mut self, command_name: &str) -> Result<(), ()> {
+    pub fn apply_command(&mut self, node_id: &str, command_name: &str) -> Result<(), ()> {
         println!("apply command input: {}", &command_name);
         self.ui_state = UiState::Default;
 
@@ -181,7 +181,8 @@ impl State {
             self.selected_node_ids().collect::<Vec<_>>(),
             self.active_node
         );
-        let node_id = self.active_node.unwrap();
+        let node_id = NodeId(node_id.parse().unwrap());
+        //let node_id = self.active_node.unwrap();
         let node_model = self.model().nodes().get(&node_id).unwrap();
 
         // coords

@@ -1,9 +1,11 @@
 import 'dart:collection';
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:plugin/generated/rid_api.dart';
 import 'package:moon/providers/store_provider.dart';
 
@@ -51,6 +53,21 @@ class BookmarkController extends StateNotifier<HashMap<String, BookmarkView>> {
   }
 }
 
+Future<String> getFilePath() async {
+  Directory appDocumentsDirectory =
+      await getApplicationDocumentsDirectory(); // 1
+  String appDocumentsPath = appDocumentsDirectory.path; // 2
+  String filePath = '$appDocumentsPath/demoTextFile.png'; // 3
+
+  return filePath;
+}
+
+void saveFile(bytes) async {
+  File file = File(await getFilePath()); // 1
+  print(file.path);
+  file.writeAsBytes(bytes);
+}
+
 final transformScreenshotController =
     StateNotifierProvider<TransformScreenshotController, List<Camera>>(
         (ref) => TransformScreenshotController(ref));
@@ -85,8 +102,12 @@ class TransformScreenshotController extends StateNotifier<List<Camera>> {
       useSafeArea: false,
       context: context,
       builder: (context) => Scaffold(
+        backgroundColor: Colors.blueGrey[900],
         appBar: AppBar(
-          title: Text("Captured widget screenshot"),
+          backgroundColor: Colors.blueGrey,
+          title: const Text(
+            "Bookmarked Node",
+          ),
         ),
         body: Center(
             child: Image.memory(
@@ -103,6 +124,7 @@ class TransformScreenshotController extends StateNotifier<List<Camera>> {
           delay: const Duration(milliseconds: 500),
         )
         .then((capturedImage) {
+      // saveFile(capturedImage);
       ShowCapturedWidget(context, capturedImage!);
     }).whenComplete(() {
       Future.delayed(Duration(seconds: 1), () {

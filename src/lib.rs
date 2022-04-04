@@ -37,10 +37,11 @@ mod flow_context;
 mod input;
 mod model;
 mod state;
-mod storage;
+//pub mod storage;
 mod utils;
 mod view;
 
+use std::borrow::BorrowMut;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::str::FromStr;
@@ -52,6 +53,7 @@ use model::GraphId;
 use model::SolanaNet;
 use model::WidgetKind;
 
+use model::WidgetNodeData;
 use serde::Deserialize;
 
 use serde_json::json;
@@ -77,8 +79,8 @@ use sunshine_indra::store::generate_uuid_v1;
 
 use crate::command::*;
 use crate::model::{BookmarkId, BookmarkModel, PortId};
-use crate::view::NodeChange;
 use crate::view::NodeViewType::{DummyEdgeHandle, WidgetBlock, WidgetTextInput};
+use crate::view::{NodeChange, NodeChangeKind};
 
 use api::*;
 use input::{FlutterPointerEvent, MappingKind};
@@ -135,7 +137,7 @@ impl RidStore<Msg> for Store {
                 }
 
                 let event: InitializeEvent = serde_json::from_str(&ev).unwrap();
-                let db_path = event.db_path; //"SUNSHINE_DB".to_owned();
+                let db_path = event.db_path;
                 assert!(self.state.is_none());
                 self.state = Some(State::new(
                     db_path.clone(),
@@ -143,7 +145,7 @@ impl RidStore<Msg> for Store {
                     event.canvas_width,
                     event.canvas_height,
                 ));
-                // TODO use event.db_path for release
+
                 self.update_graph_list();
                 self.refresh_ui();
 
@@ -202,7 +204,7 @@ impl RidStore<Msg> for Store {
 
                 self.refresh_ui();
 
-                rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
+                rid::post(Confirm::DeleteGraph(req_id, "".to_owned()));
             }
             Msg::RenameGraph(graph_id, new_name) => {
                 let model = self.state.as_mut().unwrap().model_mut();
@@ -228,7 +230,6 @@ impl RidStore<Msg> for Store {
             }
             Msg::Import(path) => {
                 let model = self.state.as_mut().unwrap().model_mut();
-                // let path = "axis_1645990336164.json";
 
                 model.import(&path);
 
@@ -411,11 +412,12 @@ impl RidStore<Msg> for Store {
 
                 rid::post(Confirm::ReceivedEvent(req_id, "".to_owned()));
             }
-            Msg::ApplyCommand(command_name) => {
+            Msg::ApplyCommand(node_id, command_name) => {
+                // node_id, command_name
                 self.state
                     .as_mut()
                     .unwrap()
-                    .apply_command(&command_name)
+                    .apply_command(&node_id, &command_name)
                     .unwrap();
                 self.refresh_ui();
 
@@ -424,7 +426,7 @@ impl RidStore<Msg> for Store {
             Msg::ApplyAutocomplete(_ev) => {}
             Msg::SendJson(ev) => {
                 let event: InputEvent = serde_json::from_str(&ev).unwrap();
-                println!("{:?}", event);
+                // println!("{:?}", event);
                 // if !event.text.is_empty() {
                 let model = self.state.as_mut().unwrap().model_mut();
 
@@ -451,6 +453,8 @@ impl RidStore<Msg> for Store {
             }
             Msg::UnDeploy(ev) => {
                 self.state.as_ref().unwrap().model().undeploy();
+                self.refresh_ui();
+
                 rid::post(Confirm::UnDeployed(req_id, ev.to_owned()));
             }
             Msg::Request(ev) => {
@@ -482,10 +486,10 @@ impl RidStore<Msg> for Store {
                     let screen_x = 0.5 * state.canvas.width as f64;
                     let screen_y = 0.5 * state.canvas.height as f64;
 
-                    println!(
-                        "screen zoom {} {} {} {}",
-                        screen_x, screen_y, state.transform.scale, new_zoom
-                    );
+                    // println!(
+                    //     "screen zoom {} {} {} {}",
+                    //     screen_x, screen_y, state.transform.scale, new_zoom
+                    // );
 
                     state.transform.x -= screen_x / state.transform.scale;
                     state.transform.y -= screen_y / state.transform.scale;
@@ -508,10 +512,10 @@ impl RidStore<Msg> for Store {
                     let screen_x = 0.5 * state.canvas.width as f64;
                     let screen_y = 0.5 * state.canvas.height as f64;
 
-                    println!(
-                        "screen zoom {} {} {} {}",
-                        screen_x, screen_y, state.transform.scale, new_zoom
-                    );
+                    // println!(
+                    //     "screen zoom {} {} {} {}",
+                    //     screen_x, screen_y, state.transform.scale, new_zoom
+                    // );
 
                     state.transform.x -= screen_x / state.transform.scale;
                     state.transform.y -= screen_y / state.transform.scale;
@@ -542,7 +546,7 @@ impl RidStore<Msg> for Store {
                     let mut x2 = node.data().coords.x + node.data().dimensions.width as f64;
                     let mut y2 = node.data().coords.y + node.data().dimensions.height as f64;
 
-                    println!("Node {:10} {:10} : {:10} {:10}", &x1, &y1, &x2, &y2);
+                    // println!("Node {:10} {:10} : {:10} {:10}", &x1, &y1, &x2, &y2);
 
                     for node in nodes {
                         x1 = x1.min(node.data().coords.x);
@@ -550,7 +554,7 @@ impl RidStore<Msg> for Store {
                         x2 = x2.max(node.data().coords.x + node.data().dimensions.width as f64);
                         y2 = y2.max(node.data().coords.y + node.data().dimensions.height as f64);
 
-                        println!("Node {:10} {:10} : {:10} {:10}", &x1, &y1, &x2, &y2);
+                        // println!("Node {:10} {:10} : {:10} {:10}", &x1, &y1, &x2, &y2);
                     }
 
                     let x = 0.5 * (x1 + x2);
@@ -571,13 +575,13 @@ impl RidStore<Msg> for Store {
 
                     let tx = x - 0.5 * state.canvas.width as f64 / scale;
                     let ty = y - 0.5 * state.canvas.height as f64 / scale;
-                    dbg!(tx, ty);
-                    println!("FitToScreen {:10} {:10} : {:10} {:10}", x, y, w, h);
-                    println!("FitToScreen {:10} {:10} : {:10} {:10}", &x1, &y1, &x2, &y2);
-                    println!(
-                        "FitToScreen {:10} {:10} {:10} : {:10} {:10}",
-                        xscale, yscale, scale, tx, ty
-                    );
+                    // dbg!(tx, ty);
+                    // println!("FitToScreen {:10} {:10} : {:10} {:10}", x, y, w, h);
+                    // println!("FitToScreen {:10} {:10} : {:10} {:10}", &x1, &y1, &x2, &y2);
+                    // println!(
+                    //     "FitToScreen {:10} {:10} {:10} : {:10} {:10}",
+                    //     xscale, yscale, scale, tx, ty
+                    // );
 
                     self.state.as_mut().unwrap().transform = Transform {
                         x: -tx,
@@ -634,7 +638,7 @@ impl RidStore<Msg> for Store {
                     let mut x2 = node.data().coords.x + node.data().dimensions.width as f64;
                     let mut y2 = node.data().coords.y + node.data().dimensions.height as f64;
 
-                    println!("Node {:10} {:10} : {:10} {:10}", &x1, &y1, &x2, &y2);
+                    // println!("Node {:10} {:10} : {:10} {:10}", &x1, &y1, &x2, &y2);
 
                     for node in nodes {
                         x1 = x1.min(node.data().coords.x);
@@ -664,12 +668,12 @@ impl RidStore<Msg> for Store {
                     let tx = x - 0.5 * state.canvas.width as f64 / scale;
                     let ty = y - 0.5 * state.canvas.height as f64 / scale;
                     // dbg!(tx, ty);
-                    println!("Bookmark {:10} {:10} : {:10} {:10}", x, y, w, h);
-                    println!("Bookmark {:10} {:10} : {:10} {:10}", &x1, &y1, &x2, &y2);
-                    println!(
-                        "Bookmark {:10} {:10} {:10} : {:10} {:10}",
-                        xscale, yscale, scale, tx, ty
-                    );
+                    // println!("Bookmark {:10} {:10} : {:10} {:10}", x, y, w, h);
+                    // println!("Bookmark {:10} {:10} : {:10} {:10}", &x1, &y1, &x2, &y2);
+                    // println!(
+                    //     "Bookmark {:10} {:10} {:10} : {:10} {:10}",
+                    //     xscale, yscale, scale, tx, ty
+                    // );
 
                     self.state.as_mut().unwrap().transform = Transform {
                         x: -tx,
@@ -692,14 +696,14 @@ impl RidStore<Msg> for Store {
                 let bookmark_id = BookmarkId(bookmark_id.parse().unwrap());
                 // let bookmark_id = model.bookmarks.keys().next().unwrap().clone(); // FIXME: Remove this, use bookmark_id from above
                 let bookmark = model.bookmarks.get(&bookmark_id).unwrap();
-                dbg!(&bookmark);
+                // dbg!(&bookmark);
 
                 let mut nodes = bookmark
                     .nodes_ids
                     .iter()
                     .filter_map(|node_id| model.nodes().get(node_id));
                 let first_node = nodes.next();
-                dbg!(&first_node);
+                // dbg!(&first_node);
 
                 if let Some(node) = first_node {
                     let mut x1 = node.data().coords.x;
@@ -707,7 +711,7 @@ impl RidStore<Msg> for Store {
                     let mut x2 = node.data().coords.x + node.data().dimensions.width as f64;
                     let mut y2 = node.data().coords.y + node.data().dimensions.height as f64;
 
-                    println!("Node {:10} {:10} : {:10} {:10}", &x1, &y1, &x2, &y2);
+                    // println!("Node {:10} {:10} : {:10} {:10}", &x1, &y1, &x2, &y2);
 
                     for node in nodes {
                         x1 = x1.min(node.data().coords.x);
@@ -736,13 +740,13 @@ impl RidStore<Msg> for Store {
 
                     let tx = x - 0.5 * state.canvas.width as f64 / scale;
                     let ty = y - 0.5 * state.canvas.height as f64 / scale;
-                    dbg!(tx, ty);
-                    println!("Bookmark {:10} {:10} : {:10} {:10}", x, y, w, h);
-                    println!("Bookmark {:10} {:10} : {:10} {:10}", &x1, &y1, &x2, &y2);
-                    println!(
-                        "Bookmark {:10} {:10} {:10} : {:10} {:10}",
-                        xscale, yscale, scale, tx, ty
-                    );
+                    // dbg!(tx, ty);
+                    // println!("Bookmark {:10} {:10} : {:10} {:10}", x, y, w, h);
+                    // println!("Bookmark {:10} {:10} : {:10} {:10}", &x1, &y1, &x2, &y2);
+                    // println!(
+                    //     "Bookmark {:10} {:10} {:10} : {:10} {:10}",
+                    //     xscale, yscale, scale, tx, ty
+                    // );
 
                     // let transform = Transform {
                     //     x: -tx,
@@ -899,7 +903,8 @@ impl Store {
         };
 
         if let Some((_before, command, _after)) = data {
-            match state.apply_command(command) {
+            let node_id_str = node_id.0.to_string();
+            match state.apply_command(&node_id_str, command) {
                 Ok(()) => {
                     state.ui_state = UiState::Default;
                     self.refresh_ui();
@@ -958,7 +963,7 @@ pub enum Msg {
     // ApplyInput(String),
     SetText(String), // { node_id, text }
     // SetText2(String),     // { node_id, text }
-    ApplyCommand(String), // { node_id, text }
+    ApplyCommand(String, String),
     ApplyAutocomplete(String),
     Deploy(String),
     UnDeploy(String),
@@ -1002,6 +1007,9 @@ pub enum Confirm {
     UpdatedDimensions(u64, String),
     SendSeedPhrase(u64, String),
     Debug(u64, String),
+    DeleteGraph(u64, String),
+    RefreshNode(u64, String),
+    RefreshDraggedEdge(u64, String),
 }
 
 impl Store {
@@ -1015,17 +1023,17 @@ impl Store {
                     // FIXME: background doen't send events if node loses focus
                     // println!("unselect");
                     state.clear_selection();
-                    self.refresh_ui();
-                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()))
+                    self.refresh_selection();
+                    rid::post(Confirm::RefreshUI(req_id, "selection".to_owned()))
                 }
                 Event::SelectNode(node_id) => {
                     // println!("select node {node_id:?}");
                     state.clear_selection();
 
                     state.add_to_selection(node_id);
-                    //state.update_active_node(node_id);
-                    self.refresh_ui();
-                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()))
+                    // state.update_active_node(node_id);
+                    self.refresh_selection();
+                    rid::post(Confirm::RefreshUI(req_id, "selection".to_owned()))
                 }
                 Event::AddOrRemoveNodeToSelection(node_id) => {
                     // println!("add node to selection {node_id:?}");
@@ -1038,7 +1046,7 @@ impl Store {
                 // CRUD
                 Event::CreateNode(coords) => {
                     let node_id = state.model_mut().create_starting_node_block(coords);
-                    //println!("selected node {:?}", node_id);
+                    // println!("selected node {:?}", node_id);
                     state.add_to_selection(node_id);
                     self.refresh_ui();
                     rid::post(Confirm::CreateNode(req_id))
@@ -1146,8 +1154,9 @@ impl Store {
                     }
 
                     state.ui_state = UiState::NodeMove(start_coords, coords);
-                    self.refresh_ui();
-                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()))
+                    // self.refresh_ui(); //FIXME commented to speed up but needed for selection
+                    self.refresh_selection();
+                    rid::post(Confirm::RefreshUI(req_id, "selection".to_owned()))
                     // select node
                     // state.clear_selection(); // clears :  on multi select // FIXME: workaround
 
@@ -1172,8 +1181,19 @@ impl Store {
                 }
                 Event::ContinueNodeMove(start_coords, coords) => {
                     state.ui_state = UiState::NodeMove(start_coords, coords);
-                    self.refresh_ui();
-                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()))
+                    let selection = state.selected_node_ids.clone();
+                    // dbg!(&selection);
+                    self.refresh_nodes(selection.clone());
+
+                    // if want to pass node_ids as String
+                    // let ids: Vec<String> =
+                    //     selection.iter().map(|uuid| uuid.0.to_string()).collect();
+                    // let ids = serde_json::to_string(&ids).unwrap();
+
+                    rid::post(Confirm::RefreshNode(req_id, "".to_owned()));
+                    // self.refresh_ui();
+                    // rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
+
                     /*
                     let node_ids: Vec<NodeId> = state.selected_node_ids().copied().collect();
 
@@ -1238,13 +1258,13 @@ impl Store {
                 }
                 Event::StartEdge(port_id, coords) => {
                     state.ui_state = UiState::Edge(port_id, coords);
-                    self.refresh_ui();
-                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
+                    self.refresh_ui_flow_edges(); // self.refresh_ui();
+                    rid::post(Confirm::RefreshDraggedEdge(req_id, "start".to_owned()));
                 }
                 Event::ContinueEdge(port_id, coords) => {
                     state.ui_state = UiState::Edge(port_id, coords);
-                    self.refresh_ui();
-                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
+                    self.refresh_ui_flow_edges();
+                    rid::post(Confirm::RefreshDraggedEdge(req_id, "".to_owned()));
                 }
                 Event::EndEdge(port_id, output_id) => {
                     // println!("Connect Edge {:?} {:?}", port_id, output_id);
@@ -1253,12 +1273,12 @@ impl Store {
                         .add_or_remove_flow_edge(port_id, output_id);
                     state.ui_state = UiState::Default; // Question? should it be last?
                     self.refresh_ui();
-                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
+                    rid::post(Confirm::RefreshUI(req_id, "end_edge".to_owned()));
                 }
                 Event::CancelEdge(_) => {
                     state.ui_state = UiState::Default;
                     self.refresh_ui();
-                    rid::post(Confirm::RefreshUI(req_id, "".to_owned()));
+                    rid::post(Confirm::RefreshUI(req_id, "end_edge".to_owned()));
                 } /*Event::StartCommandInput(command) | Event::ModifyCommandInput(command) => {
                 println!("command input: {}", &command);
                 state.ui_state = UiState::CommandInput(command);
@@ -1348,7 +1368,169 @@ impl Store {
         }
     */
 
+    fn refresh_selection(&mut self) {
+        let state = self.state.as_ref().unwrap();
+
+        let old_view = &self.view;
+
+        let mut changes = LastViewChanges::default();
+
+        ///
+        let command = if let UiState::CommandInput(command) = &state.ui_state {
+            Command {
+                is_active: true,
+                command: command.to_owned(),
+            }
+        } else {
+            Command {
+                is_active: false,
+                command: String::new(),
+            }
+        };
+
+        let selected_node_ids: Vec<String> = self
+            .state
+            .as_ref()
+            .unwrap()
+            .selected_node_ids()
+            .map(|uuid| uuid.0.to_string())
+            .collect();
+
+        // TODO not in changes
+        // self.view.selected_command_ids =
+        let selected_command_ids: Vec<String> = self
+            .state
+            .as_ref()
+            .unwrap()
+            .model()
+            .node_edges()
+            .iter()
+            .filter(|(_, model)| {
+               selected_node_ids
+                    .contains(&model.from.0.to_string())
+            })
+            .map(|(_, model)| model.to.0.to_string())
+            .collect();
+
+        let is_selected_node_ids_changed = old_view.selected_node_ids != selected_node_ids;
+        let is_selected_command_changed = old_view.selected_command_ids != selected_command_ids;
+        let is_command_changed = old_view.command != command;
+
+        changes.is_selected_node_ids_changed = is_selected_node_ids_changed;
+        changes.is_command_changed = is_command_changed;
+
+        self.view.command = command;
+        self.view.selected_node_ids = selected_node_ids;
+        self.view.selected_command_ids = selected_command_ids;
+
+        self.last_view_changes = changes;
+    }
+
+    fn refresh_nodes(&mut self, node_ids_to_update: HashSet<NodeId>) {
+        // println!("refresh node");
+
+        let mut changes = LastViewChanges::default();
+
+        let state = self.state.as_ref().unwrap();
+
+        let mut widget_nodes = state
+            .model()
+            .iter_widget_nodes()
+            .filter(|(node_id, _)| node_ids_to_update.contains(&node_id));
+
+        let mut widget_nodes_test: Vec<(&NodeId, &WidgetNodeData)> = state
+            .model()
+            .iter_widget_nodes()
+            .filter(|(node_id, _)| node_ids_to_update.contains(&node_id))
+            .collect();
+
+        // move currently movable nodes
+        let (dx, dy) = if let UiState::NodeMove(start_coords, coords) = state.ui_state {
+            let dx = coords.x - start_coords.x;
+            let dy = coords.y - start_coords.y;
+
+            for node_id in &node_ids_to_update {
+                let widget_node_data = widget_nodes.find(|(&id, _)| &id == node_id).unwrap().1;
+
+                let node_id_str = node_id.0.to_string();
+                changes.changed_nodes_ids.insert(
+                    node_id_str.clone(),
+                    NodeChange {
+                        kind: NodeChangeKind::Modified,
+                    },
+                );
+                let node_view = self.view.nodes.get_mut(&node_id_str).unwrap();
+
+                // node_view.origin_x = widget_node_data.coords.x as i64 + dx as i64;
+                // node_view.origin_y = widget_node_data.coords.y as i64 + dy as i64;
+                node_view.x = widget_node_data.coords.x as i64 + dx as i64;
+                node_view.y = widget_node_data.coords.y as i64 + dy as i64;
+            }
+
+            (dx, dy)
+        } else {
+            (0.0, 0.0)
+        };
+
+        // insert input/output edges
+        for (edge_id, edge) in state.model().flow_edges() {
+            let input = state.model().inputs().get(&edge.input_id).unwrap();
+            let output = state.model().outputs().get(&edge.output_id).unwrap();
+
+            if !node_ids_to_update.contains(&input.parent_node_id)
+                && !node_ids_to_update.contains(&output.parent_node_id)
+            {
+                continue;
+            }
+
+            let input_node = state.model().nodes().get(&input.parent_node_id).unwrap();
+            let input_data = match input_node {
+                NodeModel::Widget(data) => data,
+                // NodeModel::Data(_) => panic!(),
+            };
+            let output_node = state.model().nodes().get(&output.parent_node_id).unwrap();
+            let output_data = match output_node {
+                NodeModel::Widget(data) => data,
+                // NodeModel::Data(_) => panic!(),
+            };
+
+            //let node_view = node_views
+            //    .get_mut(&input.parent_node_id.0.to_string())
+            //   .unwrap();
+
+            let (dx1, dy1) = if node_ids_to_update.contains(&output.parent_node_id) {
+                (dx, dy)
+            } else {
+                (0.0, 0.0)
+            };
+
+            let (dx2, dy2) = if node_ids_to_update.contains(&input.parent_node_id) {
+                (dx, dy)
+            } else {
+                (0.0, 0.0)
+            };
+
+            changes.changed_flow_edges_ids.push(edge_id.0.to_string());
+            self.view.flow_edges.insert(
+                edge_id.0.to_string(),
+                EdgeView {
+                    from: edge.output_id.0.to_string(), // FIXME: input.label.clone(),
+                    to: edge.input_id.0.to_string(),    // FIXME: output.label.clone(),
+                    edge_type: ViewEdgeType::Flow,
+                    from_coords_x: (output_data.coords.x + output.local_coords.x + dx1) as i64 + 35,
+                    from_coords_y: (output_data.coords.y + output.local_coords.y + dy1) as i64
+                        + INPUT_SIZE / 2, //half width of input size
+                    to_coords_x: (input_data.coords.x + input.local_coords.x + dx2) as i64 + 15,
+                    to_coords_y: (input_data.coords.y + input.local_coords.y + dy2) as i64
+                        + INPUT_SIZE / 2,
+                },
+            );
+        }
+        self.last_view_changes = changes;
+    }
+
     fn refresh_ui(&mut self) {
+        // println!("refresh ui");
         //let old_view = std::mem::take(&mut self.view);
 
         let state = self.state.as_ref().unwrap();
@@ -1456,6 +1638,12 @@ impl Store {
                             None => String::new(),
                         },
                         additional_data: widget_node_data.additional_data.to_owned(),
+                        required: bool::default(),
+                        tooltip: String::new(),
+                        type_bounds: String::new(),
+                        passthrough: bool::default(),
+                        default_value: String::new(),
+                        has_default: bool::default(),
                     },
                 )
             });
@@ -1482,8 +1670,8 @@ impl Store {
                     text: input.label.to_owned(),
                     outbound_edges: HashMap::new(),
                     widget_type: NodeViewType::WidgetInput,
-                    flow_inbound_edges: vec![],
-                    flow_outbound_edges: state
+                    flow_outbound_edges: vec![],
+                    flow_inbound_edges: state
                         .model()
                         .flow_edges()
                         .iter()
@@ -1500,6 +1688,12 @@ impl Store {
                     print_output: String::new(),
                     elapsed_time: 0,
                     additional_data: String::new(),
+                    required: input.required,
+                    tooltip: input.tooltip.to_owned(),
+                    type_bounds: input.type_bounds.to_owned(),
+                    passthrough: bool::default(),
+                    default_value: input.default_value.to_owned(),
+                    has_default: input.has_default.to_owned(),
                 },
             )
         });
@@ -1540,6 +1734,12 @@ impl Store {
                     print_output: String::new(),
                     elapsed_time: 0,
                     additional_data: String::new(),
+                    required: bool::default(),
+                    tooltip: output.tooltip.to_owned(),
+                    type_bounds: output.type_bound.to_owned(),
+                    passthrough: output.passthrough,
+                    default_value: String::default(),
+                    has_default: bool::default(),
                 },
             )
         });
@@ -1656,13 +1856,27 @@ impl Store {
         let mut highlighted = vec![];
 
         // SELECTED NODE IDS
-        let selected_node_ids = self
+        let selected_node_ids: Vec<String> = self
             .state
             .as_ref()
             .unwrap()
             .selected_node_ids()
             .map(|uuid| uuid.0.to_string())
             .collect();
+        // dbg!(selected_node_ids.clone());
+
+        //child id, not really command
+        let selected_command_ids: Vec<String> = self
+            .state
+            .as_ref()
+            .unwrap()
+            .model()
+            .node_edges()
+            .iter()
+            .filter(|(_, model)| selected_node_ids.contains(&model.from.0.to_string()))
+            .map(|(_, model)| model.to.0.to_string())
+            .collect();
+        // dbg!(selected_command_ids.clone());
 
         // Add currently creatable edge
         //
@@ -1671,7 +1885,7 @@ impl Store {
             const DUMMY_NODE_ID: &'static str = "dummy_node";
 
             let commands_map = commands_map();
-            // UPDATE when adding commands
+            // UPDATE when adding commandse
             let command_by_command_name =
                 |command_name: &str| commands_map.get(command_name).unwrap();
 
@@ -1728,6 +1942,12 @@ impl Store {
                             print_output: String::new(),
                             elapsed_time: 0,
                             additional_data: String::new(),
+                            required: bool::default(),
+                            tooltip: String::new(),
+                            type_bounds: String::new(),
+                            passthrough: bool::default(),
+                            default_value: String::new(),
+                            has_default: bool::default(),
                         },
                     );
 
@@ -1785,10 +2005,10 @@ impl Store {
                                         });
                                     //dbg!(&command_output);
                                     if let Some(command_output) = command_output {
-                                        dbg!(
-                                            command_input.acceptable_types(),
-                                            command_output.r#type
-                                        );
+                                        // dbg!(
+                                        //     command_input.acceptable_types(),
+                                        //     command_output.r#type
+                                        // );
                                         command_input
                                             .acceptable_types()
                                             .contains(&command_output.r#type)
@@ -1836,6 +2056,12 @@ impl Store {
                             print_output: String::new(),
                             elapsed_time: 0,
                             additional_data: String::new(),
+                            required: bool::default(),
+                            tooltip: String::new(),
+                            type_bounds: String::new(),
+                            passthrough: bool::default(),
+                            default_value: String::new(),
+                            has_default: bool::default(),
                         },
                     );
 
@@ -1910,10 +2136,10 @@ impl Store {
                                     });
                                     // dbg!(&command_input);
                                     if let Some(command_input) = command_input {
-                                        dbg!(
-                                            command_input.acceptable_types(),
-                                            command_output.r#type
-                                        );
+                                        // dbg!(
+                                        //     command_input.acceptable_types(),
+                                        //     command_output.r#type
+                                        // );
                                         command_input
                                             .acceptable_types()
                                             .contains(&command_output.r#type)
@@ -1972,6 +2198,7 @@ impl Store {
             nodes,
             flow_edges,
             selected_node_ids,
+            selected_command_ids,
             selection,
             command,
             text_commands,
@@ -2073,7 +2300,7 @@ impl Store {
         //dbg!(&self.view.flow_edges);
         //dbg!(&self.last_view_changes.changed_flow_edges_ids);
         //dbg!(&self.view.highlighted);
-        dbg!(&self.last_view_changes);
+        // dbg!(&self.last_view_changes);
         //dbg!(&state.transform);
         //dbg!(&self.view.transform);
     }
@@ -2099,6 +2326,320 @@ impl Store {
             "transform {:10} {:10} {:10}",
             &state.transform.x, &state.transform.y, &state.transform.scale
         );*/
+    }
+
+    fn refresh_ui_flow_edges(&mut self) {
+        let state = self.state.as_ref().unwrap();
+        let mut changes = LastViewChanges::default();
+
+        if let UiState::Edge(input_id, coords) = state.ui_state {
+            const DUMMY_EDGE_ID: &'static str = "dummy_edge";
+            const DUMMY_NODE_ID: &'static str = "dummy_node";
+
+            let commands_map = commands_map();
+            // UPDATE when adding commandse
+            let command_by_command_name =
+                |command_name: &str| commands_map.get(command_name).unwrap();
+
+            match input_id {
+                PortId::Input(input_id) => {
+                    let input = state.model().inputs().get(&input_id).unwrap();
+                    let node_id = input.parent_node_id;
+                    let input_node = state.model().nodes().get(&node_id).unwrap();
+                    // dbg!(input_node);
+                    let input_data = match input_node {
+                        NodeModel::Widget(data) => data,
+                        // NodeModel::Data(_) => panic!(),
+                    };
+
+                    changes
+                        .changed_flow_edges_ids
+                        .push(DUMMY_EDGE_ID.to_owned());
+                    self.view.flow_edges.insert(
+                        DUMMY_EDGE_ID.to_owned(),
+                        EdgeView {
+                            from: DUMMY_NODE_ID.to_owned(),
+                            to: input_id.0.to_string(), //node_id.0.to_string(),
+                            edge_type: ViewEdgeType::Flow,
+                            // +15 +25 is adjustment for offset port and edge in flutter dragging
+                            from_coords_x: coords.x as i64,
+                            from_coords_y: coords.y as i64,
+                            to_coords_x: (input_data.coords.x + input.local_coords.x) as i64 + 15,
+                            to_coords_y: (input_data.coords.y + input.local_coords.y) as i64
+                                + INPUT_SIZE / 2,
+                        },
+                    );
+
+                    changes.changed_nodes_ids.insert(
+                        node_id.0.to_string(),
+                        NodeChange {
+                            kind: NodeChangeKind::Modified,
+                        },
+                    );
+                    self.view
+                        .nodes
+                        .get_mut(&node_id.0.to_string())
+                        .unwrap()
+                        .flow_inbound_edges
+                        .push(DUMMY_EDGE_ID.to_owned());
+
+                    changes.changed_nodes_ids.insert(
+                        DUMMY_NODE_ID.to_owned(),
+                        NodeChange {
+                            kind: NodeChangeKind::Modified,
+                        },
+                    );
+                    self.view.nodes.insert(
+                        DUMMY_NODE_ID.to_owned(),
+                        NodeView {
+                            index: 0,
+                            parent_id: "".to_owned(),
+                            origin_x: coords.x as i64,
+                            origin_y: coords.y as i64,
+                            x: coords.x as i64,
+                            y: coords.y as i64,
+                            width: 0,
+                            height: 0,
+                            text: "".to_owned(),
+                            outbound_edges: HashMap::new(),
+                            widget_type: NodeViewType::DummyEdgeHandle,
+                            flow_inbound_edges: vec![],
+                            flow_outbound_edges: vec![DUMMY_EDGE_ID.to_owned()],
+                            run_state: RunStateView::NotRunning,
+                            error: String::new(),
+                            print_output: String::new(),
+                            elapsed_time: 0,
+                            additional_data: String::new(),
+                            required: bool::default(),
+                            tooltip: String::new(),
+                            type_bounds: String::new(),
+                            passthrough: bool::default(),
+                            default_value: String::new(),
+                            has_default: bool::default(),
+                        },
+                    );
+
+                    // get command_node_id
+                    let command_node_id = input.command_id;
+
+                    let command_node = state.model().nodes().get(&command_node_id).unwrap();
+                    //dbg!(command_node);
+                    let input_data = match command_node {
+                        NodeModel::Widget(data) => data,
+                        // NodeModel::Data(_) => panic!(),
+                    };
+
+                    //dbg!(&input_data.kind);
+                    let input_command = input_data
+                        .command_name
+                        .as_ref()
+                        .map(|name| command_by_command_name(&name)); // <-- CommandBlock data
+                                                                     //dbg!(&input_command);
+                    let command_input = input_command.and_then(|input_command| {
+                        input_command
+                            .inputs()
+                            .iter()
+                            .find(|command_input| command_input.name == input.label)
+                    });
+                    //dbg!(&command_input);
+
+                    if let Some(command_input) = command_input {
+                        changes.is_highlighted_changed = true;
+                        self.view.highlighted.extend(
+                            state
+                                .model()
+                                .outputs()
+                                .iter()
+                                .filter(|(_, output)| {
+                                    if output.command_id == input.command_id {
+                                        return false;
+                                    }
+                                    let output_node =
+                                        state.model().nodes().get(&output.command_id).unwrap();
+                                    let output_data = match output_node {
+                                        NodeModel::Widget(data) => data,
+                                    };
+                                    //dbg!(&output_data.kind);
+                                    let output_command = output_data
+                                        .command_name
+                                        .as_ref()
+                                        .map(|name| command_by_command_name(&name));
+
+                                    // dbg!(&output_command);
+                                    let command_output =
+                                        output_command.and_then(|output_command| {
+                                            output_command.outputs().iter().find(|command_output| {
+                                                command_output.name == output.label
+                                            })
+                                        });
+                                    //dbg!(&command_output);
+                                    if let Some(command_output) = command_output {
+                                        // dbg!(
+                                        //     command_input.acceptable_types(),
+                                        //     command_output.r#type
+                                        // );
+                                        command_input
+                                            .acceptable_types()
+                                            .contains(&command_output.r#type)
+                                    } else {
+                                        false
+                                    }
+                                })
+                                .map(|(output_id, _)| output_id.0.to_string()),
+                        );
+                    }
+                }
+                PortId::Output(output_id) => {
+                    let output = state.model().outputs().get(&output_id).unwrap();
+                    let node_id = output.parent_node_id;
+                    let output_node = state.model().nodes().get(&node_id).unwrap();
+                    let output_data = match output_node {
+                        NodeModel::Widget(data) => data,
+                        // NodeModel::Data(_) => panic!(),
+                    };
+
+                    changes.changed_nodes_ids.insert(
+                        node_id.0.to_string(),
+                        NodeChange {
+                            kind: NodeChangeKind::Modified,
+                        },
+                    );
+                    self.view
+                        .nodes
+                        .get_mut(&node_id.0.to_string())
+                        .unwrap()
+                        .flow_outbound_edges
+                        .push(DUMMY_EDGE_ID.to_owned());
+
+                    changes.changed_nodes_ids.insert(
+                        DUMMY_NODE_ID.to_owned(),
+                        NodeChange {
+                            kind: NodeChangeKind::Modified,
+                        },
+                    );
+                    self.view.nodes.insert(
+                        DUMMY_NODE_ID.to_owned(),
+                        NodeView {
+                            index: i64::default(),
+                            parent_id: "".to_owned(),
+                            origin_x: coords.x as i64,
+                            origin_y: coords.y as i64,
+                            x: coords.x as i64,
+                            y: coords.y as i64,
+                            width: 100,
+                            height: 100,
+                            text: "".to_owned(),
+                            outbound_edges: HashMap::new(),
+                            widget_type: NodeViewType::DummyEdgeHandle,
+                            flow_inbound_edges: vec![DUMMY_EDGE_ID.to_owned()],
+                            flow_outbound_edges: vec![],
+                            run_state: RunStateView::NotRunning,
+                            error: String::new(),
+                            print_output: String::new(),
+                            elapsed_time: 0,
+                            additional_data: String::new(),
+                            required: bool::default(),
+                            tooltip: String::new(),
+                            type_bounds: String::new(),
+                            passthrough: bool::default(),
+                            default_value: String::new(),
+                            has_default: bool::default(),
+                        },
+                    );
+
+                    changes
+                        .changed_flow_edges_ids
+                        .push(DUMMY_EDGE_ID.to_owned());
+                    self.view.flow_edges.insert(
+                        DUMMY_EDGE_ID.to_owned(),
+                        EdgeView {
+                            to: DUMMY_NODE_ID.to_owned(),  // FIXME: "".to_owned(),
+                            from: output_id.0.to_string(), // FIXME: output.label.clone(),
+                            edge_type: ViewEdgeType::Flow,
+                            from_coords_x: (output_data.coords.x + output.local_coords.x) as i64
+                                + 35,
+                            from_coords_y: (output_data.coords.y + output.local_coords.y) as i64
+                                + 25,
+                            // +35 +25 is adjustment for offset port and edge in flutter dragging
+                            to_coords_x: coords.x as i64,
+                            to_coords_y: coords.y as i64,
+                        },
+                    );
+
+                    // get command_node_id
+                    let command_node_id = output.command_id;
+
+                    let command_node = state.model().nodes().get(&command_node_id).unwrap();
+                    // dbg!(command_node);
+                    let output_data = match command_node {
+                        NodeModel::Widget(data) => data,
+                        // NodeModel::Data(_) => panic!(),
+                    };
+                    // dbg!(&output_data.kind);
+
+                    let output_command = output_data
+                        .command_name
+                        .as_ref()
+                        .map(|name| command_by_command_name(&name));
+                    // dbg!(&output_command);
+
+                    let command_output = output_command.and_then(|output_command| {
+                        output_command
+                            .outputs()
+                            .iter()
+                            .find(|command_output| command_output.name == output.label)
+                    });
+                    // dbg!(&command_output);
+
+                    if let Some(command_output) = command_output {
+                        changes.is_highlighted_changed = true;
+                        self.view.highlighted.extend(
+                            state
+                                .model()
+                                .inputs()
+                                .iter()
+                                .filter(|(_, input)| {
+                                    if output.command_id == input.command_id {
+                                        return false;
+                                    }
+                                    let input_node =
+                                        state.model().nodes().get(&input.command_id).unwrap();
+                                    let input_data = match input_node {
+                                        NodeModel::Widget(data) => data,
+                                    };
+                                    // dbg!(&input_data.kind);
+                                    let input_command = input_data
+                                        .command_name
+                                        .as_ref()
+                                        .map(|name| command_by_command_name(&name));
+
+                                    // dbg!(&input_command);
+                                    let command_input = input_command.and_then(|input_command| {
+                                        input_command
+                                            .inputs()
+                                            .iter()
+                                            .find(|command_input| command_input.name == input.label)
+                                    });
+                                    // dbg!(&command_input);
+                                    if let Some(command_input) = command_input {
+                                        // dbg!(
+                                        //     command_input.acceptable_types(),
+                                        //     command_output.r#type
+                                        // );
+                                        command_input
+                                            .acceptable_types()
+                                            .contains(&command_output.r#type)
+                                    } else {
+                                        false
+                                    }
+                                })
+                                .map(|(input_id, _)| input_id.0.to_string()),
+                        );
+                    }
+                }
+            }
+        }
+        self.last_view_changes = changes;
     }
 
     fn refresh_ui_transform_screenshot(&mut self) {

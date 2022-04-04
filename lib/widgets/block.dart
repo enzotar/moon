@@ -1,16 +1,14 @@
-import 'dart:collection';
-
 import 'package:flutter/material.dart';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
-import 'package:moon/logger.dart';
+import 'package:moon/utils/logger.dart';
 import 'package:moon/providers/store_provider.dart';
 
 abstract class SuperBlock extends HookConsumerWidget {
   final List<Widget>? children;
 
-  MapEntry<String, rid.NodeView>? node;
+  final MapEntry<String, rid.NodeView>? node;
 
   final bool? selected;
 
@@ -27,8 +25,8 @@ class Block extends SuperBlock {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    log.d(
-        "rebuilding Block ${treeNode.node.value.widgetType} ${treeNode.node.key}");
+    // print(
+    //     "rebuilding Block ${treeNode.node.value.widgetType} ${treeNode.node.key}");
     // ref.watch(treeNodeController);
     final provider = ref.watch(
       treeNodeController.select((map) {

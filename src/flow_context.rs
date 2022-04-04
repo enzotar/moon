@@ -2,7 +2,7 @@ use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use crate::model::{GraphId, NodeId};
+use crate::model::{GraphEntry, GraphId, NodeId};
 use crate::Confirm;
 use dashmap::DashMap;
 use futures::executor::block_on;
@@ -43,6 +43,7 @@ impl FlowContext {
         run_status: Arc<DashMap<NodeId, (RunState, Option<String>)>>,
         req_id: Arc<Mutex<u64>>,
         graph_id: Arc<Mutex<GraphId>>,
+        graph_entry: GraphEntry,
         log_path: String,
     ) -> FlowContext {
         let run_id = Arc::new(Mutex::new(Uuid::new_v4()));
@@ -59,7 +60,7 @@ impl FlowContext {
 
             let flow_ctx = InnerFlowContext::new(db.clone());
 
-            let path = Path::new(&log_path).join("SUNSHINE_LOGS");
+            let path = Path::new(&log_path).join("run_logs");
 
             std::fs::create_dir(path).ok();
 
@@ -95,11 +96,15 @@ impl FlowContext {
                             let log_graph = db.read_graph(edge.to).await.unwrap();
 
                             let log_content = serde_json::to_string(&log_graph).unwrap();
+                            let timestamp = props
+                                .get("timestamp")
+                                .map(|v| v.as_str().unwrap().to_owned())
+                                .unwrap();
 
                             std::fs::write(
                                 format!(
-                                    "{log_path}/SUNSHINE_LOGS/{}.log.json", // TODO fix path
-                                    props.get("timestamp").unwrap().as_i64().unwrap(),
+                                    "{log_path}/run_logs/{} - {}.log.json",
+                                    graph_entry.name, timestamp
                                 ),
                                 log_content.as_bytes(),
                             )

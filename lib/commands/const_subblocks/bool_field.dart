@@ -28,8 +28,11 @@ class BoolField extends HookConsumerWidget {
         treeNode.node.key,
         "Bool",
       );
-      print(value);
-      ref.read(storeRepoProvider).store.msgSendJson(value);
+      // print(value);
+      ref
+          .read(storeRepoProvider)
+          .store
+          .msgSendJson(value, timeout: Duration(minutes: 1));
     });
     // final focusNode = useFocusNode();
     // final scrollController = useScrollController();

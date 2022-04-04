@@ -6,20 +6,23 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
 import 'package:moon/canvas.dart';
 import 'package:moon/providers/bookmark.dart';
+import 'package:moon/providers/focus_reject.dart';
 import 'package:moon/serialization/input_mapping.dart';
 import 'package:moon/providers/store_provider.dart';
 import 'package:screenshot/screenshot.dart';
 
 class EventListener extends HookConsumerWidget {
-  EventListener({Key? key}) : super(key: key);
+  const EventListener({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // print("rebuilding event listener");
+    final rejectList = ref.watch(focusRejectProvider);
+
     final store = ref.read(storeRepoProvider);
 
     final ScreenshotController screenshotControl =
         ref.read(screenshotController);
-    final rejectList = ref.watch(focusRejectProvider);
 
     // @override
     // void dispose() {
@@ -56,9 +59,10 @@ class EventListener extends HookConsumerWidget {
               "runtimeType": ev.runtimeType.toString(),
               "timestampMs": DateTime.now().millisecondsSinceEpoch,
             };
-            String inputEvent =
+            final String inputEvent =
                 JsonMapper.serialize(InputProperties(inputProperties));
-            store.store.msgMouseEvent(inputEvent);
+            store.store
+                .msgMouseEvent(inputEvent, timeout: Duration(seconds: 60));
           }
           // print(inputEvent);
         }
@@ -72,7 +76,6 @@ class EventListener extends HookConsumerWidget {
             .toList();
         // print("inRejectList: $inRejectList");
         if (inRejectList.isEmpty) {
-          // print(ev.position);
           final inputProperties = {
             "buttons": ev.buttons,
             "device": ev.device,
@@ -86,9 +89,9 @@ class EventListener extends HookConsumerWidget {
             "runtimeType": ev.runtimeType.toString(),
             "timestampMs": DateTime.now().millisecondsSinceEpoch,
           };
-          String inputEvent =
+          final String inputEvent =
               JsonMapper.serialize(InputProperties(inputProperties));
-          store.store.msgMouseEvent(inputEvent);
+          store.store.msgMouseEvent(inputEvent, timeout: Duration(seconds: 60));
         }
       },
       onPointerMove: (ev) {
@@ -111,10 +114,10 @@ class EventListener extends HookConsumerWidget {
             "runtimeType": ev.runtimeType.toString(),
             "timestampMs": DateTime.now().millisecondsSinceEpoch,
           };
-          String inputEvent =
+          final String inputEvent =
               JsonMapper.serialize(InputProperties(inputProperties));
 
-          store.store.msgMouseEvent(inputEvent);
+          store.store.msgMouseEvent(inputEvent, timeout: Duration(seconds: 60));
         }
       },
       onPointerUp: (ev) {
@@ -135,10 +138,10 @@ class EventListener extends HookConsumerWidget {
             "runtimeType": ev.runtimeType.toString(),
             "timestampMs": DateTime.now().millisecondsSinceEpoch,
           };
-          String inputEvent =
+          final String inputEvent =
               JsonMapper.serialize(InputProperties(inputProperties));
 
-          store.store.msgMouseEvent(inputEvent);
+          store.store.msgMouseEvent(inputEvent, timeout: Duration(seconds: 60));
         }
       },
       onPointerCancel: (ev) {
@@ -153,7 +156,7 @@ class EventListener extends HookConsumerWidget {
         //   "runtimeType": ev.runtimeType.toString(),
         //   "timestampMs": DateTime.now().millisecondsSinceEpoch,
         // };
-        // String inputEvent =
+        // final String inputEvent =
         //     JsonMapper.serialize(InputProperties(inputProperties));
 
         // widget.store.msgSendEvent(inputEvent);
@@ -172,10 +175,10 @@ class EventListener extends HookConsumerWidget {
           "runtimeType": ev.runtimeType.toString(),
           "timestampMs": DateTime.now().millisecondsSinceEpoch,
         };
-        String inputEvent =
+        final String inputEvent =
             JsonMapper.serialize(InputProperties(inputProperties));
 
-        store.store.msgMouseEvent(inputEvent);
+        store.store.msgMouseEvent(inputEvent, timeout: Duration(seconds: 60));
       },
       child: KeyboardListener(
         focusNode: focusNode,
@@ -189,10 +192,11 @@ class EventListener extends HookConsumerWidget {
             "runtimeType": ev.runtimeType.toString(),
             "timestampMs": DateTime.now().millisecondsSinceEpoch,
           };
-          String inputEvent =
+          final String inputEvent =
               JsonMapper.serialize(InputProperties(inputProperties));
           // print(inputProperties);
-          store.store.msgKeyboardEvent(inputEvent);
+          store.store
+              .msgKeyboardEvent(inputEvent, timeout: Duration(seconds: 5));
         },
         child: RawGestureDetector(
             behavior: HitTestBehavior.translucent,

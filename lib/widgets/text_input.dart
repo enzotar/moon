@@ -5,6 +5,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
 import 'package:flutter/material.dart';
 import 'package:recase/recase.dart';
+import 'package:moon/utils/logger.dart';
 import 'package:moon/providers/popup_menu.dart';
 import 'package:moon/providers/store_provider.dart';
 import 'package:moon/serialization/input_mapping.dart';
@@ -36,20 +37,25 @@ class TextInput extends SuperBlock {
     final selectedIds = ref.watch(selectedNodeIds);
     final selected = selectedIds.contains(parentId);
 
-    final FocusNode focusNode = useFocusNode();
+    // final FocusNode focusNode = useFocusNode();
     final nodes = ref.watch(nodeController);
 
     final store = ref.read(storeRepoProvider).store;
     List<rid.WidgetTextCommand> _userOptions = store.view.textCommands;
-
     _userOptions.sort((a, b) {
       return a.commandName.toLowerCase().compareTo(b.commandName.toLowerCase());
     });
 
     String _displayStringForOption(rid.WidgetTextCommand option) {
-      ReCase rc = ReCase(option.commandName);
+      final avail = option.availability.length < 3
+          ? "(${option.availability.map(
+                (e) => e.titleCase,
+              ).join(", ")})"
+          : "";
 
-      return rc.titleCase; //
+      final ReCase rc = ReCase(option.commandName);
+
+      return rc.titleCase + " " + avail; //
     }
 
     // final TextEditingController _controller =
@@ -104,11 +110,15 @@ class TextInput extends SuperBlock {
                     onFieldSubmitted: (String value) {
                       onFieldSubmitted();
                       final commandNameReCase = textEditingController.text;
-
-                      ReCase rc = ReCase(commandNameReCase);
+                      // what user typed
+                      // print(value);
+                      //converted command to remove mainnet, devnet text
+                      final commandValue = commandNameReCase.split(" (").first;
+                      // print(commandValue);
+                      final ReCase rc = ReCase(commandValue);
                       // convert back to snake_case since options have been recased
                       final commandName = rc.snakeCase;
-                      print(commandName);
+                      log.v(commandName);
 
                       // prevent non-existent command from being called
                       final match = _userOptions.where(((textCommand) {
@@ -116,20 +126,22 @@ class TextInput extends SuperBlock {
                       }));
                       if (match.isNotEmpty &&
                           commandName == match.first.commandName) {
-                        store.msgApplyCommand(commandName); // call ApplyCommand
+                        store.msgApplyCommand(parentId, commandName,
+                            timeout: Duration(minutes: 1)); // call ApplyCommand
                         focusNode.unfocus();
                       }
 
                       if (match.isEmpty) {
                         final text = textEditingController.value.text;
-                        print(text);
+                        log.v(text);
                         final inputProperties = {
                           "nodeId": treeNode.node.key,
                           "text": text
                         };
-                        String inputEvent = JsonMapper.serialize(
+                        final String inputEvent = JsonMapper.serialize(
                             InputProperties(inputProperties));
-                        store.msgSetText(inputEvent);
+                        store.msgSetText(inputEvent,
+                            timeout: Duration(minutes: 1));
                       }
                     },
                   );
@@ -144,7 +156,7 @@ class TextInput extends SuperBlock {
                         TextRange(start: 0, end: 1), "");
 
                     // recast to snake case to catch underscore
-                    ReCase rc = ReCase(newTextEditingValue.text);
+                    final ReCase rc = ReCase(newTextEditingValue.text);
 
                     return _userOptions.where((rid.WidgetTextCommand option) {
                       return option.toString().contains(rc.snakeCase);
@@ -153,9 +165,11 @@ class TextInput extends SuperBlock {
                     return const Iterable<rid.WidgetTextCommand>.empty();
                   }
                 }),
-                optionsViewBuilder: (BuildContext context,
-                    AutocompleteOnSelected<rid.WidgetTextCommand> onSelected,
-                    Iterable<rid.WidgetTextCommand> options) {
+                optionsViewBuilder: (
+                  BuildContext context,
+                  AutocompleteOnSelected<rid.WidgetTextCommand> onSelected,
+                  Iterable<rid.WidgetTextCommand> options,
+                ) {
                   return Align(
                     alignment: Alignment.topLeft,
                     child: Material(
@@ -175,7 +189,9 @@ class TextInput extends SuperBlock {
                               onTap: () {
                                 onSelected(option);
                                 store.msgApplyCommand(
-                                    option.commandName); // call ApplyCommand
+                                    parentId, option.commandName,
+                                    timeout: Duration(
+                                        minutes: 1)); // call ApplyCommand
                               },
                               child: Builder(
                                 builder: (BuildContext context) {

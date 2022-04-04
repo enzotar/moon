@@ -12,6 +12,7 @@ name = "rid_build"
 path = "rid_build.rs"
 
 [dependencies]
+derive_more = "0.99.17"
 cbindgen = "0.20.0"
 rid_build = { path = "../rid/rid-build" }
 rid = { path = "../rid" }
@@ -25,12 +26,13 @@ futures = "0.3"
 sunshine_indra = { path="../libraries/sunshine_flow/sunshine_indra", version = "0.1.0" }
 sunshine_core = { path="../libraries/sunshine_flow/sunshine_core", version = "0.1.0" }
 sunshine_solana = { path="../libraries/sunshine_flow/sunshine_solana", version = "0.1.0" }
-dashmap = "5.1.0"
+dashmap = "5.2.0"
 tiny-bip39 = "0.8.2"
 chrono = "0.4.19"
 # sunshine_dgraph = { path="../libraries/sunshine_dgraph", version = "0.1.0" }
 openssl = { version = "0.10", features = ["vendored"] }
 allo-isolate = "0.1.12"
+
 
 #[dependencies.solana-client]
 #git = "https://github.com/solana-labs/solana/"

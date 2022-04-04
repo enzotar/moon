@@ -1,24 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moon/nodes/command_widget.dart';
+import 'package:moon/providers/store_provider.dart';
 import 'package:moon/widgets/text_input.dart';
-import 'package:moon/widget_input.dart';
-import 'package:moon/widget_output.dart';
-import 'package:moon/commands/add_pubkey.dart';
-import 'package:moon/commands/airdrop.dart';
+
 import 'package:moon/commands/const.dart';
-import 'package:moon/commands/create_account.dart';
-import 'package:moon/commands/create_token.dart';
-import 'package:moon/commands/generate_keypair.dart';
+
 import 'package:moon/nodes/command_widget.dart';
 import 'package:moon/commands/print.dart';
-import 'package:moon/commands/transfer.dart';
+import 'package:tuple/tuple.dart';
 
 import './widgets/block.dart';
 
-import 'dummy_edge_handle.dart';
-import "logger.dart";
+import 'utils/logger.dart';
 
-SuperBlock WidgetChooser([nodeType, treeNode, inputNodes, outputNodes, parentId
+SuperBlock WidgetChooser(TreeNode treeNode,
+    [nodeType, inputNodes, outputNodes, parentId, ref
     // storedContext,
     ]) {
   HookConsumerWidget? _widget;
@@ -27,7 +24,7 @@ SuperBlock WidgetChooser([nodeType, treeNode, inputNodes, outputNodes, parentId
     case "WidgetBlock":
       {
         _widget = Block(
-          // key: UniqueKey(),
+          key: ObjectKey(treeNode.node.value),
           treeNode: treeNode,
         );
       }
@@ -38,7 +35,7 @@ SuperBlock WidgetChooser([nodeType, treeNode, inputNodes, outputNodes, parentId
         log.v("adding text input");
 
         _widget = TextInput(
-          // key: UniqueKey(),
+          key: ObjectKey(treeNode.node.value),
           treeNode: treeNode,
           parentId: parentId,
           // context: storedContext,
@@ -46,71 +43,40 @@ SuperBlock WidgetChooser([nodeType, treeNode, inputNodes, outputNodes, parentId
       }
       break;
     case "DummyEdgeHandle":
-      {
-        print("trying to add DummyEdgeHandle");
-
-        // _widget = DummyEdgeHandle(
-        //   key: UniqueKey(),
-        //   treeNode: treeNode,
-        // );
-      }
-      break;
     case "WidgetInput":
-      {
-        // log.v("adding text input");
-
-        // _widget = WidgetInput(
-        //   children: children ?? [Text("nochild")],
-        //   node: data,
-        //   selected: false,
-        // );
-      }
-      break;
     case "WidgetOutput":
-      {
-        // log.v("adding text input");
-
-        // _widget = WidgetOutput(
-        //   children: children ?? [Text("nochild")],
-        //   node: data,
-        //   selected: false,
-        // );
-      }
+      {}
       break;
     //
     case "Const":
       {
         _widget = CommandWidget(
-          key: ObjectKey(treeNode.hashCode),
+          key: ObjectKey(treeNode.node.value),
           treeNode: treeNode,
           inputs: inputNodes,
           outputs: outputNodes,
           label: nodeType,
           child: Const(
             treeNode: treeNode,
-            key: UniqueKey(),
+            key: ObjectKey(treeNode.node.value),
           ),
           parentId: parentId,
         );
       }
-      // {
-      //   _widget = Const(
-      //     key: UniqueKey(),
-      //     treeNode: treeNode,
-      //     inputs: inputNodes,
-      //     outputs: outputNodes,
-      //   );
-      // }
+
       break;
     case "Print":
       {
         _widget = CommandWidget(
-          // key: UniqueKey(),
+          key: ObjectKey(treeNode.node.value),
           treeNode: treeNode,
           inputs: inputNodes,
           outputs: outputNodes,
           label: nodeType,
-          child: Print(treeNode: treeNode),
+          child: Print(
+            treeNode: treeNode,
+            key: ObjectKey(treeNode.node.value),
+          ),
           parentId: parentId,
         );
       }
@@ -123,12 +89,11 @@ SuperBlock WidgetChooser([nodeType, treeNode, inputNodes, outputNodes, parentId
     case "Wait":
     case "Branch":
     //
-    case "CreateToken":
-    case "AddPubkey":
-    case "CreateAccount":
+    case "CreateMintAccount":
+    case "CreateTokenAccount":
     case "GenerateKeypair":
     case "MintToken":
-    case "Transfer":
+    case "TransferToken":
     case "TransferSolana":
     case "RequestAirdrop":
     case "GetBalance":
@@ -136,15 +101,19 @@ SuperBlock WidgetChooser([nodeType, treeNode, inputNodes, outputNodes, parentId
     case "CreateMetadataAccounts":
     case "CreateMasterEdition":
     case "UpdateMetadataAccounts":
+    case "VerifyCollection":
+    case "ApproveCollectionAuthority":
+    case "SignMetadata":
     case "Utilize":
     case "ApproveUseAuthority":
     case "GetLeftUses":
+    // case "ArweaveNftUpload":
+    // case "ArweaveUpload":
+    case "ArweaveFileUpload":
     case "ArweaveNftUpload":
-    case "ArweaveUpload":
-    case "ArweaveBundlr":
       {
         _widget = CommandWidget(
-          // key: UniqueKey(),
+          key: ObjectKey(treeNode.node.value),
           treeNode: treeNode,
           inputs: inputNodes,
           outputs: outputNodes,
@@ -162,3 +131,24 @@ SuperBlock WidgetChooser([nodeType, treeNode, inputNodes, outputNodes, parentId
   return _widget as SuperBlock;
 }
 // }
+// CommandWidget(
+//               key: UniqueKey(),
+//               treeNode: treeNode,
+//               inputs: inputNodes,
+//               outputs: outputNodes,
+//               label: nodeType,
+//               parentId: parentId,
+//             );
+
+// final commandProvider = Provider.family<CommandWidget, Tuple5>(
+//   (ref, tuple) {
+//     return CommandWidget(
+//       key: UniqueKey(),
+//       treeNode: tuple.item1,
+//       inputs: tuple.item2,
+//       outputs: tuple.item3,
+//       label: tuple.item4,
+//       parentId: tuple.item5,
+//     );
+//   },
+// );
