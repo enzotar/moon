@@ -19,9 +19,12 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // MUST DO DEVICE TYPE CHECK AND UPDATE
-  // final persistentDir = await getLibraryDirectory(); // Unsupported on Android and Linux
+  //final libraryDir =
+  await getLibraryDirectory(); // Unsupported on Android and Linux
+  //print(libraryDir);
   final tempDir = await getTemporaryDirectory();
   final persistentDir = await getApplicationSupportDirectory();
+  print(persistentDir);
   initializeJsonMapper();
 
   final initEvent = {
