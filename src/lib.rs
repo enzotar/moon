@@ -188,6 +188,7 @@ impl RidStore<Msg> for Store {
                 model.bookmarks.clear(); // FIXME: do this in new_graph and read_graph
                 if ev == "new" {
                     model.new_graph();
+                    
                 } else {
                     let graph_id = GraphId(Uuid::from_str(&ev).unwrap());
                     model.read_graph(graph_id);

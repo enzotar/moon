@@ -43,7 +43,7 @@ impl FlowContext {
         run_status: Arc<DashMap<NodeId, (RunState, Option<String>)>>,
         req_id: Arc<Mutex<u64>>,
         graph_id: Arc<Mutex<GraphId>>,
-        graph_entry: GraphEntry,
+        graph_entry: GraphEntry, //TODO remove
         log_path: String,
     ) -> FlowContext {
         let run_id = Arc::new(Mutex::new(Uuid::new_v4()));
@@ -82,6 +82,8 @@ impl FlowContext {
 
                     let mut changed = false;
 
+                   let graph_name = flow_node.properties.get("name").unwrap().as_str().unwrap().to_owned();
+
                     for edge in flow_node.outbound_edges {
                         let props = db.read_edge_properties(edge).await.unwrap();
 
@@ -104,7 +106,7 @@ impl FlowContext {
                             std::fs::write(
                                 format!(
                                     "{log_path}/run_logs/{} - {}.log.json",
-                                    graph_entry.name, timestamp
+                                    graph_name, timestamp
                                 ),
                                 log_content.as_bytes(),
                             )
