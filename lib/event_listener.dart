@@ -1,6 +1,7 @@
 import 'package:dart_json_mapper/dart_json_mapper.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
@@ -186,17 +187,20 @@ class EventListener extends HookConsumerWidget {
         onKeyEvent: (KeyEvent ev) {
           // print(focusNode);
           // print("Keyboard $ev");
-          final inputProperties = {
-            "chars": ev.character,
-            "keyLabel": ev.logicalKey.keyLabel.toString(),
-            "runtimeType": ev.runtimeType.toString(),
-            "timestampMs": DateTime.now().millisecondsSinceEpoch,
-          };
-          final String inputEvent =
-              JsonMapper.serialize(InputProperties(inputProperties));
-          // print(inputProperties);
-          store.store
-              .msgKeyboardEvent(inputEvent, timeout: Duration(seconds: 5));
+          if (ev.runtimeType != KeyRepeatEvent) {
+            // crashes on macos
+            final inputProperties = {
+              "chars": ev.character,
+              "keyLabel": ev.logicalKey.keyLabel.toString(),
+              "runtimeType": ev.runtimeType.toString(),
+              "timestampMs": DateTime.now().millisecondsSinceEpoch,
+            };
+            final String inputEvent =
+                JsonMapper.serialize(InputProperties(inputProperties));
+            // print(inputProperties);
+            store.store
+                .msgKeyboardEvent(inputEvent, timeout: Duration(seconds: 5));
+          }
         },
         child: RawGestureDetector(
             behavior: HitTestBehavior.translucent,

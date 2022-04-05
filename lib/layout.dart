@@ -41,7 +41,8 @@ class LayoutScreen extends HookConsumerWidget {
 
     final showButtonText =
         MediaQuery.of(buildContext).size.width > 1600 ? true : false;
-
+    final showBookmark =
+        MediaQuery.of(buildContext).size.width > 1200 ? true : false;
     // create dropdown options
     final List<String> mainnet = const ["Testnet", "Devnet", "Mainnet"];
 
@@ -107,7 +108,7 @@ class LayoutScreen extends HookConsumerWidget {
         title: const TitleArea(),
         actions: [
           // DebugWidget(),
-          if (showButtonText)
+          if (showBookmark)
             TextButton.icon(
                 style: TextButton.styleFrom(
                   primary: Colors.blueGrey.shade400,
@@ -127,7 +128,7 @@ class LayoutScreen extends HookConsumerWidget {
                   }
                 },
                 label: Text("")),
-          if (showButtonText)
+          if (showBookmark)
             Container(
                 width: 150,
                 child: TextField(
