@@ -88,8 +88,8 @@ class CustomTypeTextField extends HookConsumerWidget {
                   // focusNode.requestFocus();
                 },
                 focusNode: focusNode,
-                minLines: 18,
-                maxLines: 18,
+                minLines: 17,
+                maxLines: 17,
                 keyboardType: TextInputType.multiline,
                 textInputAction: TextInputAction.done,
                 onEditingComplete: () {},

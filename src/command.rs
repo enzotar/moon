@@ -1168,7 +1168,7 @@ impl Command for RequestAirdropCommand {
             "amount",
             &[U64],
             &true,
-            "in lamports, 1 SOL = 1,000,000,000 lamports.\n Currently takes 30s to complete, pass the signature to a wait command",
+            "in lamports, 1 SOL = 1,000,000,000 lamports",
             "",
             &false,
         ),
@@ -1190,7 +1190,7 @@ impl Command for RequestAirdropCommand {
         ))
     }
 
-    const DESCRIPTION: &'static str = "Airdrop SOL for testing purposes";
+    const DESCRIPTION: &'static str = "Airdrop SOL for testing purposes\n\nCurrently takes 30s to complete, pass the signature to a wait command";
 
     const AVAILABILITY: &'static [SolanaNet] = &[SolanaNet::Devnet, SolanaNet::Testnet];
 }

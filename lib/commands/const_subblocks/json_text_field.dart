@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -87,14 +88,15 @@ class JsonTextField extends HookConsumerWidget {
               width: treeNode.node.value.width - 120,
               // height: treeNode.node.value.height - 120,
               child: TextField(
-                dragStartBehavior: DragStartBehavior.start,
+                selectionControls: desktopTextSelectionControls,
+                dragStartBehavior: DragStartBehavior.down,
                 // expands: true,
                 onTap: () {
                   // focusNode.requestFocus();
                 },
                 focusNode: focusNode,
-                minLines: 18,
-                maxLines: 18,
+                minLines: 17,
+                maxLines: 17,
                 keyboardType: TextInputType.multiline,
                 textInputAction: TextInputAction.done,
                 onEditingComplete: () {},

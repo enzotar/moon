@@ -68,12 +68,12 @@ func dummyCallsToPreventTreeShaking() {
     rid_export_rid_keys_hash_map_string_edgeview(nil);
     rid_len_vec_widgettextcommand(nil);
     rid_get_item_vec_widgettextcommand(nil, 0);
+    rid_len_vec_graphentry(nil);
+    rid_get_item_vec_graphentry(nil, 0);
     rid_export_rid_len_hash_map_string_bookmarkview(nil);
     rid_export_rid_get_hash_map_string_bookmarkview(nil, nil);
     rid_export_rid_contains_key_hash_map_string_bookmarkview(nil, nil);
     rid_export_rid_keys_hash_map_string_bookmarkview(nil);
-    rid_len_vec_graphentry(nil);
-    rid_get_item_vec_graphentry(nil, 0);
     _to_dart_for_DebugData();
     rid_debugdata_ui_state(nil);
     rid_debugdata_ui_state_len(nil);
@@ -85,7 +85,7 @@ func dummyCallsToPreventTreeShaking() {
     rid_ratio_numer(nil);
     rid_ratio_denom(nil);
     _to_dart_for_LastViewChanges();
-    //__include_dart_for_hash_map_string_nodechange();
+    //__include_dart_for_vec_string();
     rid_lastviewchanges_changed_nodes_ids(nil);
     rid_lastviewchanges_changed_flow_edges_ids(nil);
     rid_lastviewchanges_is_selected_node_ids_changed(nil);
