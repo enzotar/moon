@@ -56,7 +56,7 @@ class BasicPort extends HookConsumerWidget {
                         ? "${typeBounds}"
                         : "${typeBounds} (default:${nodeEntry.item2.defaultValue})", //${inputName}",
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 9,
                       fontStyle: FontStyle.italic,
                     ),
                     textAlign: TextAlign.start,
@@ -85,7 +85,7 @@ class BasicPort extends HookConsumerWidget {
                   Text(
                     "${typeBounds}",
                     style: const TextStyle(
-                        fontSize: 10, fontStyle: FontStyle.italic),
+                        fontSize: 9, fontStyle: FontStyle.italic),
                     textAlign: TextAlign.end,
                   ),
                 ],

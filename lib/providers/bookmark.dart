@@ -64,7 +64,7 @@ Future<String> getFilePath() async {
 
 void saveFile(bytes) async {
   File file = File(await getFilePath()); // 1
-  print(file.path);
+  // print(file.path);
   file.writeAsBytes(bytes);
 }
 

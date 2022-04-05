@@ -24,10 +24,10 @@ void main() async {
   //print(libraryDir);
   final tempDir = await getTemporaryDirectory();
   final persistentDir = await getApplicationSupportDirectory();
-  print(persistentDir);
+  // print(persistentDir);
 
   final docDir = await getApplicationDocumentsDirectory();
-  print(docDir);
+  // print(docDir);
   initializeJsonMapper();
 
   final initEvent = {

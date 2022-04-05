@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:moon/providers/help.dart';
 
 import 'package:moon/providers/store_provider.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
@@ -17,6 +18,7 @@ class TitleArea extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final store = ref.read(storeRepoProvider).store;
     final templatesProvider = ref.read(templates);
+    final helpProvider = ref.read(help);
     final graphProvider = ref.watch(graphController);
     final graph_entry = ref.read(storeRepoProvider).graph_entry;
 
@@ -99,7 +101,7 @@ class TitleArea extends HookConsumerWidget {
                           child: GridView(
                             gridDelegate:
                                 SliverGridDelegateWithFixedCrossAxisCount(
-                                    childAspectRatio: 1.5,
+                                    childAspectRatio: 1.25,
                                     crossAxisCount: 2,
                                     mainAxisSpacing: 50,
                                     crossAxisSpacing: 50),
@@ -126,8 +128,8 @@ class TitleArea extends HookConsumerWidget {
                                           (await getTemporaryDirectory()).path;
                                       writeToFile(bytes, '$dir/$filename')
                                           .then((value) {
-                                        print(dir);
-                                        print(filename);
+                                        // print(dir);
+                                        // print(filename);
                                         store
                                             .msgImport("$dir/$filename",
                                                 timeout: Duration(seconds: 60))
@@ -192,6 +194,93 @@ class TitleArea extends HookConsumerWidget {
                                             ),
                                           ],
                                         ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ).toList()
+                            ],
+                          ),
+                        ));
+                  },
+                );
+              }
+
+              _showMyDialog();
+            },
+          ),
+          TextButton.icon(
+            style: TextButton.styleFrom(
+              primary: Colors.blueGrey.shade400,
+            ),
+            icon: const Icon(Icons.help_outline_outlined),
+            label: showButtonText ? const Text("help") : Text(""),
+            onPressed: () {
+              Future<void> _showMyDialog() async {
+                return showDialog<void>(
+                  context: context, useSafeArea: true,
+                  barrierDismissible: true, // user must tap button!
+                  builder: (BuildContext context) {
+                    return AlertDialog(
+                        backgroundColor: Colors.black87,
+                        title: const Text(
+                          'Help Section',
+                          style: const TextStyle(
+                              fontSize: 32, color: Colors.blueGrey),
+                        ),
+                        content: Container(
+                          // color: ,
+                          height: MediaQuery.of(context).size.height * 0.7,
+                          width: MediaQuery.of(context).size.width * 0.7,
+                          child: GridView(
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                                    childAspectRatio: 1,
+                                    crossAxisCount: 2,
+                                    mainAxisSpacing: 50,
+                                    crossAxisSpacing: 50),
+                            children: [
+                              ...helpProvider.entries.map(
+                                (entry) {
+                                  return Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                          color: Colors.blueGrey[200],
+                                          borderRadius:
+                                              BorderRadius.circular(5),
+                                          border: Border.all(
+                                              color: Colors.grey, width: 1)),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Padding(
+                                            padding: const EdgeInsets.all(8.0),
+                                            child: Text("${entry.value.item1}",
+                                                style: const TextStyle(
+                                                    fontSize: 24,
+                                                    fontWeight:
+                                                        FontWeight.bold)),
+                                          ),
+                                          Padding(
+                                            padding: const EdgeInsets.all(8.0),
+                                            child: Text("${entry.value.item2}",
+                                                style: const TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight:
+                                                        FontWeight.normal)),
+                                          ),
+                                          Expanded(
+                                            child: Container(
+                                                // height: 300,
+                                                // width: 200,
+                                                child: Image.asset(
+                                              "assets/help/${entry.value.item3}.gif",
+                                              //bundle: rootBundle,
+                                            )),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   );

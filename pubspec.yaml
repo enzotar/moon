@@ -46,6 +46,7 @@ flutter:
   assets:
       - assets/logo-full-small.png
       - assets/templates/
+      - assets/help/
   fonts:
     - family: Inter
       fonts: 

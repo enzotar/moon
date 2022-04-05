@@ -115,8 +115,8 @@ class SeedTextField extends HookConsumerWidget {
                   color: Color(0xFFEEEEEE),
                 ),
                 child: TextField(
-                  dragStartBehavior: DragStartBehavior.start,
-                  // expands: true,
+                  selectionControls: desktopTextSelectionControls,
+                  dragStartBehavior: DragStartBehavior.down, // expands: true,
                   onTap: () {
                     // focusNode.requestFocus();
                   },

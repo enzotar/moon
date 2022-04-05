@@ -54,6 +54,7 @@ class GuideManager extends HookConsumerWidget {
 
     Widget? additionalConst;
     if (additionalType != null) {
+      print(additionalType);
       switch (additionalType) {
         case "string":
           {
@@ -89,7 +90,7 @@ class GuideManager extends HookConsumerWidget {
             );
           }
           break;
-        case "JSON":
+        case "json":
           {
             additionalConst = Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -473,7 +474,7 @@ class GuideManager extends HookConsumerWidget {
                                   child: Row(
                                     children: [
                                       Text(
-                                        "${rc.titleCase} $passthrough",
+                                        "${rc.titleCase}\n $passthrough",
                                         style: TextStyle(
                                             color: Colors.lightBlue.shade50),
                                       ),

@@ -82,8 +82,8 @@ class CustomTypeTextField extends HookConsumerWidget {
               width: treeNode.node.value.width - 120,
               // height: treeNode.node.value.height - 120,
               child: TextField(
-                dragStartBehavior: DragStartBehavior.start,
-                // expands: true,
+                selectionControls: desktopTextSelectionControls,
+                dragStartBehavior: DragStartBehavior.down, // expands: true,
                 onTap: () {
                   // focusNode.requestFocus();
                 },

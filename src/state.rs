@@ -121,14 +121,20 @@ impl State {
     pub fn add_or_remove_from_selection(&mut self, node_id: NodeId) {
         if self.selected_node_ids.contains(&node_id) {
             self.selected_node_ids.remove(&node_id);
-            if self.active_node == Some(node_id) {
-                self.active_node = None;
+            if self.active_node == Some(node_id) { //FIXME removes active node and panics
+                if self.selected_node_ids.clone().len()>0{
+
+                    self.active_node = self.selected_node_ids.clone().into_iter().next(); //fixme 
+                }else{
+                    self.active_node =None;
+                }
+
             }
-            dbg!(&self.selected_node_ids, self.active_node);
+            // dbg!(&self.selected_node_ids, self.active_node);
         } else {
             self.selected_node_ids.insert(node_id);
             self.active_node = Some(node_id);
-            dbg!(&self.selected_node_ids, self.active_node);
+            // dbg!(&self.selected_node_ids, self.active_node);
         }
     }
 
@@ -177,10 +183,10 @@ impl State {
         self.ui_state = UiState::Default;
 
         // get current node from selection
-        dbg!(
-            self.selected_node_ids().collect::<Vec<_>>(),
-            self.active_node
-        );
+        // dbg!(
+        //     self.selected_node_ids().collect::<Vec<_>>(),
+        //     self.active_node
+        // );
         let node_id = NodeId(node_id.parse().unwrap());
         //let node_id = self.active_node.unwrap();
         let node_model = self.model().nodes().get(&node_id).unwrap();

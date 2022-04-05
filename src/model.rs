@@ -1218,13 +1218,13 @@ impl Model {
         .unwrap()
         .properties;
 
-        dbg!(props.clone());
+        // dbg!(props.clone());
         //update 'text' key
         props
             .insert(TEXT_MARKER.into(), JsonValue::String(text.to_string()))
             .unwrap();
 
-        dbg!(props.clone());
+        // dbg!(props.clone());
 
         block_on(self.db.0.execute(Action::Mutate(
             self.graph_id().0,
@@ -1306,7 +1306,7 @@ impl Model {
             )
             .unwrap();
 
-        dbg!(props.clone());
+        // dbg!(props.clone());
 
         block_on(self.db.0.execute(Action::Mutate(
             self.graph_id().0,

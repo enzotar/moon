@@ -21,7 +21,7 @@ final templates = Provider<Map<int, Tuple4<String, String, String, String>>>(
         "Create an NFT in a Collection",
         "Create a 1/1 NFT as part of a Collection",
         "Create Metadata Accounts, Create Master Edition, Arweave Nft Upload, Verify Collection",
-        "nft",
+        "nft_in_collection",
       ),
       4: Tuple4(
         "Update an NFT",

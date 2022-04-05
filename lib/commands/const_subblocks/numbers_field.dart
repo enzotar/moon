@@ -85,7 +85,8 @@ class NumberTextField extends HookConsumerWidget {
             width: treeNode.node.value.width - 120,
             height: treeNode.node.value.height - 120,
             child: TextField(
-              dragStartBehavior: DragStartBehavior.start,
+              selectionControls: desktopTextSelectionControls,
+              dragStartBehavior: DragStartBehavior.down,
               onTap: () {},
               focusNode: focusNode,
               minLines: 1,

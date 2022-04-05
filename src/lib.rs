@@ -1434,24 +1434,17 @@ impl Store {
 
         let state = self.state.as_ref().unwrap();
 
-        let mut widget_nodes = state
-            .model()
-            .iter_widget_nodes()
-            .filter(|(node_id, _)| node_ids_to_update.contains(&node_id));
-
-        let mut widget_nodes_test: Vec<(&NodeId, &WidgetNodeData)> = state
-            .model()
-            .iter_widget_nodes()
-            .filter(|(node_id, _)| node_ids_to_update.contains(&node_id))
-            .collect();
-
-        // move currently movable nodes
-        let (dx, dy) = if let UiState::NodeMove(start_coords, coords) = state.ui_state {
+           // move currently movable nodes
+           let (dx, dy) = if let UiState::NodeMove(start_coords, coords) = state.ui_state {
             let dx = coords.x - start_coords.x;
             let dy = coords.y - start_coords.y;
 
+            // model.nodes = 1:A 2:B 3:C 4:D 5:E 6:F
+            // node_ids_to_update 2 6 3 1
+            // model.nodes = ...
+
             for node_id in &node_ids_to_update {
-                let widget_node_data = widget_nodes.find(|(&id, _)| &id == node_id).unwrap().1;
+                let widget_node_data = state.model().get_node(node_id).unwrap().data(); //FIXME unwraps none?
 
                 let node_id_str = node_id.0.to_string();
                 changes.changed_nodes_ids.insert(

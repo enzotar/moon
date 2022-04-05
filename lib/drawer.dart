@@ -159,13 +159,11 @@ class DrawerWidget extends HookConsumerWidget {
                     builder: (BuildContext context) {
                       return AlertDialog(
                         title: const Text('Debug'),
-                        content: Expanded(
-                          child: SingleChildScrollView(
-                            controller: debugScrollController,
-                            child: SelectableText(
-                              debug.value,
-                              // maxLines: 8,
-                            ),
+                        content: SingleChildScrollView(
+                          controller: debugScrollController,
+                          child: SelectableText(
+                            debug.value,
+                            // maxLines: 8,
                           ),
                         ),
                         actions: <Widget>[
@@ -204,8 +202,7 @@ class DrawerWidget extends HookConsumerWidget {
                     .msgDebug("debug", timeout: Duration(minutes: 1))
                     .then((value) {
                   debug.value = value.data!;
-                  _showMyDialog();
-                });
+                }).then((value) => _showMyDialog());
               },
             ),
             const Padding(

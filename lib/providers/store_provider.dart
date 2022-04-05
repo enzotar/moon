@@ -258,7 +258,7 @@ class LastChangesRepo {
           break;
         case Confirm.RefreshDraggedEdge:
           {
-            print("refresh dragged edge");
+            // print("refresh dragged edge");
             update_all_last_changes();
 
             _read(storeRepoProvider).updateFlowEdges();
@@ -335,7 +335,7 @@ class LastChangesRepo {
             }
             if (this.changed_flow_edges_ids.isNotEmpty &&
                 ev.data == "end_edge") {
-              print("end flow edges");
+              // print("end flow edges");
 
               _read(storeRepoProvider).updateFlowEdges();
               _read(storeRepoProvider).update_nodes();
