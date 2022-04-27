@@ -1,8 +1,15 @@
+<<<<<<< HEAD
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::model::{GraphEntry, GraphId, NodeId};
+=======
+use std::str::FromStr;
+use std::sync::Arc;
+
+use crate::model::{Db, GraphId, NodeId};
+>>>>>>> master
 use crate::Confirm;
 use dashmap::DashMap;
 use futures::executor::block_on;
@@ -11,17 +18,27 @@ use sunshine_core::msg::Action;
 use sunshine_core::msg::QueryKind;
 use sunshine_core::store::Datastore;
 use sunshine_solana::FlowContext as InnerFlowContext;
+<<<<<<< HEAD
 use sunshine_solana::RunState;
 use sunshine_solana::Schedule;
 use sunshine_solana::RUN_ID_MARKER;
 
+=======
+use sunshine_solana::Schedule;
+use sunshine_solana::RUN_ID_MARKER;
+use tokio::runtime;
+>>>>>>> master
 use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct FlowContext {
     tx: mpsc::UnboundedSender<Packet>,
+<<<<<<< HEAD
     run_id: Arc<Mutex<Uuid>>, // TODO use run id?
+=======
+    run_id: Arc<Mutex<Uuid>>,
+>>>>>>> master
 }
 
 #[derive(Debug)]
@@ -40,11 +57,17 @@ enum Cmd {
 impl FlowContext {
     pub fn new(
         db: Arc<dyn Datastore>,
+<<<<<<< HEAD
         run_status: Arc<DashMap<NodeId, (RunState, Option<String>)>>,
         req_id: Arc<Mutex<u64>>,
         graph_id: Arc<Mutex<GraphId>>,
         graph_entry: GraphEntry, //TODO remove
         log_path: String,
+=======
+        run_status: Arc<DashMap<NodeId, bool>>,
+        req_id: Arc<Mutex<u64>>,
+        graph_id: Arc<Mutex<GraphId>>,
+>>>>>>> master
     ) -> FlowContext {
         let run_id = Arc::new(Mutex::new(Uuid::new_v4()));
 
@@ -60,9 +83,13 @@ impl FlowContext {
 
             let flow_ctx = InnerFlowContext::new(db.clone());
 
+<<<<<<< HEAD
             let path = Path::new(&log_path).join("run_logs");
 
             std::fs::create_dir(path).ok();
+=======
+            std::fs::create_dir("SUNSHINE_LOGS").ok();
+>>>>>>> master
 
             let current_run_id = run_id_mod.clone();
 
@@ -82,8 +109,11 @@ impl FlowContext {
 
                     let mut changed = false;
 
+<<<<<<< HEAD
                    let graph_name = flow_node.properties.get("name").unwrap().as_str().unwrap().to_owned();
 
+=======
+>>>>>>> master
                     for edge in flow_node.outbound_edges {
                         let props = db.read_edge_properties(edge).await.unwrap();
 
@@ -97,6 +127,7 @@ impl FlowContext {
 
                             let log_graph = db.read_graph(edge.to).await.unwrap();
 
+<<<<<<< HEAD
                             let log_content = serde_json::to_string(&log_graph).unwrap();
                             let timestamp = props
                                 .get("timestamp")
@@ -107,6 +138,14 @@ impl FlowContext {
                                 format!(
                                     "{log_path}/run_logs/{} - {}.log.json",
                                     graph_name, timestamp
+=======
+                            let log_content = format!("{:#?}", log_graph);
+
+                            std::fs::write(
+                                format!(
+                                    "SUNSHINE_LOGS/{}.log",
+                                    props.get("timestamp").unwrap().as_i64().unwrap(),
+>>>>>>> master
                                 ),
                                 log_content.as_bytes(),
                             )
@@ -121,6 +160,7 @@ impl FlowContext {
                                     .unwrap();
                                 let node_id = uuid::Uuid::from_str(node_id).unwrap();
 
+<<<<<<< HEAD
                                 let entry: RunState = serde_json::from_value(
                                     node.properties.get("state").unwrap().clone(),
                                 )
@@ -145,6 +185,22 @@ impl FlowContext {
                                         );
                                     }
                                 } else {
+=======
+                                if run_status.contains_key(&NodeId(node_id)) {
+                                    continue;
+                                }
+
+                                if let Some(success) = node.properties.get("success") {
+                                    let success = success.as_bool().unwrap();
+                                    run_status.insert(NodeId(node_id), success);
+
+                                    println!(
+                                        "run status: {:?}, {:?}",
+                                        node.properties.get("kind").unwrap(),
+                                        success
+                                    );
+
+>>>>>>> master
                                     changed = true;
                                 }
                             }
@@ -152,8 +208,13 @@ impl FlowContext {
                     }
                     if changed {
                         let id = *req_id.lock().unwrap();
+<<<<<<< HEAD
                         // println!("{}", id);
                         rid::post(Confirm::RequestRefresh(id));
+=======
+                        println!("{}", id);
+                        rid::post(Confirm::Refresh(id));
+>>>>>>> master
                     }
                 }
             });

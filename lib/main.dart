@@ -13,6 +13,7 @@ void main() async {
   RidMessaging.init();
 
   rid.debugLock = null;
+<<<<<<< HEAD
   rid.debugReply = null;
   //rid.debugReply = (reply) => debugPrint('$reply');
 
@@ -41,16 +42,33 @@ void main() async {
 
   await Store.instance.msgInitialize(event); /*initializeEvent*/
 
+=======
+  rid.debugReply = null; // rid.debugReply = (reply) => debugPrint('$reply');
+
+  WidgetsFlutterBinding.ensureInitialized();
+  final appDir = await getApplicationSupportDirectory();
+  await Store.instance.msgInitialize(appDir.path);
+  initializeJsonMapper();
+
+>>>>>>> master
   // rid_ffi.rid_export_query_graph();
   // rid_ffi.rid_export_start();
   // rid_ffi.rid_export_handle_input2(1);
 
   runApp(ProviderScope(child: MyApp()));
+<<<<<<< HEAD
   // print(
   //   JsonMapper.serialize(
   //     InputProperties({"propertyName": "property"}),
   //   ),
   // );
+=======
+  print(
+    JsonMapper.serialize(
+      InputProperties({"propertyName": "property"}),
+    ),
+  );
+>>>>>>> master
 }
 
 class MyApp extends StatelessWidget {
@@ -58,6 +76,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
         debugShowCheckedModeBanner: false,
+<<<<<<< HEAD
         title: 'Space Operator',
         theme: ThemeData(
           fontFamily: 'Inter',
@@ -94,3 +113,13 @@ class MyApp extends StatelessWidget {
 //   static double heightInches(BuildContext c) => inches(c).height;
 //   static double diagonalInches(BuildContext c) => diagonal(c) / _ppi;
 // }
+=======
+        title: 'Dragonfly',
+        theme: ThemeData(
+          primarySwatch: Colors.blue,
+          visualDensity: VisualDensity.adaptivePlatformDensity,
+        ),
+        home: LayoutScreen());
+  }
+}
+>>>>>>> master

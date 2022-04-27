@@ -3,6 +3,7 @@ use std::collections::HashSet;
 
 use crate::model::{InputId, NodeId, OutputId, PortId};
 
+<<<<<<< HEAD
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Coords {
     pub x: f64,
@@ -14,6 +15,19 @@ pub enum Event {
     Unselect,
     SelectNode(NodeId),
     AddOrRemoveNodeToSelection(NodeId),
+=======
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
+pub struct Coords {
+    pub x: i64,
+    pub y: i64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Event {
+    Unselect,
+    SelectNode(NodeId),
+    AddNodeToSelection(NodeId),
+>>>>>>> master
     CreateNode(Coords),
     EditNode(NodeId),
     RemoveNodes(HashSet<NodeId>),
@@ -25,6 +39,7 @@ pub enum Event {
     EndSelection(Coords, Coords),      // start_coords, new_coords
     CancelSelection,
     //
+<<<<<<< HEAD
     MaybeStartTransformMove(Coords),
     NotATransformMove,
     StartTransformMove(Coords, Coords), // start_cords, new_coords
@@ -35,6 +50,18 @@ pub enum Event {
     MaybeStartNodeMove(NodeId, Coords),
     NotANodeMove,
     StartNodeMove(NodeId, Coords, Coords),
+=======
+    MaybeStartViewportMove(Coords),
+    NotAViewportMove,
+    StartViewportMove(Coords, Coords),    // start_cords, new_coords
+    ContinueViewportMove(Coords, Coords), // last_cords, new_coords
+    EndViewportMove(Coords, Coords),      // last_cords, new_coords
+    CancelViewportMove,
+    //
+    MaybeStartNodeMove(NodeId, Coords),
+    NotANodeMove,
+    StartNodeMove(Coords, Coords),
+>>>>>>> master
     ContinueNodeMove(Coords, Coords),
     EndNodeMove(Coords, Coords),
     CancelNodeMove,
@@ -46,6 +73,7 @@ pub enum Event {
     EndEdge(InputId, OutputId),
     CancelEdge(PortId),
     //
+<<<<<<< HEAD
     // x, y, multiplier
     ScrollZoom(f64, f64, f64),
     ScrollMoveScreen(f64, f64),
@@ -54,4 +82,10 @@ pub enum Event {
     //ModifyCommandInput(String),
     //ApplyCommandInput(String),
     //CancelCommandInput
+=======
+    //StartCommandInput(String),
+    //ModifyCommandInput(String),
+    //ApplyCommandInput(String),
+    //CancelCommandInput,
+>>>>>>> master
 }

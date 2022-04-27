@@ -26,6 +26,7 @@ futures = "0.3"
 sunshine_indra = { path="../libraries/sunshine_flow/sunshine_indra", version = "0.1.0" }
 sunshine_core = { path="../libraries/sunshine_flow/sunshine_core", version = "0.1.0" }
 sunshine_solana = { path="../libraries/sunshine_flow/sunshine_solana", version = "0.1.0" }
+<<<<<<< HEAD
 dashmap = "5.2.0"
 tiny-bip39 = "0.8.2"
 chrono = "0.4.19"
@@ -40,12 +41,21 @@ allo-isolate = "0.1.12"
 # [dependencies.solana-remote-wallet]
 # version = "1.9.9"
 # default-features = false
+=======
+dashmap = "5.1.0"
+tiny-bip39 = "0.8.2"
+
+# sunshine_dgraph = { path="../libraries/sunshine_dgraph", version = "0.1.0" }
+>>>>>>> master
 
 [dependencies.input-core]
 path = "../libraries/sunshine/input-core"
 
 [dependencies.input-more]
 path = "../libraries/sunshine/input-more"
+<<<<<<< HEAD
 
 [dependencies.parse]
 path = "../libraries/sunshine/parse"
+=======
+>>>>>>> master

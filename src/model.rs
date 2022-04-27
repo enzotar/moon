@@ -1,8 +1,13 @@
+<<<<<<< HEAD
 use std::borrow::BorrowMut;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fmt;
 use std::hash::Hash;
+=======
+use std::collections::HashMap;
+use std::fmt;
+>>>>>>> master
 use std::sync::Arc;
 
 use futures::executor::block_on;
@@ -17,6 +22,7 @@ use std::sync::Mutex;
 use sunshine_indra::store::generate_uuid_v1;
 use sunshine_indra::store::DbConfig;
 use sunshine_indra::store::DB;
+<<<<<<< HEAD
 use sunshine_solana::RunState;
 
 use sunshine_solana::commands::solana;
@@ -26,13 +32,25 @@ use sunshine_solana::{
     commands::simple::Command as SimpleCommand, commands::CommandKind, CommandConfig,
     ContextConfig, COMMAND_MARKER, CTX_EDGE_MARKER, CTX_MARKER, INPUT_ARG_NAME_MARKER,
     OUTPUT_ARG_NAME_MARKER, START_NODE_MARKER,
+=======
+use sunshine_solana::commands::simple;
+use sunshine_solana::commands::solana;
+use sunshine_solana::COMMAND_NAME_MARKER;
+use sunshine_solana::{
+    commands::simple::Command as SimpleCommand, commands::simple::CommandKind as SimpleCommandKind,
+    commands::CommandKind, CommandConfig, ContextConfig, COMMAND_MARKER, CTX_EDGE_MARKER,
+    CTX_MARKER, INPUT_ARG_NAME_MARKER, OUTPUT_ARG_NAME_MARKER, START_NODE_MARKER,
+>>>>>>> master
 };
 use uuid::Uuid;
 
 use std::str::FromStr;
 
 use crate::command::commands_map;
+<<<<<<< HEAD
 use crate::command::TypeBound;
+=======
+>>>>>>> master
 use crate::command::INPUT_SIZE;
 use crate::flow_context::FlowContext;
 
@@ -49,12 +67,16 @@ pub const DATA_MARKER: &str = "DATA_MARKER";
 pub const BLOCK_TO_CMD_EDGE_MARKER: &str = "BLOCK_TO_CMD_EDGE_MARKER";
 pub const FLOW_GRAPH_MARKER: &str = "FLOW_GRAPH_MARKER";
 pub const TEXT_MARKER: &str = "TEXT_MARKER";
+<<<<<<< HEAD
 pub const ADDITIONAL_DATA_MARKER: &str = "ADDITIONAL_DATA_MARKER";
 pub const REQ_ID: &str = "REQ_ID";
 pub const BOOKMARKS: &str = "BOOKMARKS";
 pub const BOOKMARK_NAME: &str = "BOOKMARK_NAME";
 
 pub const INPUT_OFFSET: i64 = 50;
+=======
+pub const REQ_ID: &str = "REQ_ID";
+>>>>>>> master
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub struct GraphId(pub Uuid);
@@ -74,14 +96,21 @@ pub struct InputId(pub Uuid);
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub struct OutputId(pub Uuid);
 
+<<<<<<< HEAD
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub struct BookmarkId(pub Uuid);
 
+=======
+>>>>>>> master
 #[rid::model]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct GraphEntry {
     id: String,
+<<<<<<< HEAD
     pub name: String,
+=======
+    name: String,
+>>>>>>> master
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
@@ -104,11 +133,17 @@ pub struct Model {
     flow_edges: HashMap<EdgeId, FlowEdgeModel>,
     inputs: HashMap<InputId, InputModel>,
     outputs: HashMap<OutputId, OutputModel>,
+<<<<<<< HEAD
     pub bookmarks: HashMap<BookmarkId, BookmarkModel>,
     flow_context: FlowContext,
     pub run_status: Arc<DashMap<NodeId, (RunState, Option<String>)>>,
     pub req_id: Arc<Mutex<u64>>,
     pub solana_net: SolanaNet,
+=======
+    flow_context: FlowContext,
+    pub run_status: Arc<DashMap<NodeId, bool>>,
+    pub req_id: Arc<Mutex<u64>>,
+>>>>>>> master
 }
 
 impl fmt::Debug for Db {
@@ -131,18 +166,28 @@ pub struct WidgetNodeData {
     pub command_name: Option<String>,
     pub kind: WidgetKind,
     pub text: String,
+<<<<<<< HEAD
     pub additional_data: String,
+=======
+>>>>>>> master
 }
 
 impl WidgetNodeData {
     fn new_command(command_name: &str, kind: WidgetKind, width: i64, height: i64) -> Self {
         Self {
+<<<<<<< HEAD
             coords: Coords { x: 0.0, y: 0.0 },
+=======
+            coords: Coords { x: 0, y: 0 },
+>>>>>>> master
             dimensions: NodeDimensions { width, height },
             command_name: Some(command_name.to_owned()),
             kind,
             text: String::new(),
+<<<<<<< HEAD
             additional_data: String::new(),
+=======
+>>>>>>> master
         }
     }
 
@@ -184,13 +229,20 @@ impl WidgetNodeData {
             command_name: None,
             kind: WidgetKind::Basic(BasicWidgetKind::Block),
             text: String::new(),
+<<<<<<< HEAD
             additional_data: String::new(),
+=======
+>>>>>>> master
         }
     }
 
     fn new_text_input() -> Self {
         Self {
+<<<<<<< HEAD
             coords: Coords { x: 0.0, y: 0.0 },
+=======
+            coords: Coords { x: 0, y: 0 },
+>>>>>>> master
             dimensions: NodeDimensions {
                 height: 70,
                 width: 300,
@@ -198,7 +250,10 @@ impl WidgetNodeData {
             command_name: None,
             kind: WidgetKind::Basic(BasicWidgetKind::TextInput),
             text: String::new(),
+<<<<<<< HEAD
             additional_data: String::new(),
+=======
+>>>>>>> master
         }
     }
 }
@@ -206,7 +261,11 @@ impl WidgetNodeData {
 #[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
 pub struct DataNodeData {}
 
+<<<<<<< HEAD
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+=======
+#[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
+>>>>>>> master
 pub struct NodeEdgeModel {
     pub from: NodeId,
     pub to: NodeId,
@@ -215,7 +274,11 @@ pub struct NodeEdgeModel {
 
 /// From, to coords needed to render the edges on Flutter side
 ///
+<<<<<<< HEAD
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+=======
+#[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
+>>>>>>> master
 pub struct EdgeModelData {
     pub edge_type: EdgeType,
     pub from_coords: Option<Coords>,
@@ -249,13 +312,18 @@ pub struct FlowEdgeModel {
     pub db_edge_id: EdgeId,
 }
 
+<<<<<<< HEAD
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+=======
+#[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
+>>>>>>> master
 pub struct InputModel {
     pub parent_node_id: NodeId,
     pub command_id: NodeId,
     pub local_coords: Coords,
     pub label: String,
     pub index: i64,
+<<<<<<< HEAD
     pub required: bool,
     pub tooltip: String,
     pub type_bounds: String,
@@ -264,12 +332,18 @@ pub struct InputModel {
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+=======
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
+>>>>>>> master
 pub struct OutputModel {
     pub parent_node_id: NodeId,
     pub command_id: NodeId,
     pub local_coords: Coords,
     pub label: String,
     pub index: i64,
+<<<<<<< HEAD
     pub passthrough: bool,
     pub tooltip: String,
     pub type_bound: String,
@@ -307,6 +381,8 @@ impl From<BackendSolanaNet> for SolanaNet {
             BackendSolanaNet::Mainnet => SolanaNet::Mainnet,
         }
     }
+=======
+>>>>>>> master
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -326,7 +402,11 @@ pub enum BasicWidgetKind {
 }
 
 impl Model {
+<<<<<<< HEAD
     pub fn new(db_path: String, log_path: String) -> Self {
+=======
+    pub fn new(db_path: String) -> Self {
+>>>>>>> master
         // database configuration
         let cfg = DbConfig { db_path };
 
@@ -396,12 +476,15 @@ impl Model {
 
         let graph_id = Arc::new(Mutex::new(GraphId(graph_id)));
 
+<<<<<<< HEAD
         let graph_entry = graph_list
             .clone()
             .into_iter()
             .find(|entry| entry.id == graph_id.lock().unwrap().0.to_string())
             .unwrap();
 
+=======
+>>>>>>> master
         let mut model = Self {
             db: Db(db.clone()),
             graph_id: graph_id.clone(),
@@ -412,18 +495,27 @@ impl Model {
             inputs: HashMap::new(),
             outputs: HashMap::new(),
             graph_list,
+<<<<<<< HEAD
             bookmarks: HashMap::new(),
+=======
+>>>>>>> master
             flow_context: FlowContext::new(
                 db.clone(),
                 run_status.clone(),
                 req_id.clone(),
                 graph_id.clone(),
+<<<<<<< HEAD
                 graph_entry,//TODO wrong, doesn't update
                 log_path,
             ),
             run_status,
             req_id,
             solana_net: SolanaNet::Devnet,
+=======
+            ),
+            run_status,
+            req_id,
+>>>>>>> master
         };
 
         model.read_graph(model.graph_id());
@@ -473,6 +565,7 @@ impl Model {
         *graph_id
     }
 
+<<<<<<< HEAD
     pub fn get_graph_entry(&self, graph_id: GraphId) -> GraphEntry {
         self.graph_list
             .iter()
@@ -481,6 +574,8 @@ impl Model {
             .clone()
     }
 
+=======
+>>>>>>> master
     // pub fn save_req_id(&mut self, req_id: u64) {
     //     let mut props = Properties::new();
 
@@ -519,6 +614,7 @@ impl Model {
         // TODO: refresh ui
     }
 
+<<<<<<< HEAD
     pub fn change_solana_net(&mut self, solana_net: SolanaNet) {
         let mut ctx_node = block_on(
             self.db
@@ -671,6 +767,8 @@ impl Model {
         self.read_graph(GraphId(graph_id));
     }
 
+=======
+>>>>>>> master
     pub fn iter_widget_nodes(&self) -> impl Iterator<Item = (&NodeId, &WidgetNodeData)> {
         self.nodes.iter().filter_map(|(node_id, node)| match node {
             NodeModel::Widget(data) => Some((node_id, data)),
@@ -691,6 +789,7 @@ impl Model {
         phrase.split(' ').next().unwrap().to_owned()
     }
 
+<<<<<<< HEAD
     pub fn generate_seed() -> String {
         use bip39::{Language, Mnemonic, MnemonicType};
 
@@ -706,6 +805,8 @@ impl Model {
     //     let validate = Mnemonic::validate(&phrase, Language::English);
     // }
 
+=======
+>>>>>>> master
     pub fn new_graph(&mut self) {
         self.run_status.clear();
 
@@ -727,11 +828,14 @@ impl Model {
         create_wallet_and_context(self.db.clone(), GraphId(graph_id));
 
         self.read_graph(GraphId(graph_id));
+<<<<<<< HEAD
     }
 
     pub fn read_graph(&mut self, graph_id: GraphId) {
         self.undeploy();
         self.run_status.clear();
+=======
+>>>>>>> master
 
         self.graph_list = block_on(self.db.0.execute(Action::Query(QueryKind::ListGraphs)))
             .unwrap()
@@ -744,6 +848,14 @@ impl Model {
                 name: properties.get("name").unwrap().as_str().unwrap().to_owned(),
             })
             .collect::<Vec<_>>();
+<<<<<<< HEAD
+=======
+    }
+
+    pub fn read_graph(&mut self, graph_id: GraphId) {
+        self.undeploy();
+        self.run_status.clear();
+>>>>>>> master
 
         // get graph, nodes, and edges
         let graph = block_on(
@@ -761,6 +873,7 @@ impl Model {
             *graph_id_ref = graph_id
         }
 
+<<<<<<< HEAD
 
   
 
@@ -784,6 +897,8 @@ impl Model {
         }
         // dbg!(self.bookmarks.clone());
 
+=======
+>>>>>>> master
         self.nodes = HashMap::new();
 
         let get_widget_kind = |properties: &Properties| {
@@ -811,11 +926,16 @@ impl Model {
 
         for node in graph.nodes.iter() {
             let kind = match get_widget_kind(&node.properties) {
+<<<<<<< HEAD
                 Some(WidgetKind::Context(ctx)) => {
                     self.context_node_id = NodeId(node.node_id);
 
                     self.solana_net = ctx.solana_net.into();
 
+=======
+                Some(WidgetKind::Context(_)) => {
+                    self.context_node_id = NodeId(node.node_id);
+>>>>>>> master
                     continue;
                 }
                 Some(widget_kind) => widget_kind,
@@ -851,12 +971,15 @@ impl Model {
             let text = node.properties.get(TEXT_MARKER).unwrap_or(&empty_text);
             let text = serde_json::from_value(text.clone()).unwrap();
 
+<<<<<<< HEAD
             let additional_data = node
                 .properties
                 .get(ADDITIONAL_DATA_MARKER)
                 .unwrap_or(&empty_text);
             let additional_data = serde_json::from_value(additional_data.clone()).unwrap();
 
+=======
+>>>>>>> master
             let command_name = node.properties.get(COMMAND_NAME_MARKER).unwrap();
             let command_name = match command_name {
                 JsonValue::Null => None,
@@ -875,7 +998,10 @@ impl Model {
                     coords,
                     dimensions,
                     text,
+<<<<<<< HEAD
                     additional_data,
+=======
+>>>>>>> master
                 }),
             );
         }
@@ -894,7 +1020,10 @@ impl Model {
                 .unwrap();
 
                 if props.get(BLOCK_TO_CMD_EDGE_MARKER).is_none() {
+<<<<<<< HEAD
                     // TODO update block to child
+=======
+>>>>>>> master
                     continue;
                 }
 
@@ -933,8 +1062,13 @@ impl Model {
             let command_name = node.command_name.as_ref().unwrap(); // because it is command
 
             //get parent coords
+<<<<<<< HEAD
             let coords = Coords { x: 0.0, y: 0.0 };
             // dbg!(&node);
+=======
+            let coords = Coords { x: 0, y: 0 };
+
+>>>>>>> master
             let (_, edge) = self
                 .node_edges
                 .iter()
@@ -1002,19 +1136,25 @@ impl Model {
                     .outputs
                     .iter()
                     .find(|(_output_id, output)| {
+<<<<<<< HEAD
                         // dbg!(output.label.clone());
                         // dbg!(props.get(OUTPUT_ARG_NAME_MARKER).unwrap().as_str().unwrap());
 
+=======
+>>>>>>> master
                         output.command_id.0 == edge.from
                             && output.label
                                 == props.get(OUTPUT_ARG_NAME_MARKER).unwrap().as_str().unwrap()
                     })
+<<<<<<< HEAD
                     .inspect(|(id, m)| {
                         // dbg!(m.label.clone());
                         // dbg!(props.get(OUTPUT_ARG_NAME_MARKER).unwrap().as_str().unwrap());
 
                         // println!("{:#?}", m.label)
                     })
+=======
+>>>>>>> master
                     .unwrap();
 
                 self.flow_edges.insert(
@@ -1030,6 +1170,7 @@ impl Model {
         }
     }
 
+<<<<<<< HEAD
     pub fn save_bookmark(&mut self, bookmark_id: BookmarkId, bookmark_model: BookmarkModel) {
         let mut props = Properties::new();
         props.insert(BOOKMARK_NAME.into(), JsonValue::String(bookmark_model.name));
@@ -1084,6 +1225,8 @@ impl Model {
         .unwrap();
     }
 
+=======
+>>>>>>> master
     // has both the node id of the block and of the command
     pub fn generate_ports(
         node_id: NodeId,
@@ -1092,6 +1235,10 @@ impl Model {
         parent: (NodeId, Coords),
         width: i64,
     ) -> (Vec<InputModel>, Vec<OutputModel>) {
+<<<<<<< HEAD
+=======
+        const INPUT_OFFSET: i64 = 50;
+>>>>>>> master
         const Y_INPUT_OFFSET: i64 = 30; // offset for block title
         const X_INPUT_OFFSET: i64 = 0;
 
@@ -1101,6 +1248,7 @@ impl Model {
 
         let commands_map = commands_map();
         let command = commands_map.get(command_name).unwrap();
+<<<<<<< HEAD
         let inputs: Vec<(String, bool, String, String, bool, String)> = command
             .inputs()
             .iter()
@@ -1137,12 +1285,21 @@ impl Model {
         let mut y = Y_INPUT_OFFSET - INPUT_OFFSET;
         let mut index = 0;
         let input = |input_data: (String, bool, String, String, bool, String)| {
+=======
+        let mut inputs: Vec<_> = command.inputs().iter().map(|input| input.name).collect();
+        let outputs: Vec<_> = command.outputs().iter().map(|output| output.name).collect();
+
+        let mut y = Y_INPUT_OFFSET - INPUT_OFFSET;
+        let mut index = 0;
+        let input = |label: &str| {
+>>>>>>> master
             y += INPUT_OFFSET;
             index += 1;
             InputModel {
                 index,
                 parent_node_id: parent_id,
                 local_coords: Coords {
+<<<<<<< HEAD
                     x: X_INPUT_OFFSET as f64, // - INPUT_OFFSET,
                     y: y as f64,
                 },
@@ -1153,13 +1310,24 @@ impl Model {
                 type_bounds: input_data.3,
                 has_default: input_data.4,
                 default_value: input_data.5,
+=======
+                    x: X_INPUT_OFFSET, // - INPUT_OFFSET,
+                    y: y,
+                },
+                label: label.to_owned(),
+                command_id: node_id,
+>>>>>>> master
             }
         };
 
         let mut y = Y_INPUT_OFFSET - INPUT_OFFSET;
         let mut index = 0;
 
+<<<<<<< HEAD
         let output = |output_data: (String, String, bool, String)| {
+=======
+        let output = |label: &str| {
+>>>>>>> master
             y += INPUT_OFFSET;
             index += 1;
             OutputModel {
@@ -1167,6 +1335,7 @@ impl Model {
 
                 parent_node_id: parent_id,
                 local_coords: Coords {
+<<<<<<< HEAD
                     x: (width - INPUT_OFFSET) as f64,
                     y: y as f64,
                 },
@@ -1175,16 +1344,29 @@ impl Model {
                 type_bound: output_data.1,
                 passthrough: output_data.2,
                 tooltip: output_data.3,
+=======
+                    x: width - INPUT_OFFSET,
+                    y: y,
+                },
+                label: label.to_owned(),
+                command_id: node_id,
+>>>>>>> master
             }
         };
 
         (
+<<<<<<< HEAD
             inputs.into_iter().map(input).collect(),
             outputs.into_iter().map(output).collect(),
+=======
+            inputs.iter().copied().map(input).collect(),
+            outputs.iter().copied().map(output).collect(),
+>>>>>>> master
         )
     }
 
     pub fn set_node_text(&mut self, node_id: &NodeId, text: String) {
+<<<<<<< HEAD
         // FIXME: should panic if invalid node_id used
         // if let Some(node) =
         self.nodes.get_mut(node_id).unwrap().data_mut().text = text;
@@ -1203,6 +1385,13 @@ impl Model {
             .unwrap()
             .data_mut()
             .additional_data = additional_data;
+=======
+        let node = self.nodes.get_mut(node_id).unwrap();
+        let node = match node {
+            NodeModel::Widget(node) => node,
+        };
+        node.text = text;
+>>>>>>> master
 
         // update db
     }
@@ -1218,13 +1407,21 @@ impl Model {
         .unwrap()
         .properties;
 
+<<<<<<< HEAD
         // dbg!(props.clone());
+=======
+        dbg!(props.clone());
+>>>>>>> master
         //update 'text' key
         props
             .insert(TEXT_MARKER.into(), JsonValue::String(text.to_string()))
             .unwrap();
 
+<<<<<<< HEAD
         // dbg!(props.clone());
+=======
+        dbg!(props.clone());
+>>>>>>> master
 
         block_on(self.db.0.execute(Action::Mutate(
             self.graph_id().0,
@@ -1233,6 +1430,7 @@ impl Model {
         .unwrap();
     }
 
+<<<<<<< HEAD
     // pub fn update_command(&mut self, node_id: NodeId, input_id: InputId, text: &str) {
     //     let command = 1;
 
@@ -1257,6 +1455,13 @@ impl Model {
                 eprintln!("error while saving const: {:#?}", e);
                 return;
             }
+=======
+    pub fn update_const_command(&mut self, node_id: NodeId, text: &str) {
+        // dbg!(text.clone());
+        let cfg: SimpleCommand = match serde_json::from_str(text) {
+            Ok(cfg) => cfg,
+            _ => return,
+>>>>>>> master
         };
 
         let cfg = CommandConfig::Simple(cfg);
@@ -1280,6 +1485,7 @@ impl Model {
             .insert(TEXT_MARKER.into(), JsonValue::String(text.to_string()))
             .unwrap();
 
+<<<<<<< HEAD
         block_on(self.db.0.execute(Action::Mutate(
             self.graph_id().0,
             MutateKind::UpdateNode((node_id.0, props)),
@@ -1307,6 +1513,9 @@ impl Model {
             .unwrap();
 
         // dbg!(props.clone());
+=======
+        dbg!(props.clone());
+>>>>>>> master
 
         block_on(self.db.0.execute(Action::Mutate(
             self.graph_id().0,
@@ -1374,10 +1583,13 @@ impl Model {
                         );
                         props.insert(START_NODE_MARKER.into(), JsonValue::Bool(true));
                         props.insert(TEXT_MARKER.into(), JsonValue::String(String::new()));
+<<<<<<< HEAD
                         props.insert(
                             ADDITIONAL_DATA_MARKER.into(),
                             JsonValue::String(String::new()),
                         );
+=======
+>>>>>>> master
 
                         props
                     }
@@ -1452,6 +1664,7 @@ impl Model {
         node_id
     }
 
+<<<<<<< HEAD
     /// TODO fix delete graph on indra side
     pub fn delete_graph(&mut self, graph_id: GraphId) {
         //
@@ -1656,13 +1869,51 @@ impl Model {
             self.nodes.remove(&child_id).unwrap();
         }
 
+=======
+    // TODO correct for nested commands
+    pub fn remove_node(&mut self, node_id: NodeId) {
+        // DELETE FROM MODEL
+
+        // node
+        self.nodes.remove_entry(&node_id);
+
+        // TODO: remove all node where parent_node_id = node_id
+        // flow edges
+        self.flow_edges = self
+            .flow_edges
+            .drain()
+            .filter(|(_, edge)| {
+                let input = self.inputs.get(&edge.input_id).unwrap();
+                let output = self.outputs.get(&edge.output_id).unwrap();
+                input.parent_node_id != node_id && output.parent_node_id != node_id
+            })
+            .collect();
+
+        // node edges
+        self.node_edges = self
+            .node_edges
+            .drain()
+            .filter(|(_, node_edge_model)| {
+                let output = node_edge_model.from;
+                let input = node_edge_model.to;
+                input != node_id && output != node_id
+            })
+            .collect();
+
+        // DELETE FROM DB
+
+        // node and all inbound/outbound edges
+>>>>>>> master
         block_on(self.db.0.execute(Action::Mutate(
             self.graph_id().0,
             MutateKind::DeleteNode(node_id.0),
         )))
         .unwrap();
+<<<<<<< HEAD
 
         self.nodes.remove(&node_id).unwrap();
+=======
+>>>>>>> master
     }
 
     // ADD INPUT OUTPUT EDGE
@@ -1702,7 +1953,11 @@ impl Model {
             OUTPUT_ARG_NAME_MARKER.into(),
             serde_json::to_value(&output_model.label).unwrap(),
         );
+<<<<<<< HEAD
         // dbg!(properties.clone());
+=======
+        dbg!(properties.clone());
+>>>>>>> master
 
         let edge_id = block_on(self.db.0.execute(Action::Mutate(
             self.graph_id().0,
@@ -1758,7 +2013,11 @@ impl Model {
         let mut properties = Properties::new();
 
         properties.insert(BLOCK_TO_CMD_EDGE_MARKER.into(), JsonValue::Bool(true));
+<<<<<<< HEAD
         // dbg!(edge.clone());
+=======
+        dbg!(edge.clone());
+>>>>>>> master
         let edge_id = block_on(self.db.0.execute(Action::Mutate(
             self.graph_id().0,
             MutateKind::CreateEdge(CreateEdge {
@@ -1841,6 +2100,7 @@ impl Model {
             MutateKind::UpdateNode((node_id.0, properties)),
         )))
         .unwrap();
+<<<<<<< HEAD
 
         //get block's outputs, and change their width
         let outputs = self
@@ -1864,6 +2124,8 @@ impl Model {
                 type_bound: output_model.type_bound.to_owned(),
             }
         }
+=======
+>>>>>>> master
     }
 
     /// CREATE WIDGET NODE and DATA NODE
@@ -1951,6 +2213,7 @@ impl Model {
             }
 
             let rect = Rect {
+<<<<<<< HEAD
                 x1: node.coords.x as i64,
                 x2: node.coords.x as i64 + node.dimensions.width,
                 y1: node.coords.y as i64,
@@ -1958,6 +2221,15 @@ impl Model {
             };
 
             rect.contains(coords.x as i64, coords.y as i64)
+=======
+                x1: node.coords.x,
+                x2: node.coords.x + node.dimensions.width,
+                y1: node.coords.y,
+                y2: node.coords.y + node.dimensions.height,
+            };
+
+            rect.contains(coords.x, coords.y)
+>>>>>>> master
         })
     }
 
@@ -1996,6 +2268,7 @@ impl Model {
                 // NodeModel::Data(_) => panic!(),
             };
             let rect = Rect {
+<<<<<<< HEAD
                 x1: (data.coords.x + input.local_coords.x) as i64,
                 x2: (data.coords.x + input.local_coords.x) as i64 + INPUT_SIZE,
                 y1: (data.coords.y + input.local_coords.y) as i64,
@@ -2003,6 +2276,15 @@ impl Model {
             };
             // dbg!(rect.clone());
             rect.contains(coords.x as i64, coords.y as i64)
+=======
+                x1: data.coords.x + input.local_coords.x,
+                x2: data.coords.x + input.local_coords.x + INPUT_SIZE,
+                y1: data.coords.y + input.local_coords.y,
+                y2: data.coords.y + input.local_coords.y + INPUT_SIZE,
+            };
+            // dbg!(rect.clone());
+            rect.contains(coords.x, coords.y)
+>>>>>>> master
         })
     }
 
@@ -2017,6 +2299,7 @@ impl Model {
                 // NodeModel::Data(_) => panic!(),
             };
             let rect = Rect {
+<<<<<<< HEAD
                 x1: (data.coords.x + output.local_coords.x) as i64,
                 x2: (data.coords.x + output.local_coords.x) as i64 + INPUT_SIZE,
                 y1: (data.coords.y + output.local_coords.y) as i64,
@@ -2024,6 +2307,15 @@ impl Model {
             };
             // dbg!(rect.clone());
             rect.contains(coords.x as i64, coords.y as i64)
+=======
+                x1: data.coords.x + output.local_coords.x,
+                x2: data.coords.x + output.local_coords.x + INPUT_SIZE,
+                y1: data.coords.y + output.local_coords.y,
+                y2: data.coords.y + output.local_coords.y + INPUT_SIZE,
+            };
+            // dbg!(rect.clone());
+            rect.contains(coords.x, coords.y)
+>>>>>>> master
         })
     }
 
@@ -2140,8 +2432,14 @@ pub fn create_wallet_and_context(db: Db, graph_id: GraphId) -> ContextConfig {
         .unwrap();
 
     let solana_context_config = solana::Config {
+<<<<<<< HEAD
         solana_net: BackendSolanaNet::Devnet,
         wallet_graph: wallet_graph_id,
+=======
+        solana_url: "https://api.devnet.solana.com".into(),
+        wallet_graph: wallet_graph_id,
+        solana_arweave_url: "https://arloader.io/".into(),
+>>>>>>> master
     };
 
     // create context node
@@ -2160,6 +2458,7 @@ pub fn create_wallet_and_context(db: Db, graph_id: GraphId) -> ContextConfig {
 
     solana_context_config
 }
+<<<<<<< HEAD
 
 impl NodeModel {
     pub fn data(&self) -> &WidgetNodeData {
@@ -2174,3 +2473,5 @@ impl NodeModel {
         }
     }
 }
+=======
+>>>>>>> master

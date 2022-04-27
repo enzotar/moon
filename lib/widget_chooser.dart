@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+<<<<<<< HEAD
 import 'package:moon/nodes/command_widget.dart';
 import 'package:moon/providers/store_provider.dart';
 import 'package:moon/widgets/text_input.dart';
@@ -18,14 +19,51 @@ SuperBlock WidgetChooser(TreeNode treeNode,
     [nodeType, inputNodes, outputNodes, parentId, ref
     // storedContext,
     ]) {
+=======
+import 'package:moon/widgets/text_input.dart';
+import 'package:moon/widget_input.dart';
+import 'package:moon/widget_output.dart';
+import 'package:moon/commands/add_pubkey.dart';
+import 'package:moon/commands/airdrop.dart';
+import 'package:moon/commands/const.dart';
+import 'package:moon/commands/create_account.dart';
+import 'package:moon/commands/create_token.dart';
+import 'package:moon/commands/generate_keypair.dart';
+import 'package:moon/nodes/command_widget.dart';
+import 'package:moon/commands/print.dart';
+import 'package:moon/commands/transfer.dart';
+
+import './widgets/block.dart';
+
+import 'dummy_edge_handle.dart';
+import "logger.dart";
+
+HookConsumerWidget WidgetChooser([
+  nodeType,
+  data,
+  children,
+  inputNodes,
+  outputNodes,
+  selectedNode,
+  dimensions,
+  storedContext,
+]) {
+>>>>>>> master
   HookConsumerWidget? _widget;
 
   switch (nodeType) {
     case "WidgetBlock":
       {
         _widget = Block(
+<<<<<<< HEAD
           key: ObjectKey(treeNode.node.value),
           treeNode: treeNode,
+=======
+          node: data,
+          children: children,
+          // key: ObjectKey(data.nodeKey),
+          selected: false,
+>>>>>>> master
         );
       }
       break;
@@ -35,21 +73,65 @@ SuperBlock WidgetChooser(TreeNode treeNode,
         log.v("adding text input");
 
         _widget = TextInput(
+<<<<<<< HEAD
           key: ObjectKey(treeNode.node.value),
           treeNode: treeNode,
           parentId: parentId,
           // context: storedContext,
+=======
+          node: data,
+          children: children ?? [Text("nochild")],
+          // key: ObjectKey(data.nodeKey),
+          selected: false,
+          // selectedNode: selectedNode,
+>>>>>>> master
         );
       }
       break;
     case "DummyEdgeHandle":
+<<<<<<< HEAD
     case "WidgetInput":
     case "WidgetOutput":
       {}
+=======
+      {
+        // log.v("adding text input");
+
+        // _widget = DummyEdgeHandle(
+        //   node: data,
+        //   children: children ?? [Text("nochild")],
+        //   // key: ObjectKey(data.nodeKey),
+        //   selected: false,
+        // );
+      }
+      break;
+    case "WidgetInput":
+      {
+        // log.v("adding text input");
+
+        // _widget = WidgetInput(
+        //   children: children ?? [Text("nochild")],
+        //   node: data,
+        //   selected: false,
+        // );
+      }
+      break;
+    case "WidgetOutput":
+      {
+        // log.v("adding text input");
+
+        // _widget = WidgetOutput(
+        //   children: children ?? [Text("nochild")],
+        //   node: data,
+        //   selected: false,
+        // );
+      }
+>>>>>>> master
       break;
     //
     case "Const":
       {
+<<<<<<< HEAD
         _widget = CommandWidget(
           key: ObjectKey(treeNode.node.value),
           treeNode: treeNode,
@@ -95,12 +177,35 @@ SuperBlock WidgetChooser(TreeNode treeNode,
     case "MintToken":
     case "TransferToken":
     case "TransferSolana":
+=======
+        _widget = Const(
+          node: data,
+          key: UniqueKey(),
+          selected: false,
+          inputs: inputNodes,
+          outputs: outputNodes,
+        );
+      }
+      break;
+    case "Print":
+    case "JsonExtract":
+    case "HttpRequest":
+    case "IpfsUpload":
+    //
+    case "CreateToken":
+    case "AddPubkey":
+    case "CreateAccount":
+    case "GenerateKeypair":
+    case "MintToken":
+    case "Transfer":
+>>>>>>> master
     case "RequestAirdrop":
     case "GetBalance":
     //
     case "CreateMetadataAccounts":
     case "CreateMasterEdition":
     case "UpdateMetadataAccounts":
+<<<<<<< HEAD
     case "VerifyCollection":
     case "ApproveCollectionAuthority":
     case "SignMetadata":
@@ -119,6 +224,20 @@ SuperBlock WidgetChooser(TreeNode treeNode,
           outputs: outputNodes,
           label: nodeType,
           parentId: parentId,
+=======
+    case "Utilize":
+    case "ApproveUseAuthority":
+    case "GetLeftUses":
+    case "ArweaveUpload":
+      {
+        _widget = CommandWidget(
+          node: data,
+          key: UniqueKey(),
+          selected: false,
+          inputs: inputNodes,
+          outputs: outputNodes,
+          label: nodeType,
+>>>>>>> master
         );
       }
       break;
@@ -128,6 +247,7 @@ SuperBlock WidgetChooser(TreeNode treeNode,
       }
   }
 
+<<<<<<< HEAD
   return _widget as SuperBlock;
 }
 // }
@@ -152,3 +272,8 @@ SuperBlock WidgetChooser(TreeNode treeNode,
 //     );
 //   },
 // );
+=======
+  return _widget as HookConsumerWidget;
+}
+// }
+>>>>>>> master

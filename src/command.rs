@@ -1,4 +1,5 @@
 use std::cmp;
+<<<<<<< HEAD
 use std::collections::{HashMap, HashSet};
 
 use sunshine_solana::commands::simple::branch;
@@ -11,11 +12,23 @@ use sunshine_solana::commands::solana;
 // use sunshine_solana::commands::solana::add_pubkey;
 use sunshine_solana::commands::solana::create_mint_account;
 use sunshine_solana::commands::solana::create_token_account;
+=======
+use std::collections::HashMap;
+
+use sunshine_solana::commands::simple::http_request;
+use sunshine_solana::commands::simple::ipfs_upload;
+use sunshine_solana::commands::simple::json_extract;
+use sunshine_solana::commands::solana;
+use sunshine_solana::commands::solana::add_pubkey;
+use sunshine_solana::commands::solana::create_account;
+use sunshine_solana::commands::solana::create_token;
+>>>>>>> master
 use sunshine_solana::commands::solana::generate_keypair;
 use sunshine_solana::commands::solana::generate_keypair::Arg;
 use sunshine_solana::commands::solana::get_balance;
 use sunshine_solana::commands::solana::mint_token;
 use sunshine_solana::commands::solana::nft;
+<<<<<<< HEAD
 use sunshine_solana::commands::solana::nft::approve_collection_authority;
 use sunshine_solana::commands::solana::nft::approve_use_authority;
 use sunshine_solana::commands::solana::nft::arweave_file_upload;
@@ -34,6 +47,21 @@ use sunshine_solana::commands::solana::transfer_token;
 use sunshine_solana::{commands::simple::Command as SimpleCommand, CommandConfig};
 
 use crate::model::{NodeDimensions, SolanaNet};
+=======
+use sunshine_solana::commands::solana::nft::approve_use_authority;
+use sunshine_solana::commands::solana::nft::arweave_upload;
+use sunshine_solana::commands::solana::nft::create_master_edition;
+use sunshine_solana::commands::solana::nft::create_metadata_accounts;
+use sunshine_solana::commands::solana::nft::get_left_uses;
+use sunshine_solana::commands::solana::nft::update_metadata_accounts;
+use sunshine_solana::commands::solana::nft::utilize;
+use sunshine_solana::commands::solana::request_airdrop;
+use sunshine_solana::commands::solana::transfer;
+
+use sunshine_solana::{commands::simple::Command as SimpleCommand, CommandConfig};
+
+use crate::model::NodeDimensions;
+>>>>>>> master
 
 /*
 pub struct Commands {
@@ -62,6 +90,7 @@ pub const COMMANDS: &'static [&'static dyn DynCommand] = &[
     &PrintCommand,
     &ConstCommand,
     &JsonExtractCommand,
+<<<<<<< HEAD
     &JsonInsertCommand,
     &HttpRequestCommand,
     &IpfsUploadCommand,
@@ -76,12 +105,24 @@ pub const COMMANDS: &'static [&'static dyn DynCommand] = &[
     &MintTokenCommand,
     &TransferTokenCommand,
     &TransferSolanaCommand,
+=======
+    &HttpRequestCommand,
+    &IpfsUploadCommand,
+    // Solana
+    &CreateTokenCommand,
+    &AddPubkeyCommand,
+    &CreateAccountCommand,
+    &GenerateKeypairCommand,
+    &MintTokenCommand,
+    &TransferCommand,
+>>>>>>> master
     &RequestAirdropCommand,
     &GetBalanceCommand,
     // NFTs
     &CreateMetadataAccountsCommand,
     &CreateMasterEditionCommand,
     &UpdateMetadataAccountsCommand,
+<<<<<<< HEAD
     &VerifyCollectionCommand,
     &ApproveCollectionAuthorityCommand,
     &SignMetadataCommand,
@@ -92,6 +133,12 @@ pub const COMMANDS: &'static [&'static dyn DynCommand] = &[
     // &ArweaveNftUploadCommand,
     &ArweaveNftUploadCommand,
     &ArweaveFileUploadCommand,
+=======
+    &UtilizeCommand,
+    &ApproveUseAuthorityCommand,
+    &GetLeftUsesCommand,
+    &ArweaveUploadCommand,
+>>>>>>> master
 ];
 
 // TODO: Build once on initialization
@@ -111,6 +158,7 @@ fn calculate_node_height(command: impl DynCommand) -> i64 {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommandInput {
     pub name: &'static str,
+<<<<<<< HEAD
     pub type_bounds: &'static [TypeBound],
     pub required: &'static bool,
     pub tooltip: &'static str,
@@ -151,6 +199,16 @@ impl CommandInput {
             acceptable_types
         } else {
             HashSet::new()
+=======
+    pub acceptable_types: &'static [&'static str],
+}
+
+impl CommandInput {
+    pub const fn new(name: &'static str, acceptable_types: &'static [&'static str]) -> Self {
+        Self {
+            name,
+            acceptable_types,
+>>>>>>> master
         }
     }
 }
@@ -159,6 +217,7 @@ impl CommandInput {
 pub struct CommandOutput {
     pub name: &'static str,
     pub r#type: &'static str,
+<<<<<<< HEAD
     pub passthrough: &'static bool,
     pub tooltip: &'static str,
 }
@@ -192,17 +251,38 @@ pub trait Command {
     const INPUTS: &'static [CommandInput];
     const OUTPUTS: &'static [CommandOutput];
     const AVAILABILITY: &'static [SolanaNet];
+=======
+}
+
+impl CommandOutput {
+    pub const fn new(name: &'static str, r#type: &'static str) -> Self {
+        Self { name, r#type }
+    }
+}
+
+pub trait Command {
+    const COMMAND_NAME: &'static str;
+    const WIDGET_NAME: &'static str;
+    const INPUTS: &'static [CommandInput];
+    const OUTPUTS: &'static [CommandOutput];
+>>>>>>> master
     fn dimensions() -> NodeDimensions; // TODO: Move to CommandView
     fn config() -> CommandConfig;
 }
 
 pub trait DynCommand: std::fmt::Debug {
     fn command_name(&self) -> &'static str;
+<<<<<<< HEAD
     fn description(&self) -> &'static str;
     fn widget_name(&self) -> &'static str;
     fn inputs(&self) -> &'static [CommandInput];
     fn outputs(&self) -> &'static [CommandOutput];
     fn availability(&self) -> &'static [SolanaNet];
+=======
+    fn widget_name(&self) -> &'static str;
+    fn inputs(&self) -> &'static [CommandInput];
+    fn outputs(&self) -> &'static [CommandOutput];
+>>>>>>> master
     fn dimensions(&self) -> NodeDimensions; // TODO: Move to DynCommandView
     fn config(&self) -> CommandConfig;
 }
@@ -211,9 +291,12 @@ impl<T: Command + std::fmt::Debug> DynCommand for T {
     fn command_name(&self) -> &'static str {
         T::COMMAND_NAME
     }
+<<<<<<< HEAD
     fn description(&self) -> &'static str {
         T::DESCRIPTION
     }
+=======
+>>>>>>> master
 
     fn widget_name(&self) -> &'static str {
         T::WIDGET_NAME
@@ -227,10 +310,13 @@ impl<T: Command + std::fmt::Debug> DynCommand for T {
         T::OUTPUTS
     }
 
+<<<<<<< HEAD
     fn availability(&self) -> &'static [SolanaNet] {
         T::AVAILABILITY
     }
 
+=======
+>>>>>>> master
     fn dimensions(&self) -> NodeDimensions {
         T::dimensions()
     }
@@ -252,14 +338,18 @@ pub struct ConstCommand;
 pub struct JsonExtractCommand;
 
 #[derive(Copy, Clone, Debug)]
+<<<<<<< HEAD
 pub struct JsonInsertCommand;
 
 #[derive(Copy, Clone, Debug)]
+=======
+>>>>>>> master
 pub struct HttpRequestCommand;
 
 #[derive(Copy, Clone, Debug)]
 pub struct IpfsUploadCommand;
 
+<<<<<<< HEAD
 #[derive(Copy, Clone, Debug)]
 pub struct IpfsNftUploadCommand;
 
@@ -273,12 +363,22 @@ pub struct WaitCommand;
 
 #[derive(Copy, Clone, Debug)]
 pub struct CreateMintAccountCommand;
+=======
+// SOLANA
+
+#[derive(Copy, Clone, Debug)]
+pub struct CreateTokenCommand;
+>>>>>>> master
 
 #[derive(Copy, Clone, Debug)]
 pub struct AddPubkeyCommand;
 
 #[derive(Copy, Clone, Debug)]
+<<<<<<< HEAD
 pub struct CreateTokenAccountCommand;
+=======
+pub struct CreateAccountCommand;
+>>>>>>> master
 
 #[derive(Copy, Clone, Debug)]
 pub struct GenerateKeypairCommand;
@@ -287,10 +387,14 @@ pub struct GenerateKeypairCommand;
 pub struct MintTokenCommand;
 
 #[derive(Copy, Clone, Debug)]
+<<<<<<< HEAD
 pub struct TransferTokenCommand;
 
 #[derive(Copy, Clone, Debug)]
 pub struct TransferSolanaCommand;
+=======
+pub struct TransferCommand;
+>>>>>>> master
 
 #[derive(Copy, Clone, Debug)]
 pub struct RequestAirdropCommand;
@@ -310,6 +414,7 @@ pub struct CreateMasterEditionCommand;
 pub struct UpdateMetadataAccountsCommand;
 
 #[derive(Copy, Clone, Debug)]
+<<<<<<< HEAD
 pub struct VerifyCollectionCommand;
 #[derive(Copy, Clone, Debug)]
 pub struct ApproveCollectionAuthorityCommand;
@@ -317,6 +422,8 @@ pub struct ApproveCollectionAuthorityCommand;
 pub struct SignMetadataCommand;
 
 #[derive(Copy, Clone, Debug)]
+=======
+>>>>>>> master
 pub struct UtilizeCommand;
 
 #[derive(Copy, Clone, Debug)]
@@ -325,6 +432,7 @@ pub struct ApproveUseAuthorityCommand;
 #[derive(Copy, Clone, Debug)]
 pub struct GetLeftUsesCommand;
 
+<<<<<<< HEAD
 // #[derive(Copy, Clone, Debug)]
 // pub struct ArweaveUploadCommand;
 
@@ -336,17 +444,25 @@ pub struct ArweaveNftUploadCommand;
 
 #[derive(Copy, Clone, Debug)]
 pub struct ArweaveFileUploadCommand;
+=======
+#[derive(Copy, Clone, Debug)]
+pub struct ArweaveUploadCommand;
+>>>>>>> master
 
 impl Command for PrintCommand {
     const COMMAND_NAME: &'static str = "print";
     const WIDGET_NAME: &'static str = "Print";
     const INPUTS: &'static [CommandInput] = &[CommandInput::new(
         "print",
+<<<<<<< HEAD
         &[PRINTABLE],
         &true,
         "",
         "",
         &false,
+=======
+        &["String", "Number", "Pubkey", "Keypair"],
+>>>>>>> master
     )];
     const OUTPUTS: &'static [CommandOutput] = &[];
     fn dimensions() -> NodeDimensions {
@@ -358,11 +474,14 @@ impl Command for PrintCommand {
     fn config() -> CommandConfig {
         CommandConfig::Simple(SimpleCommand::Print)
     }
+<<<<<<< HEAD
 
     const DESCRIPTION: &'static str = "Shows the result of an output";
 
     const AVAILABILITY: &'static [SolanaNet] =
         &[SolanaNet::Devnet, SolanaNet::Testnet, SolanaNet::Mainnet];
+=======
+>>>>>>> master
 }
 
 /*pub enum Value {
@@ -391,12 +510,16 @@ impl Command for ConstCommand {
     const COMMAND_NAME: &'static str = "const";
     const WIDGET_NAME: &'static str = "Const";
     const INPUTS: &'static [CommandInput] = &[];
+<<<<<<< HEAD
     const OUTPUTS: &'static [CommandOutput] = &[CommandOutput::new(
         "output",
         "",
         &false,
         "connect to a Print node to display output result",
     )];
+=======
+    const OUTPUTS: &'static [CommandOutput] = &[CommandOutput::new("output", "String")];
+>>>>>>> master
     fn dimensions() -> NodeDimensions {
         NodeDimensions {
             height: 300,
@@ -408,6 +531,7 @@ impl Command for ConstCommand {
             "".to_string(),
         )))
     }
+<<<<<<< HEAD
 
     const DESCRIPTION: &'static str =
         "Holds a constant value\n\nSelect appropriate type from dropdown for more help:\nString, Pubkey, JSON, File Picker, Boolean, Operator, Seed Phrase, Numbers, Custom Type";
@@ -421,10 +545,15 @@ impl Command for ConstCommand {
 // json:
 // show highlighted
 //
+=======
+}
+
+>>>>>>> master
 impl Command for JsonExtractCommand {
     const COMMAND_NAME: &'static str = "json_extract";
     const WIDGET_NAME: &'static str = "JsonExtract";
     const INPUTS: &'static [CommandInput] = &[
+<<<<<<< HEAD
         CommandInput::new(
             "path",
             &[STRING],
@@ -441,11 +570,21 @@ impl Command for JsonExtractCommand {
     fn dimensions() -> NodeDimensions {
         NodeDimensions {
             height: calculate_node_height(Self),
+=======
+        CommandInput::new("pointer", &["String"]),
+        CommandInput::new("arg", &["String"]),
+    ];
+    const OUTPUTS: &'static [CommandOutput] = &[CommandOutput::new("val", "String")]; //FIXME any value
+    fn dimensions() -> NodeDimensions {
+        NodeDimensions {
+            height: 300,
+>>>>>>> master
             width: 300,
         }
     }
     fn config() -> CommandConfig {
         CommandConfig::Simple(SimpleCommand::JsonExtract(json_extract::JsonExtract {
+<<<<<<< HEAD
             path: None,
             json: None,
         }))
@@ -489,12 +628,19 @@ impl Command for JsonInsertCommand {
 
     const AVAILABILITY: &'static [SolanaNet] =
         &[SolanaNet::Devnet, SolanaNet::Testnet, SolanaNet::Mainnet];
+=======
+            pointer: String::new(),
+            arg: String::new(),
+        }))
+    }
+>>>>>>> master
 }
 
 impl Command for HttpRequestCommand {
     const COMMAND_NAME: &'static str = "http_request";
     const WIDGET_NAME: &'static str = "HttpRequest";
     const INPUTS: &'static [CommandInput] = &[
+<<<<<<< HEAD
         CommandInput::new(
             "method",
             &[STRING],
@@ -517,6 +663,13 @@ impl Command for HttpRequestCommand {
     ];
     const OUTPUTS: &'static [CommandOutput] =
         &[CommandOutput::new("resp_body", "String", &false, "")];
+=======
+        CommandInput::new("method", &["String"]),
+        CommandInput::new("url", &["String"]),
+        CommandInput::new("auth_token", &["String"]),
+    ];
+    const OUTPUTS: &'static [CommandOutput] = &[CommandOutput::new("resp_body", "String")];
+>>>>>>> master
     fn dimensions() -> NodeDimensions {
         NodeDimensions {
             height: calculate_node_height(Self),
@@ -528,6 +681,7 @@ impl Command for HttpRequestCommand {
             method: None,
             url: None,
             auth_token: None,
+<<<<<<< HEAD
             json_body: None,
             headers: None,
         }))
@@ -536,12 +690,17 @@ impl Command for HttpRequestCommand {
 
     const AVAILABILITY: &'static [SolanaNet] =
         &[SolanaNet::Devnet, SolanaNet::Testnet, SolanaNet::Mainnet];
+=======
+        }))
+    }
+>>>>>>> master
 }
 
 impl Command for IpfsUploadCommand {
     const COMMAND_NAME: &'static str = "ipfs_upload";
     const WIDGET_NAME: &'static str = "IpfsUpload";
     const INPUTS: &'static [CommandInput] = &[
+<<<<<<< HEAD
         CommandInput::new(
             "pinata_url",
             &[STRING],
@@ -573,6 +732,13 @@ impl Command for IpfsUploadCommand {
         &false,
         "uploaded file's unique id\nto view file, try https://cloudflare-ipfs.com/ipfs/{file_cid}",
     )];
+=======
+        CommandInput::new("pinata_url", &["String"]),
+        CommandInput::new("pinata_jwt", &["String"]),
+        CommandInput::new("file_path", &["String"]),
+    ];
+    const OUTPUTS: &'static [CommandOutput] = &[CommandOutput::new("image_cid", "String")];
+>>>>>>> master
     fn dimensions() -> NodeDimensions {
         NodeDimensions {
             height: calculate_node_height(Self),
@@ -586,6 +752,7 @@ impl Command for IpfsUploadCommand {
             file_path: None,
         }))
     }
+<<<<<<< HEAD
     const DESCRIPTION: &'static str = "Uploads a file to Pinata. https://www.pinata.cloud/";
 
     const AVAILABILITY: &'static [SolanaNet] =
@@ -687,6 +854,23 @@ impl Command for BranchCommand {
     const OUTPUTS: &'static [CommandOutput] = &[
         CommandOutput::new("__true_branch", "", &false, ""),
         CommandOutput::new("__false_branch", "", &false, ""),
+=======
+}
+
+impl Command for CreateTokenCommand {
+    const COMMAND_NAME: &'static str = "create_token";
+    const WIDGET_NAME: &'static str = "CreateToken";
+    const INPUTS: &'static [CommandInput] = &[
+        CommandInput::new("fee_payer", &["Keypair", "NodeId"]),
+        CommandInput::new("decimals", &["Number"]),
+        CommandInput::new("authority", &["Keypair"]),
+        CommandInput::new("token", &["Keypair"]),
+        CommandInput::new("memo", &["String"]),
+    ];
+    const OUTPUTS: &'static [CommandOutput] = &[
+        CommandOutput::new("token", "Keypair"),
+        CommandOutput::new("signature", "String"),
+>>>>>>> master
     ];
     fn dimensions() -> NodeDimensions {
         NodeDimensions {
@@ -695,6 +879,7 @@ impl Command for BranchCommand {
         }
     }
     fn config() -> CommandConfig {
+<<<<<<< HEAD
         CommandConfig::Simple(SimpleCommand::Branch(branch::Branch {
             a: None,
             b: None,
@@ -775,6 +960,26 @@ impl Command for CreateMintAccountCommand {
         CommandOutput::new("authority", "Keypair", &true, ""),
         CommandOutput::new("mint_account", "Keypair", &true, ""),
     ];
+=======
+        CommandConfig::Solana(solana::Kind::CreateToken(create_token::CreateToken {
+            fee_payer: None,
+            decimals: None,
+            authority: None,
+            token: None,
+            memo: None,
+        }))
+    }
+}
+
+impl Command for AddPubkeyCommand {
+    const COMMAND_NAME: &'static str = "add_pubkey";
+    const WIDGET_NAME: &'static str = "AddPubkey";
+    const INPUTS: &'static [CommandInput] = &[
+        CommandInput::new("name", &["String"]),
+        CommandInput::new("pubkey", &["Pubkey"]),
+    ];
+    const OUTPUTS: &'static [CommandOutput] = &[CommandOutput::new("pubkey", "Pubkey")];
+>>>>>>> master
     fn dimensions() -> NodeDimensions {
         NodeDimensions {
             height: calculate_node_height(Self),
@@ -782,6 +987,7 @@ impl Command for CreateMintAccountCommand {
         }
     }
     fn config() -> CommandConfig {
+<<<<<<< HEAD
         CommandConfig::Solana(solana::Kind::CreateMintAccount(
             create_mint_account::CreateMintAccount {
                 fee_payer: None,
@@ -866,6 +1072,30 @@ impl Command for CreateTokenAccountCommand {
         CommandOutput::new("owner", "Pubkey", &true, ""),
         CommandOutput::new("fee_payer", "Keypair", &true, ""),
         CommandOutput::new("token_account", "Pubkey", &true, ""),
+=======
+        CommandConfig::Solana(solana::Kind::AddPubkey(add_pubkey::AddPubkey {
+            name: None,
+            pubkey: None,
+        }))
+    }
+}
+
+impl Command for CreateAccountCommand {
+    const COMMAND_NAME: &'static str = "create_account";
+    const WIDGET_NAME: &'static str = "CreateAccount";
+    const INPUTS: &'static [CommandInput] = &[
+        CommandInput::new("owner", &["Keypair"]),
+        CommandInput::new("fee_payer", &["Keypair"]),
+        CommandInput::new("token", &["Keypair"]),
+        CommandInput::new("account", &["Keypair"]),
+    ];
+    const OUTPUTS: &'static [CommandOutput] = &[
+        CommandOutput::new("signature", "String"),
+        CommandOutput::new("token", "Pubkey"),
+        CommandOutput::new("owner", "Pubkey"),
+        CommandOutput::new("fee_payer", "Keypair"),
+        CommandOutput::new("account", "Keypair"), // conditional output
+>>>>>>> master
     ];
     fn dimensions() -> NodeDimensions {
         NodeDimensions {
@@ -874,6 +1104,7 @@ impl Command for CreateTokenAccountCommand {
         }
     }
     fn config() -> CommandConfig {
+<<<<<<< HEAD
         CommandConfig::Solana(solana::Kind::CreateTokenAccount(
             create_token_account::CreateTokenAccount {
                 owner: None,
@@ -892,10 +1123,22 @@ impl Command for CreateTokenAccountCommand {
 
 /// Generate keypair
 /// A random keypair is generated if no inputs are passed
+=======
+        CommandConfig::Solana(solana::Kind::CreateAccount(create_account::CreateAccount {
+            owner: None,
+            fee_payer: None,
+            token: None,
+            account: None,
+        }))
+    }
+}
+
+>>>>>>> master
 impl Command for GenerateKeypairCommand {
     const COMMAND_NAME: &'static str = "generate_keypair";
     const WIDGET_NAME: &'static str = "GenerateKeypair";
     const INPUTS: &'static [CommandInput] = &[
+<<<<<<< HEAD
         CommandInput::new(
             "private_key",
             &[STRING],
@@ -919,6 +1162,17 @@ impl Command for GenerateKeypairCommand {
         CommandOutput::new("pubkey", "Pubkey", &false, ""),
         CommandOutput::new("keypair", "Keypair", &false, ""),
         // CommandOutput::new("node_id", "NodeId"),
+=======
+        CommandInput::new("seed_phrase", &["String"]),
+        CommandInput::new("passphrase", &["String"]),
+        CommandInput::new("save", &["String"]),
+    ];
+    const OUTPUTS: &'static [CommandOutput] = &[
+        CommandOutput::new("pubkey", "Pubkey"),
+        CommandOutput::new("keypair", "Keypair"),
+        CommandOutput::new("node_id", "NodeId"),
+        CommandOutput::new("empty", "Empty"), // conditional output
+>>>>>>> master
     ];
     fn dimensions() -> NodeDimensions {
         NodeDimensions {
@@ -932,6 +1186,7 @@ impl Command for GenerateKeypairCommand {
                 seed_phrase: Arg::None,
                 passphrase: None,
                 save: Arg::None,
+<<<<<<< HEAD
                 private_key: Arg::None,
             },
         ))
@@ -944,10 +1199,18 @@ impl Command for GenerateKeypairCommand {
 }
 
 // Mint some tokens
+=======
+            },
+        ))
+    }
+}
+
+>>>>>>> master
 impl Command for MintTokenCommand {
     const COMMAND_NAME: &'static str = "mint_token";
     const WIDGET_NAME: &'static str = "MintToken";
     const INPUTS: &'static [CommandInput] = &[
+<<<<<<< HEAD
         CommandInput::new(
             "mint_account",
             &[PUBKEY],
@@ -1005,6 +1268,17 @@ impl Command for MintTokenCommand {
         ),
         CommandOutput::new("fee_payer", "Keypair", &true, ""),
         CommandOutput::new("recipient", "Pubkey", &true, ""),
+=======
+        CommandInput::new("token", &["Keypair"]),
+        CommandInput::new("recipient", &["Pubkey"]),
+        CommandInput::new("mint_authority", &["Keypair"]),
+        CommandInput::new("amount", &["Number"]),
+        CommandInput::new("fee_payer", &["Keypair"]),
+    ];
+    const OUTPUTS: &'static [CommandOutput] = &[
+        CommandOutput::new("token", "Pubkey"),
+        CommandOutput::new("signature", "String"),
+>>>>>>> master
     ];
     fn dimensions() -> NodeDimensions {
         NodeDimensions {
@@ -1014,13 +1288,18 @@ impl Command for MintTokenCommand {
     }
     fn config() -> CommandConfig {
         CommandConfig::Solana(solana::Kind::MintToken(mint_token::MintToken {
+<<<<<<< HEAD
             mint_account: None,
+=======
+            token: None,
+>>>>>>> master
             recipient: None,
             mint_authority: None,
             amount: None,
             fee_payer: None,
         }))
     }
+<<<<<<< HEAD
 
     const DESCRIPTION: &'static str =
         "Mint tokens. It identifies the token, determines who can mint, and how many";
@@ -1093,6 +1372,27 @@ impl Command for TransferTokenCommand {
         CommandOutput::new("fee_payer", "Keypair", &true, ""),
         CommandOutput::new("sender_owner", "Pubkey", &true, ""),
         CommandOutput::new("recipient_account", "Pubkey", &true, ""),
+=======
+}
+
+impl Command for TransferCommand {
+    const COMMAND_NAME: &'static str = "transfer";
+    const WIDGET_NAME: &'static str = "Transfer";
+    const INPUTS: &'static [CommandInput] = &[
+        CommandInput::new("fee_payer", &["Keypair"]),
+        CommandInput::new("token", &["Pubkey"]),
+        CommandInput::new("amount", &["Number"]),
+        CommandInput::new("recipient", &["Pubkey"]),
+        CommandInput::new("sender", &["Keypair"]),
+        CommandInput::new("sender_owner", &["Keypair"]),
+        CommandInput::new("allow_unfunded", &["Bool"]),
+        CommandInput::new("fund_recipient", &["Bool"]),
+        CommandInput::new("memo", &["String"]),
+    ];
+    const OUTPUTS: &'static [CommandOutput] = &[
+        CommandOutput::new("sender_owner", "Pubkey"),
+        CommandOutput::new("recipient_account", "Pubkey"),
+>>>>>>> master
     ];
     fn dimensions() -> NodeDimensions {
         NodeDimensions {
@@ -1101,6 +1401,7 @@ impl Command for TransferTokenCommand {
         }
     }
     fn config() -> CommandConfig {
+<<<<<<< HEAD
         CommandConfig::Solana(solana::Kind::TransferToken(transfer_token::TransferToken {
             fee_payer: None,
             mint_account: None,
@@ -1109,10 +1410,21 @@ impl Command for TransferTokenCommand {
             sender_token_account: None,
             sender_owner: None,
             allow_unfunded: None,
+=======
+        CommandConfig::Solana(solana::Kind::Transfer(transfer::Transfer {
+            fee_payer: None,
+            token: None,
+            amount: None,
+            recipient: None,
+            sender: None,
+            sender_owner: None,
+            allow_unfunded_recipient: None,
+>>>>>>> master
             fund_recipient: None,
             memo: None,
         }))
     }
+<<<<<<< HEAD
 
     const DESCRIPTION: &'static str = "Transfer a custom token";
 
@@ -1157,10 +1469,15 @@ impl Command for TransferSolanaCommand {
 }
 
 // rate limit, request amount suggestion
+=======
+}
+
+>>>>>>> master
 impl Command for RequestAirdropCommand {
     const COMMAND_NAME: &'static str = "request_airdrop";
     const WIDGET_NAME: &'static str = "RequestAirdrop";
     const INPUTS: &'static [CommandInput] = &[
+<<<<<<< HEAD
         CommandInput::new("pubkey", &[PUBKEY], &true, "Airdrop recipient",
         "",
         &false,),
@@ -1175,6 +1492,12 @@ impl Command for RequestAirdropCommand {
     ];
     const OUTPUTS: &'static [CommandOutput] =
         &[CommandOutput::new("signature", "String", &false, "")];
+=======
+        CommandInput::new("pubkey", &["Pubkey"]),
+        CommandInput::new("amount", &["Number"]),
+    ];
+    const OUTPUTS: &'static [CommandOutput] = &[CommandOutput::new("signature", "String")];
+>>>>>>> master
     fn dimensions() -> NodeDimensions {
         NodeDimensions {
             height: calculate_node_height(Self),
@@ -1189,15 +1512,19 @@ impl Command for RequestAirdropCommand {
             },
         ))
     }
+<<<<<<< HEAD
 
     const DESCRIPTION: &'static str = "Airdrop SOL for testing purposes\n\nCurrently takes 30s to complete, pass the signature to a wait command";
 
     const AVAILABILITY: &'static [SolanaNet] = &[SolanaNet::Devnet, SolanaNet::Testnet];
+=======
+>>>>>>> master
 }
 
 impl Command for GetBalanceCommand {
     const COMMAND_NAME: &'static str = "get_balance";
     const WIDGET_NAME: &'static str = "GetBalance";
+<<<<<<< HEAD
     const INPUTS: &'static [CommandInput] = &[CommandInput::new(
         "pubkey",
         &[PUBKEY],
@@ -1208,6 +1535,10 @@ impl Command for GetBalanceCommand {
     )];
     const OUTPUTS: &'static [CommandOutput] =
         &[CommandOutput::new("balance", "Number", &false, "")];
+=======
+    const INPUTS: &'static [CommandInput] = &[CommandInput::new("pubkey", &["Pubkey"])];
+    const OUTPUTS: &'static [CommandOutput] = &[CommandOutput::new("balance", "Number")];
+>>>>>>> master
     fn dimensions() -> NodeDimensions {
         NodeDimensions {
             height: calculate_node_height(Self),
@@ -1219,11 +1550,14 @@ impl Command for GetBalanceCommand {
             pubkey: None,
         }))
     }
+<<<<<<< HEAD
 
     const DESCRIPTION: &'static str = "Get the balance of the account";
 
     const AVAILABILITY: &'static [SolanaNet] =
         &[SolanaNet::Devnet, SolanaNet::Testnet, SolanaNet::Mainnet];
+=======
+>>>>>>> master
 }
 
 // METAPLEX
@@ -1232,6 +1566,7 @@ impl Command for CreateMetadataAccountsCommand {
     const COMMAND_NAME: &'static str = "create_metadata_accounts";
     const WIDGET_NAME: &'static str = "CreateMetadataAccounts";
     const INPUTS: &'static [CommandInput] = &[
+<<<<<<< HEAD
         CommandInput::new("mint_account", &[PUBKEY], &true, "token mint account",
         "",
         &false,),
@@ -1305,6 +1640,27 @@ impl Command for CreateMetadataAccountsCommand {
         CommandOutput::new("fee_payer", "Keypair", &true, ""),
         CommandOutput::new("mint_account", "Pubkey", &true, ""),
         CommandOutput::new("collection_mint_account", "Pubkey", &true, ""),
+=======
+        CommandInput::new("token", &["Pubkey"]),
+        CommandInput::new("token_authority", &["Pubkey"]),
+        CommandInput::new("fee_payer", &["Keypair"]),
+        CommandInput::new("update_authority", &["Keypair"]),
+        CommandInput::new("name", &["String"]),
+        CommandInput::new("symbol", &["String"]),
+        CommandInput::new("uri", &["String"]),
+        CommandInput::new("creators", &["NftCreators"]), //multi arg input
+        CommandInput::new("seller_fee_basis_points", &["Number"]), //u16
+        CommandInput::new("update_authority_is_signer", &["Bool"]),
+        CommandInput::new("is_mutable", &["Bool"]),
+        CommandInput::new("collection", &["NftCollection"]), //multi arg input
+        CommandInput::new("uses", &["NftUses"]),             //multi arg input
+    ];
+    const OUTPUTS: &'static [CommandOutput] = &[
+        CommandOutput::new("signature", "String"),
+        CommandOutput::new("fee_payer", "Keypair"),
+        CommandOutput::new("token", "Pubkey"),
+        CommandOutput::new("metadata_pubkey", "Pubkey"),
+>>>>>>> master
     ];
     fn dimensions() -> NodeDimensions {
         NodeDimensions {
@@ -1315,6 +1671,7 @@ impl Command for CreateMetadataAccountsCommand {
     fn config() -> CommandConfig {
         CommandConfig::Solana(solana::Kind::Nft(nft::Command::CreateMetadataAccounts(
             create_metadata_accounts::CreateMetadataAccounts {
+<<<<<<< HEAD
                 mint_account: None,
                 mint_authority: None,
                 fee_payer: None,
@@ -1337,10 +1694,31 @@ impl Command for CreateMetadataAccountsCommand {
 }
 
 // token should already have a metadata account / should wait for Create Metadata Account
+=======
+                token: None,
+                token_authority: None,
+                fee_payer: None,
+                update_authority: None,
+                name: None,
+                symbol: None,
+                uri: None,
+                creators: None,
+                seller_fee_basis_points: None,
+                update_authority_is_signer: None,
+                is_mutable: None,
+                collection: None,
+                uses: None,
+            },
+        )))
+    }
+}
+
+>>>>>>> master
 impl Command for CreateMasterEditionCommand {
     const COMMAND_NAME: &'static str = "create_master_edition";
     const WIDGET_NAME: &'static str = "CreateMasterEdition";
     const INPUTS: &'static [CommandInput] = &[
+<<<<<<< HEAD
         CommandInput::new("mint_account", &[PUBKEY], &true, "", "", &false),
         CommandInput::new("mint_authority", &[PUBKEY], &true, "", "", &false),
         CommandInput::new("fee_payer", &[KEYPAIR], &true, "", "", &false),
@@ -1361,6 +1739,21 @@ impl Command for CreateMasterEditionCommand {
         //
         CommandOutput::new("fee_payer", "Keypair", &true, ""),
         CommandOutput::new("mint_account", "Pubkey", &true, ""),
+=======
+        CommandInput::new("token", &["Pubkey"]),
+        CommandInput::new("token_authority", &["Pubkey"]),
+        CommandInput::new("fee_payer", &["Keypair"]),
+        CommandInput::new("update_authority", &["Keypair"]),
+        CommandInput::new("is_mutable", &["Bool"]),
+        CommandInput::new("max_supply", &["Number"]),
+    ];
+    const OUTPUTS: &'static [CommandOutput] = &[
+        CommandOutput::new("signature", "String"),
+        CommandOutput::new("fee_payer", "Keypair"),
+        CommandOutput::new("token", "Pubkey"),
+        CommandOutput::new("metadata_pubkey", "Pubkey"),
+        CommandOutput::new("master_edition_pubkey", "Pubkey"),
+>>>>>>> master
     ];
     fn dimensions() -> NodeDimensions {
         NodeDimensions {
@@ -1371,6 +1764,7 @@ impl Command for CreateMasterEditionCommand {
     fn config() -> CommandConfig {
         CommandConfig::Solana(solana::Kind::Nft(nft::Command::CreateMasterEdition(
             create_master_edition::CreateMasterEdition {
+<<<<<<< HEAD
                 mint_account: None,
                 mint_authority: None,
                 fee_payer: None,
@@ -1385,12 +1779,24 @@ impl Command for CreateMasterEditionCommand {
 
     const AVAILABILITY: &'static [SolanaNet] =
         &[SolanaNet::Devnet, SolanaNet::Testnet, SolanaNet::Mainnet];
+=======
+                token: None,
+                token_authority: None,
+                fee_payer: None,
+                update_authority: None,
+                is_mutable: None,
+                max_supply: solana::nft::create_master_edition::Arg::Some(None), // TODO double check
+            },
+        )))
+    }
+>>>>>>> master
 }
 
 impl Command for UpdateMetadataAccountsCommand {
     const COMMAND_NAME: &'static str = "update_metadata_accounts";
     const WIDGET_NAME: &'static str = "UpdateMetadataAccounts";
     const INPUTS: &'static [CommandInput] = &[
+<<<<<<< HEAD
         CommandInput::new("mint_account", &[PUBKEY], &true, "", "", &false),
         CommandInput::new("fee_payer", &[KEYPAIR], &true, "", "", &false),
         CommandInput::new("update_authority", &[KEYPAIR], &true, "", "", &false),
@@ -1405,6 +1811,21 @@ impl Command for UpdateMetadataAccountsCommand {
         CommandOutput::new("fee_payer", "Keypair", &true, ""),
         CommandOutput::new("mint_account", "Pubkey", &true, ""),
         CommandOutput::new("metadata_account", "Pubkey", &true, ""),
+=======
+        CommandInput::new("token", &["Pubkey"]),
+        CommandInput::new("fee_payer", &["Keypair"]),
+        CommandInput::new("update_authority", &["Keypair"]),
+        CommandInput::new("new_update_authority", &["Keypair"]),
+        CommandInput::new("data", &["MetadataAccount"]), // multi arg
+        CommandInput::new("primary_sale_happened", &["Bool"]),
+        CommandInput::new("is_mutable", &["Bool"]),
+    ];
+    const OUTPUTS: &'static [CommandOutput] = &[
+        CommandOutput::new("signature", "String"),
+        CommandOutput::new("fee_payer", "Keypair"),
+        CommandOutput::new("token", "Pubkey"),
+        CommandOutput::new("metadata_pubkey", "Pubkey"),
+>>>>>>> master
     ];
     fn dimensions() -> NodeDimensions {
         NodeDimensions {
@@ -1415,7 +1836,11 @@ impl Command for UpdateMetadataAccountsCommand {
     fn config() -> CommandConfig {
         CommandConfig::Solana(solana::Kind::Nft(nft::Command::UpdateMetadataAccounts(
             update_metadata_accounts::UpdateMetadataAccounts {
+<<<<<<< HEAD
                 mint_account: None,
+=======
+                token: None,
+>>>>>>> master
                 fee_payer: None,
                 update_authority: None,
                 new_update_authority: None,
@@ -1425,6 +1850,7 @@ impl Command for UpdateMetadataAccountsCommand {
             },
         )))
     }
+<<<<<<< HEAD
 
     const DESCRIPTION: &'static str = "Update the on-chain metadata";
 
@@ -1555,12 +1981,15 @@ impl Command for ApproveCollectionAuthorityCommand {
 
     const AVAILABILITY: &'static [SolanaNet] =
         &[SolanaNet::Devnet, SolanaNet::Testnet, SolanaNet::Mainnet];
+=======
+>>>>>>> master
 }
 
 impl Command for UtilizeCommand {
     const COMMAND_NAME: &'static str = "utilize";
     const WIDGET_NAME: &'static str = "Utilize";
     const INPUTS: &'static [CommandInput] = &[
+<<<<<<< HEAD
         CommandInput::new(
             "mint_account",
             &[PUBKEY],
@@ -1601,6 +2030,18 @@ impl Command for UtilizeCommand {
         CommandOutput::new("account", "Pubkey", &true, ""),
         CommandOutput::new("burner", "Pubkey", &true, ""),
     ];
+=======
+        CommandInput::new("token_account", &["Pubkey"]),
+        CommandInput::new("token", &["Pubkey"]),
+        CommandInput::new("use_authority_record_pda", &["Keypair", "Pubkey"]),
+        CommandInput::new("use_authority", &["Keypair"]),
+        CommandInput::new("fee_payer", &["Keypair"]),
+        CommandInput::new("owner", &["Pubkey"]),
+        CommandInput::new("burner", &["Pubkey", "Keypair"]),
+        CommandInput::new("number_of_uses", &["Number"]), //u64
+    ];
+    const OUTPUTS: &'static [CommandOutput] = &[CommandOutput::new("signature", "String")];
+>>>>>>> master
     fn dimensions() -> NodeDimensions {
         NodeDimensions {
             height: calculate_node_height(Self),
@@ -1609,9 +2050,15 @@ impl Command for UtilizeCommand {
     }
     fn config() -> CommandConfig {
         CommandConfig::Solana(solana::Kind::Nft(nft::Command::Utilize(utilize::Utilize {
+<<<<<<< HEAD
             account: None,
             mint_account: None,
             // use_authority_record_pda: None,
+=======
+            token_account: None,
+            token: None,
+            use_authority_record_pda: None,
+>>>>>>> master
             use_authority: None,
             fee_payer: None,
             owner: None,
@@ -1619,18 +2066,22 @@ impl Command for UtilizeCommand {
             number_of_uses: None,
         })))
     }
+<<<<<<< HEAD
 
     const DESCRIPTION: &'static str =
         "Uses a token.\n\ne.g. allow a ticket booth to scan your ticket";
 
     const AVAILABILITY: &'static [SolanaNet] =
         &[SolanaNet::Devnet, SolanaNet::Testnet, SolanaNet::Mainnet];
+=======
+>>>>>>> master
 }
 
 impl Command for ApproveUseAuthorityCommand {
     const COMMAND_NAME: &'static str = "approve_use_authority";
     const WIDGET_NAME: &'static str = "ApproveUseAuthority";
     const INPUTS: &'static [CommandInput] = &[
+<<<<<<< HEAD
         CommandInput::new(
             "mint_account",
             &[PUBKEY],
@@ -1694,6 +2145,19 @@ impl Command for ApproveUseAuthorityCommand {
             &true,
             "accounts burned NFTs are sent to",
         ),
+=======
+        CommandInput::new("user", &["Pubkey"]),
+        CommandInput::new("owner", &["Keypair"]),
+        CommandInput::new("fee_payer", &["Keypair"]),
+        CommandInput::new("token_account", &["Pubkey"]),
+        CommandInput::new("token", &["Pubkey"]),
+        CommandInput::new("burner", &["Pubkey"]),
+        CommandInput::new("number_of_uses", &["Number"]),
+    ];
+    const OUTPUTS: &'static [CommandOutput] = &[
+        CommandOutput::new("signature", "String"),
+        CommandOutput::new("use_authority_record_pubkey", "Pubkey"),
+>>>>>>> master
     ];
     fn dimensions() -> NodeDimensions {
         NodeDimensions {
@@ -1704,27 +2168,39 @@ impl Command for ApproveUseAuthorityCommand {
     fn config() -> CommandConfig {
         CommandConfig::Solana(solana::Kind::Nft(nft::Command::ApproveUseAuthority(
             approve_use_authority::ApproveUseAuthority {
+<<<<<<< HEAD
                 use_authority: None,
                 owner: None,
                 fee_payer: None,
                 token_account: None,
                 mint_account: None,
+=======
+                user: None,
+                owner: None,
+                fee_payer: None,
+                token_account: None,
+                token: None,
+>>>>>>> master
                 burner: None,
                 number_of_uses: None,
             },
         )))
     }
+<<<<<<< HEAD
 
     const DESCRIPTION: &'static str =
         "Allows a program to utilize a token.\n\ne.g. distribute a ticket";
 
     const AVAILABILITY: &'static [SolanaNet] =
         &[SolanaNet::Devnet, SolanaNet::Testnet, SolanaNet::Mainnet];
+=======
+>>>>>>> master
 }
 
 impl Command for GetLeftUsesCommand {
     const COMMAND_NAME: &'static str = "get_left_uses";
     const WIDGET_NAME: &'static str = "GetLeftUses";
+<<<<<<< HEAD
     const INPUTS: &'static [CommandInput] = &[CommandInput::new(
         "mint_account",
         &[PUBKEY],
@@ -1734,6 +2210,10 @@ impl Command for GetLeftUsesCommand {
         &false,
     )];
     const OUTPUTS: &'static [CommandOutput] = &[CommandOutput::new("left_uses", "U64", &false, "")];
+=======
+    const INPUTS: &'static [CommandInput] = &[CommandInput::new("token", &["Pubkey"])];
+    const OUTPUTS: &'static [CommandOutput] = &[CommandOutput::new("left_uses", "Number")];
+>>>>>>> master
     fn dimensions() -> NodeDimensions {
         NodeDimensions {
             height: calculate_node_height(Self),
@@ -1742,6 +2222,7 @@ impl Command for GetLeftUsesCommand {
     }
     fn config() -> CommandConfig {
         CommandConfig::Solana(solana::Kind::Nft(nft::Command::GetLeftUses(
+<<<<<<< HEAD
             get_left_uses::GetLeftUses { mint_account: None },
         )))
     }
@@ -1886,6 +2367,24 @@ impl Command for ArweaveFileUploadCommand {
     const OUTPUTS: &'static [CommandOutput] = &[
         CommandOutput::new("file_url", "String", &false, ""),
         CommandOutput::new("fee_payer", "Keypair", &false, ""),
+=======
+            get_left_uses::GetLeftUses { token: None },
+        )))
+    }
+}
+
+impl Command for ArweaveUploadCommand {
+    const COMMAND_NAME: &'static str = "arweave_upload";
+    const WIDGET_NAME: &'static str = "ArweaveUpload";
+    const INPUTS: &'static [CommandInput] = &[
+        CommandInput::new("fee_payer", &["Keypair"]),
+        CommandInput::new("reward_mult", &["Number"]), //f32
+        CommandInput::new("file_path", &["String"]),
+    ];
+    const OUTPUTS: &'static [CommandOutput] = &[
+        CommandOutput::new("fee_payer", "Keypair"),
+        CommandOutput::new("file_uri", "String"),
+>>>>>>> master
     ];
     fn dimensions() -> NodeDimensions {
         NodeDimensions {
@@ -1894,6 +2393,7 @@ impl Command for ArweaveFileUploadCommand {
         }
     }
     fn config() -> CommandConfig {
+<<<<<<< HEAD
         CommandConfig::Solana(solana::Kind::Nft(nft::Command::ArweaveFileUpload(
             arweave_file_upload::ArweaveFileUpload {
                 fee_payer: None,
@@ -2025,3 +2525,14 @@ const JSON: TypeBound = TypeBound {
     };
     ...
 */
+=======
+        CommandConfig::Solana(solana::Kind::Nft(nft::Command::ArweaveUpload(
+            arweave_upload::ArweaveUpload {
+                fee_payer: None,
+                reward_mult: None,
+                file_path: None,
+            },
+        )))
+    }
+}
+>>>>>>> master
