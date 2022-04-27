@@ -1,5 +1,13 @@
+<<<<<<< HEAD
+use std::borrow::BorrowMut;
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::fmt;
+use std::hash::Hash;
+=======
 use std::collections::HashMap;
 use std::fmt;
+>>>>>>> master
 use std::sync::Arc;
 
 use futures::executor::block_on;
@@ -14,6 +22,17 @@ use std::sync::Mutex;
 use sunshine_indra::store::generate_uuid_v1;
 use sunshine_indra::store::DbConfig;
 use sunshine_indra::store::DB;
+<<<<<<< HEAD
+use sunshine_solana::RunState;
+
+use sunshine_solana::commands::solana;
+use sunshine_solana::commands::solana::SolanaNet as BackendSolanaNet;
+use sunshine_solana::COMMAND_NAME_MARKER;
+use sunshine_solana::{
+    commands::simple::Command as SimpleCommand, commands::CommandKind, CommandConfig,
+    ContextConfig, COMMAND_MARKER, CTX_EDGE_MARKER, CTX_MARKER, INPUT_ARG_NAME_MARKER,
+    OUTPUT_ARG_NAME_MARKER, START_NODE_MARKER,
+=======
 use sunshine_solana::commands::simple;
 use sunshine_solana::commands::solana;
 use sunshine_solana::COMMAND_NAME_MARKER;
@@ -21,12 +40,17 @@ use sunshine_solana::{
     commands::simple::Command as SimpleCommand, commands::simple::CommandKind as SimpleCommandKind,
     commands::CommandKind, CommandConfig, ContextConfig, COMMAND_MARKER, CTX_EDGE_MARKER,
     CTX_MARKER, INPUT_ARG_NAME_MARKER, OUTPUT_ARG_NAME_MARKER, START_NODE_MARKER,
+>>>>>>> master
 };
 use uuid::Uuid;
 
 use std::str::FromStr;
 
 use crate::command::commands_map;
+<<<<<<< HEAD
+use crate::command::TypeBound;
+=======
+>>>>>>> master
 use crate::command::INPUT_SIZE;
 use crate::flow_context::FlowContext;
 
@@ -43,7 +67,16 @@ pub const DATA_MARKER: &str = "DATA_MARKER";
 pub const BLOCK_TO_CMD_EDGE_MARKER: &str = "BLOCK_TO_CMD_EDGE_MARKER";
 pub const FLOW_GRAPH_MARKER: &str = "FLOW_GRAPH_MARKER";
 pub const TEXT_MARKER: &str = "TEXT_MARKER";
+<<<<<<< HEAD
+pub const ADDITIONAL_DATA_MARKER: &str = "ADDITIONAL_DATA_MARKER";
 pub const REQ_ID: &str = "REQ_ID";
+pub const BOOKMARKS: &str = "BOOKMARKS";
+pub const BOOKMARK_NAME: &str = "BOOKMARK_NAME";
+
+pub const INPUT_OFFSET: i64 = 50;
+=======
+pub const REQ_ID: &str = "REQ_ID";
+>>>>>>> master
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub struct GraphId(pub Uuid);
@@ -63,11 +96,21 @@ pub struct InputId(pub Uuid);
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
 pub struct OutputId(pub Uuid);
 
+<<<<<<< HEAD
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
+pub struct BookmarkId(pub Uuid);
+
+=======
+>>>>>>> master
 #[rid::model]
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct GraphEntry {
     id: String,
+<<<<<<< HEAD
+    pub name: String,
+=======
     name: String,
+>>>>>>> master
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Deserialize, Serialize)]
@@ -90,9 +133,17 @@ pub struct Model {
     flow_edges: HashMap<EdgeId, FlowEdgeModel>,
     inputs: HashMap<InputId, InputModel>,
     outputs: HashMap<OutputId, OutputModel>,
+<<<<<<< HEAD
+    pub bookmarks: HashMap<BookmarkId, BookmarkModel>,
+    flow_context: FlowContext,
+    pub run_status: Arc<DashMap<NodeId, (RunState, Option<String>)>>,
+    pub req_id: Arc<Mutex<u64>>,
+    pub solana_net: SolanaNet,
+=======
     flow_context: FlowContext,
     pub run_status: Arc<DashMap<NodeId, bool>>,
     pub req_id: Arc<Mutex<u64>>,
+>>>>>>> master
 }
 
 impl fmt::Debug for Db {
@@ -115,16 +166,28 @@ pub struct WidgetNodeData {
     pub command_name: Option<String>,
     pub kind: WidgetKind,
     pub text: String,
+<<<<<<< HEAD
+    pub additional_data: String,
+=======
+>>>>>>> master
 }
 
 impl WidgetNodeData {
     fn new_command(command_name: &str, kind: WidgetKind, width: i64, height: i64) -> Self {
         Self {
+<<<<<<< HEAD
+            coords: Coords { x: 0.0, y: 0.0 },
+=======
             coords: Coords { x: 0, y: 0 },
+>>>>>>> master
             dimensions: NodeDimensions { width, height },
             command_name: Some(command_name.to_owned()),
             kind,
             text: String::new(),
+<<<<<<< HEAD
+            additional_data: String::new(),
+=======
+>>>>>>> master
         }
     }
 
@@ -166,12 +229,20 @@ impl WidgetNodeData {
             command_name: None,
             kind: WidgetKind::Basic(BasicWidgetKind::Block),
             text: String::new(),
+<<<<<<< HEAD
+            additional_data: String::new(),
+=======
+>>>>>>> master
         }
     }
 
     fn new_text_input() -> Self {
         Self {
+<<<<<<< HEAD
+            coords: Coords { x: 0.0, y: 0.0 },
+=======
             coords: Coords { x: 0, y: 0 },
+>>>>>>> master
             dimensions: NodeDimensions {
                 height: 70,
                 width: 300,
@@ -179,6 +250,10 @@ impl WidgetNodeData {
             command_name: None,
             kind: WidgetKind::Basic(BasicWidgetKind::TextInput),
             text: String::new(),
+<<<<<<< HEAD
+            additional_data: String::new(),
+=======
+>>>>>>> master
         }
     }
 }
@@ -186,7 +261,11 @@ impl WidgetNodeData {
 #[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
 pub struct DataNodeData {}
 
+<<<<<<< HEAD
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+=======
 #[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
+>>>>>>> master
 pub struct NodeEdgeModel {
     pub from: NodeId,
     pub to: NodeId,
@@ -195,7 +274,11 @@ pub struct NodeEdgeModel {
 
 /// From, to coords needed to render the edges on Flutter side
 ///
+<<<<<<< HEAD
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+=======
 #[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
+>>>>>>> master
 pub struct EdgeModelData {
     pub edge_type: EdgeType,
     pub from_coords: Option<Coords>,
@@ -229,22 +312,77 @@ pub struct FlowEdgeModel {
     pub db_edge_id: EdgeId,
 }
 
+<<<<<<< HEAD
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+=======
 #[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
+>>>>>>> master
 pub struct InputModel {
     pub parent_node_id: NodeId,
     pub command_id: NodeId,
     pub local_coords: Coords,
     pub label: String,
     pub index: i64,
+<<<<<<< HEAD
+    pub required: bool,
+    pub tooltip: String,
+    pub type_bounds: String,
+    pub has_default: bool,
+    pub default_value: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+=======
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Deserialize, Serialize)]
+>>>>>>> master
 pub struct OutputModel {
     pub parent_node_id: NodeId,
     pub command_id: NodeId,
     pub local_coords: Coords,
     pub label: String,
     pub index: i64,
+<<<<<<< HEAD
+    pub passthrough: bool,
+    pub tooltip: String,
+    pub type_bound: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct BookmarkModel {
+    pub name: String,
+    pub nodes_ids: HashSet<NodeId>,
+}
+
+#[rid::model]
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
+pub enum SolanaNet {
+    Devnet,
+    Testnet,
+    Mainnet,
+}
+
+impl From<SolanaNet> for BackendSolanaNet {
+    fn from(solana_net: SolanaNet) -> BackendSolanaNet {
+        match solana_net {
+            SolanaNet::Devnet => BackendSolanaNet::Devnet,
+            SolanaNet::Testnet => BackendSolanaNet::Testnet,
+            SolanaNet::Mainnet => BackendSolanaNet::Mainnet,
+        }
+    }
+}
+
+impl From<BackendSolanaNet> for SolanaNet {
+    fn from(solana_net: BackendSolanaNet) -> SolanaNet {
+        match solana_net {
+            BackendSolanaNet::Devnet => SolanaNet::Devnet,
+            BackendSolanaNet::Testnet => SolanaNet::Testnet,
+            BackendSolanaNet::Mainnet => SolanaNet::Mainnet,
+        }
+    }
+=======
+>>>>>>> master
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -264,7 +402,11 @@ pub enum BasicWidgetKind {
 }
 
 impl Model {
+<<<<<<< HEAD
+    pub fn new(db_path: String, log_path: String) -> Self {
+=======
     pub fn new(db_path: String) -> Self {
+>>>>>>> master
         // database configuration
         let cfg = DbConfig { db_path };
 
@@ -334,6 +476,15 @@ impl Model {
 
         let graph_id = Arc::new(Mutex::new(GraphId(graph_id)));
 
+<<<<<<< HEAD
+        let graph_entry = graph_list
+            .clone()
+            .into_iter()
+            .find(|entry| entry.id == graph_id.lock().unwrap().0.to_string())
+            .unwrap();
+
+=======
+>>>>>>> master
         let mut model = Self {
             db: Db(db.clone()),
             graph_id: graph_id.clone(),
@@ -344,14 +495,27 @@ impl Model {
             inputs: HashMap::new(),
             outputs: HashMap::new(),
             graph_list,
+<<<<<<< HEAD
+            bookmarks: HashMap::new(),
+=======
+>>>>>>> master
             flow_context: FlowContext::new(
                 db.clone(),
                 run_status.clone(),
                 req_id.clone(),
                 graph_id.clone(),
+<<<<<<< HEAD
+                graph_entry,//TODO wrong, doesn't update
+                log_path,
             ),
             run_status,
             req_id,
+            solana_net: SolanaNet::Devnet,
+=======
+            ),
+            run_status,
+            req_id,
+>>>>>>> master
         };
 
         model.read_graph(model.graph_id());
@@ -401,6 +565,17 @@ impl Model {
         *graph_id
     }
 
+<<<<<<< HEAD
+    pub fn get_graph_entry(&self, graph_id: GraphId) -> GraphEntry {
+        self.graph_list
+            .iter()
+            .find(|entry| entry.id == graph_id.0.to_string())
+            .unwrap()
+            .clone()
+    }
+
+=======
+>>>>>>> master
     // pub fn save_req_id(&mut self, req_id: u64) {
     //     let mut props = Properties::new();
 
@@ -439,6 +614,161 @@ impl Model {
         // TODO: refresh ui
     }
 
+<<<<<<< HEAD
+    pub fn change_solana_net(&mut self, solana_net: SolanaNet) {
+        let mut ctx_node = block_on(
+            self.db
+                .0
+                .execute(Action::Query(QueryKind::ReadNode(self.context_node_id.0))),
+        )
+        .unwrap()
+        .into_node()
+        .unwrap();
+
+        let mut ctx_cfg: solana::Config =
+            serde_json::from_value(ctx_node.properties.remove(CTX_MARKER).unwrap()).unwrap();
+
+        ctx_cfg.solana_net = solana_net.into();
+
+        ctx_node.properties.insert(
+            CTX_MARKER.to_owned(),
+            serde_json::to_value(&ctx_cfg).unwrap(),
+        );
+
+        block_on(self.db.0.execute(Action::Mutate(
+            self.graph_id().0,
+            MutateKind::UpdateNode((ctx_node.node_id, ctx_node.properties)),
+        )))
+        .unwrap();
+
+        self.solana_net = solana_net;
+        println!("Solana Net changed to {:?}", self.solana_net);
+    }
+
+    pub fn export(&self, path: String, filename: String) {
+        // get current graph entry
+        //
+        let graph = block_on(
+            self.db
+                .0
+                .execute(Action::Query(QueryKind::ReadGraph(self.graph_id().0))),
+        )
+        .unwrap()
+        .into_graph()
+        .unwrap();
+
+        let graph_id = self.graph_id().0.to_string();
+
+        // let graph_name = self
+        //     .graph_list
+        //     .iter()
+        //     .find(|entry| entry.id == graph_id)
+        //     .map(|entry| entry.name.clone())
+        //     .unwrap();
+
+        // let timestamp = chrono::offset::Utc::now().timestamp_millis();
+        // dbg!(path.clone());
+        // dbg!(filename.clone());
+        std::fs::write(
+            format!("{}.json", path),
+            serde_json::to_vec(&graph).unwrap(),
+        )
+        .unwrap();
+    }
+
+    pub fn import(&mut self, path: &str) {
+        let bytes = std::fs::read(path).unwrap();
+        let graph: Graph = serde_json::from_slice(&bytes).unwrap();
+
+        let properties = json!({
+            "name":&Self::random_name(),
+            FLOW_GRAPH_MARKER: true,
+        });
+
+        let properties = match properties {
+            JsonValue::Object(props) => props,
+            _ => unreachable!(),
+        };
+
+        let graph_id = block_on(self.db.0.execute(Action::CreateGraph(properties)))
+            .unwrap()
+            .as_id()
+            .unwrap();
+
+        let mut node_id_map = HashMap::new();
+
+        for node in graph
+            .nodes
+            .iter()
+            .filter(|node| !node.properties.contains_key("_state_id_prop"))
+        {
+            let new_node_id = generate_uuid_v1();
+
+            node_id_map.insert(node.node_id, new_node_id);
+
+            if !node.properties.contains_key("BOOKMARKS") {
+                block_on(self.db.0.execute(Action::Mutate(
+                    graph_id,
+                    MutateKind::CreateNodeWithId((new_node_id, node.properties.clone())),
+                )))
+                .unwrap();
+            }
+        }
+
+        // update node ids in bookmarks
+        for node in graph
+            .nodes
+            .iter()
+            .filter(|node| node.properties.contains_key("BOOKMARKS"))
+        {
+            let mut properties = node.properties.clone();
+
+            let bookmarks = properties
+                .get_mut("BOOKMARKS")
+                .unwrap()
+                .as_array_mut()
+                .unwrap();
+
+            bookmarks.iter_mut().for_each(|bookmark| {
+                let bookmark_id = bookmark.as_str().unwrap();
+                *bookmark =
+                    serde_json::to_value(node_id_map[&Uuid::from_str(bookmark_id).unwrap()])
+                        .unwrap();
+            });
+
+            block_on(self.db.0.execute(Action::Mutate(
+                graph_id,
+                MutateKind::CreateNodeWithId((node_id_map[&node.node_id], properties)),
+            )))
+            .unwrap();
+        }
+
+        for edge in graph
+            .nodes
+            .into_iter()
+            .filter(|node| !node.properties.contains_key("_state_id_prop"))
+            .map(|node| node.outbound_edges.into_iter())
+            .flatten()
+        {
+            let properties = graph.edges.get(&edge.id).unwrap().clone();
+            //println!("{}", edge.to);
+
+            block_on(self.db.0.execute(Action::Mutate(
+                graph_id,
+                MutateKind::CreateEdge(CreateEdge {
+                    from: node_id_map[&edge.from],
+                    to: node_id_map[&edge.to],
+                    properties,
+                }),
+            )))
+            .unwrap();
+        }
+
+        self.read_graph(GraphId(graph_id));
+    }
+
+=======
+>>>>>>> master
     pub fn iter_widget_nodes(&self) -> impl Iterator<Item = (&NodeId, &WidgetNodeData)> {
         self.nodes.iter().filter_map(|(node_id, node)| match node {
             NodeModel::Widget(data) => Some((node_id, data)),
@@ -459,6 +789,24 @@ impl Model {
         phrase.split(' ').next().unwrap().to_owned()
     }
 
+<<<<<<< HEAD
+    pub fn generate_seed() -> String {
+        use bip39::{Language, Mnemonic, MnemonicType};
+
+        let mnemonic = Mnemonic::new(MnemonicType::Words12, Language::English);
+        let phrase = mnemonic.into_phrase();
+
+        phrase
+    }
+
+    // pub fn validate_seed(phrase: String) -> String {
+    //     use bip39::{Language, Mnemonic, MnemonicType};
+
+    //     let validate = Mnemonic::validate(&phrase, Language::English);
+    // }
+
+=======
+>>>>>>> master
     pub fn new_graph(&mut self) {
         self.run_status.clear();
 
@@ -480,6 +828,14 @@ impl Model {
         create_wallet_and_context(self.db.clone(), GraphId(graph_id));
 
         self.read_graph(GraphId(graph_id));
+<<<<<<< HEAD
+    }
+
+    pub fn read_graph(&mut self, graph_id: GraphId) {
+        self.undeploy();
+        self.run_status.clear();
+=======
+>>>>>>> master
 
         self.graph_list = block_on(self.db.0.execute(Action::Query(QueryKind::ListGraphs)))
             .unwrap()
@@ -492,11 +848,14 @@ impl Model {
                 name: properties.get("name").unwrap().as_str().unwrap().to_owned(),
             })
             .collect::<Vec<_>>();
+<<<<<<< HEAD
+=======
     }
 
     pub fn read_graph(&mut self, graph_id: GraphId) {
         self.undeploy();
         self.run_status.clear();
+>>>>>>> master
 
         // get graph, nodes, and edges
         let graph = block_on(
@@ -514,6 +873,32 @@ impl Model {
             *graph_id_ref = graph_id
         }
 
+<<<<<<< HEAD
+
+  
+
+        self.bookmarks = HashMap::new();
+        for node in graph.nodes.iter() {
+            if let Some(bookmark_name) = node.properties.get(BOOKMARK_NAME) {
+                let bookmark_name = serde_json::from_value(bookmark_name.clone()).unwrap();
+
+                let bookmarked_node_ids = node.properties.get(BOOKMARKS).unwrap();
+                let bookmarked_node_ids =
+                    serde_json::from_value(bookmarked_node_ids.clone()).unwrap();
+
+                self.bookmarks.insert(
+                    BookmarkId(node.node_id),
+                    BookmarkModel {
+                        name: bookmark_name,
+                        nodes_ids: bookmarked_node_ids,
+                    },
+                );
+            }
+        }
+        // dbg!(self.bookmarks.clone());
+
+=======
+>>>>>>> master
         self.nodes = HashMap::new();
 
         let get_widget_kind = |properties: &Properties| {
@@ -541,8 +926,16 @@ impl Model {
 
         for node in graph.nodes.iter() {
             let kind = match get_widget_kind(&node.properties) {
+<<<<<<< HEAD
+                Some(WidgetKind::Context(ctx)) => {
+                    self.context_node_id = NodeId(node.node_id);
+
+                    self.solana_net = ctx.solana_net.into();
+
+=======
                 Some(WidgetKind::Context(_)) => {
                     self.context_node_id = NodeId(node.node_id);
+>>>>>>> master
                     continue;
                 }
                 Some(widget_kind) => widget_kind,
@@ -578,6 +971,15 @@ impl Model {
             let text = node.properties.get(TEXT_MARKER).unwrap_or(&empty_text);
             let text = serde_json::from_value(text.clone()).unwrap();
 
+<<<<<<< HEAD
+            let additional_data = node
+                .properties
+                .get(ADDITIONAL_DATA_MARKER)
+                .unwrap_or(&empty_text);
+            let additional_data = serde_json::from_value(additional_data.clone()).unwrap();
+
+=======
+>>>>>>> master
             let command_name = node.properties.get(COMMAND_NAME_MARKER).unwrap();
             let command_name = match command_name {
                 JsonValue::Null => None,
@@ -596,6 +998,10 @@ impl Model {
                     coords,
                     dimensions,
                     text,
+<<<<<<< HEAD
+                    additional_data,
+=======
+>>>>>>> master
                 }),
             );
         }
@@ -614,6 +1020,10 @@ impl Model {
                 .unwrap();
 
                 if props.get(BLOCK_TO_CMD_EDGE_MARKER).is_none() {
+<<<<<<< HEAD
+                    // TODO update block to child
+=======
+>>>>>>> master
                     continue;
                 }
 
@@ -652,8 +1062,13 @@ impl Model {
             let command_name = node.command_name.as_ref().unwrap(); // because it is command
 
             //get parent coords
+<<<<<<< HEAD
+            let coords = Coords { x: 0.0, y: 0.0 };
+            // dbg!(&node);
+=======
             let coords = Coords { x: 0, y: 0 };
 
+>>>>>>> master
             let (_, edge) = self
                 .node_edges
                 .iter()
@@ -721,10 +1136,25 @@ impl Model {
                     .outputs
                     .iter()
                     .find(|(_output_id, output)| {
+<<<<<<< HEAD
+                        // dbg!(output.label.clone());
+                        // dbg!(props.get(OUTPUT_ARG_NAME_MARKER).unwrap().as_str().unwrap());
+
+=======
+>>>>>>> master
                         output.command_id.0 == edge.from
                             && output.label
                                 == props.get(OUTPUT_ARG_NAME_MARKER).unwrap().as_str().unwrap()
                     })
+<<<<<<< HEAD
+                    .inspect(|(id, m)| {
+                        // dbg!(m.label.clone());
+                        // dbg!(props.get(OUTPUT_ARG_NAME_MARKER).unwrap().as_str().unwrap());
+
+                        // println!("{:#?}", m.label)
+                    })
+=======
+>>>>>>> master
                     .unwrap();
 
                 self.flow_edges.insert(
@@ -740,6 +1170,63 @@ impl Model {
         }
     }
 
+<<<<<<< HEAD
+    pub fn save_bookmark(&mut self, bookmark_id: BookmarkId, bookmark_model: BookmarkModel) {
+        let mut props = Properties::new();
+        props.insert(BOOKMARK_NAME.into(), JsonValue::String(bookmark_model.name));
+
+        props.insert(
+            BOOKMARKS.into(),
+            serde_json::to_value(bookmark_model.nodes_ids).unwrap(),
+        );
+        println!("{:?}", props.clone());
+
+        block_on(self.db.0.execute(Action::Mutate(
+            self.graph_id().0,
+            MutateKind::CreateNodeWithId((bookmark_id.0, props)),
+        )))
+        .unwrap();
+    }
+
+    pub fn update_bookmark_node_ids_in_db(
+        &mut self,
+        bookmark_id: BookmarkId,
+        bookmark_model: BookmarkModel,
+    ) {
+        let mut props = block_on(
+            self.db
+                .0
+                .execute(Action::Query(QueryKind::ReadNode(bookmark_id.0))),
+        )
+        .unwrap()
+        .into_node()
+        .unwrap()
+        .properties;
+
+        props.insert(
+            BOOKMARKS.into(),
+            serde_json::to_value(bookmark_model.nodes_ids).unwrap(),
+        );
+
+        block_on(self.db.0.execute(Action::Mutate(
+            self.graph_id().0,
+            MutateKind::UpdateNode((bookmark_id.0, props)),
+        )))
+        .unwrap();
+    }
+
+    pub fn delete_bookmark(&mut self, bookmark_id: BookmarkId) {
+        self.bookmarks.remove(&bookmark_id);
+
+        block_on(self.db.0.execute(Action::Mutate(
+            self.graph_id().0,
+            MutateKind::DeleteNode(bookmark_id.0),
+        )))
+        .unwrap();
+    }
+
+=======
+>>>>>>> master
     // has both the node id of the block and of the command
     pub fn generate_ports(
         node_id: NodeId,
@@ -748,7 +1235,10 @@ impl Model {
         parent: (NodeId, Coords),
         width: i64,
     ) -> (Vec<InputModel>, Vec<OutputModel>) {
+<<<<<<< HEAD
+=======
         const INPUT_OFFSET: i64 = 50;
+>>>>>>> master
         const Y_INPUT_OFFSET: i64 = 30; // offset for block title
         const X_INPUT_OFFSET: i64 = 0;
 
@@ -758,30 +1248,86 @@ impl Model {
 
         let commands_map = commands_map();
         let command = commands_map.get(command_name).unwrap();
+<<<<<<< HEAD
+        let inputs: Vec<(String, bool, String, String, bool, String)> = command
+            .inputs()
+            .iter()
+            .map(|input| {
+                let mut type_bounds = input.acceptable_types().into_iter().collect::<Vec<&str>>();
+                type_bounds.sort_by_key(|&name| name.to_lowercase());
+
+                (
+                    input.name.to_owned(),
+                    input.required.to_owned(),
+                    input.tooltip.to_owned(),
+                    type_bounds.join(", ").as_str().to_owned(),
+                    input.has_default.to_owned(),
+                    input.default_value.to_owned(),
+                )
+            })
+            .collect();
+        let outputs: Vec<(String, String, bool, String)> = command
+            .outputs()
+            .iter()
+            .map(|output| {
+                (
+                    output.name.to_owned(),
+                    output.r#type.to_owned(),
+                    output.passthrough.to_owned(),
+                    output.tooltip.to_owned(),
+                )
+            })
+            .collect();
+
+        // let required:bool = command.inputs().iter().map(|input| input.required).collect();
+        // command.inputs().iter().map(|input| input.type_bounds)
+        //label: &str, required: bool, tooltip: &str, port_type: &[TypeBound]
+        let mut y = Y_INPUT_OFFSET - INPUT_OFFSET;
+        let mut index = 0;
+        let input = |input_data: (String, bool, String, String, bool, String)| {
+=======
         let mut inputs: Vec<_> = command.inputs().iter().map(|input| input.name).collect();
         let outputs: Vec<_> = command.outputs().iter().map(|output| output.name).collect();
 
         let mut y = Y_INPUT_OFFSET - INPUT_OFFSET;
         let mut index = 0;
         let input = |label: &str| {
+>>>>>>> master
             y += INPUT_OFFSET;
             index += 1;
             InputModel {
                 index,
                 parent_node_id: parent_id,
                 local_coords: Coords {
+<<<<<<< HEAD
+                    x: X_INPUT_OFFSET as f64, // - INPUT_OFFSET,
+                    y: y as f64,
+                },
+                label: input_data.0,
+                command_id: node_id,
+                required: input_data.1,
+                tooltip: input_data.2,
+                type_bounds: input_data.3,
+                has_default: input_data.4,
+                default_value: input_data.5,
+=======
                     x: X_INPUT_OFFSET, // - INPUT_OFFSET,
                     y: y,
                 },
                 label: label.to_owned(),
                 command_id: node_id,
+>>>>>>> master
             }
         };
 
         let mut y = Y_INPUT_OFFSET - INPUT_OFFSET;
         let mut index = 0;
 
+<<<<<<< HEAD
+        let output = |output_data: (String, String, bool, String)| {
+=======
         let output = |label: &str| {
+>>>>>>> master
             y += INPUT_OFFSET;
             index += 1;
             OutputModel {
@@ -789,26 +1335,63 @@ impl Model {
 
                 parent_node_id: parent_id,
                 local_coords: Coords {
+<<<<<<< HEAD
+                    x: (width - INPUT_OFFSET) as f64,
+                    y: y as f64,
+                },
+                label: output_data.0,
+                command_id: node_id,
+                type_bound: output_data.1,
+                passthrough: output_data.2,
+                tooltip: output_data.3,
+=======
                     x: width - INPUT_OFFSET,
                     y: y,
                 },
                 label: label.to_owned(),
                 command_id: node_id,
+>>>>>>> master
             }
         };
 
         (
+<<<<<<< HEAD
+            inputs.into_iter().map(input).collect(),
+            outputs.into_iter().map(output).collect(),
+=======
             inputs.iter().copied().map(input).collect(),
             outputs.iter().copied().map(output).collect(),
+>>>>>>> master
         )
     }
 
     pub fn set_node_text(&mut self, node_id: &NodeId, text: String) {
+<<<<<<< HEAD
+        // FIXME: should panic if invalid node_id used
+        // if let Some(node) =
+        self.nodes.get_mut(node_id).unwrap().data_mut().text = text;
+        // let node = match node {
+        //     NodeModel::Widget(node) => node,
+        // };
+
+        // update db
+        // }
+    }
+
+    pub fn set_node_additional_data(&mut self, node_id: &NodeId, additional_data: String) {
+        // FIXME: should panic if invalid node_id used
+        self.nodes
+            .get_mut(node_id)
+            .unwrap()
+            .data_mut()
+            .additional_data = additional_data;
+=======
         let node = self.nodes.get_mut(node_id).unwrap();
         let node = match node {
             NodeModel::Widget(node) => node,
         };
         node.text = text;
+>>>>>>> master
 
         // update db
     }
@@ -824,13 +1407,21 @@ impl Model {
         .unwrap()
         .properties;
 
+<<<<<<< HEAD
+        // dbg!(props.clone());
+=======
         dbg!(props.clone());
+>>>>>>> master
         //update 'text' key
         props
             .insert(TEXT_MARKER.into(), JsonValue::String(text.to_string()))
             .unwrap();
 
+<<<<<<< HEAD
+        // dbg!(props.clone());
+=======
         dbg!(props.clone());
+>>>>>>> master
 
         block_on(self.db.0.execute(Action::Mutate(
             self.graph_id().0,
@@ -839,11 +1430,38 @@ impl Model {
         .unwrap();
     }
 
+<<<<<<< HEAD
+    // pub fn update_command(&mut self, node_id: NodeId, input_id: InputId, text: &str) {
+    //     let command = 1;
+
+    //     match command {
+    //         Command::CreateMetadataAccounts {
+    //             match input_name {
+    //                 "fee_payer" => {
+    //                     command.fee_payer = Some(text.to_value().unwrap()),
+    //                 },
+
+    //             }
+
+    //         }
+    //     }
+    // }
+
+    pub fn update_const_in_db(&mut self, node_id: NodeId, text: &str) {
+        // dbg!(text.clone());
+        let cfg: SimpleCommand = match serde_json::from_str(text) {
+            Ok(cfg) => cfg,
+            Err(e) => {
+                eprintln!("error while saving const: {:#?}", e);
+                return;
+            }
+=======
     pub fn update_const_command(&mut self, node_id: NodeId, text: &str) {
         // dbg!(text.clone());
         let cfg: SimpleCommand = match serde_json::from_str(text) {
             Ok(cfg) => cfg,
             _ => return,
+>>>>>>> master
         };
 
         let cfg = CommandConfig::Simple(cfg);
@@ -867,7 +1485,37 @@ impl Model {
             .insert(TEXT_MARKER.into(), JsonValue::String(text.to_string()))
             .unwrap();
 
+<<<<<<< HEAD
+        block_on(self.db.0.execute(Action::Mutate(
+            self.graph_id().0,
+            MutateKind::UpdateNode((node_id.0, props)),
+        )))
+        .unwrap();
+    }
+
+    pub fn update_const_additional_in_db(&mut self, node_id: NodeId, additional_data: &str) {
+        let mut props = block_on(
+            self.db
+                .0
+                .execute(Action::Query(QueryKind::ReadNode(node_id.0))),
+        )
+        .unwrap()
+        .into_node()
+        .unwrap()
+        .properties;
+
+        //update  key
+        props
+            .insert(
+                ADDITIONAL_DATA_MARKER.into(),
+                JsonValue::String(additional_data.to_string()),
+            )
+            .unwrap();
+
+        // dbg!(props.clone());
+=======
         dbg!(props.clone());
+>>>>>>> master
 
         block_on(self.db.0.execute(Action::Mutate(
             self.graph_id().0,
@@ -935,6 +1583,13 @@ impl Model {
                         );
                         props.insert(START_NODE_MARKER.into(), JsonValue::Bool(true));
                         props.insert(TEXT_MARKER.into(), JsonValue::String(String::new()));
+<<<<<<< HEAD
+                        props.insert(
+                            ADDITIONAL_DATA_MARKER.into(),
+                            JsonValue::String(String::new()),
+                        );
+=======
+>>>>>>> master
 
                         props
                     }
@@ -1009,6 +1664,212 @@ impl Model {
         node_id
     }
 
+<<<<<<< HEAD
+    /// TODO fix delete graph on indra side
+    pub fn delete_graph(&mut self, graph_id: GraphId) {
+        //
+        let mut node = block_on(
+            self.db
+                .0
+                .execute(Action::Query(QueryKind::ReadNode(graph_id.0))),
+        )
+        .unwrap()
+        .into_node()
+        .unwrap();
+
+        node.properties.remove(FLOW_GRAPH_MARKER.into()).unwrap();
+
+        node.properties
+            .insert("DELETED_GRAPH_MARKER".into(), JsonValue::Bool(true));
+
+        block_on(self.db.0.execute(Action::Mutate(
+            self.graph_id().0,
+            MutateKind::UpdateNode((graph_id.0, node.properties)),
+        )))
+        .unwrap();
+
+        // Update GRAPH LIST
+        // self.graph_list.retain(|item| {
+        //     dbg!(item);
+        //     dbg!(graph_id);
+        //     item.id != graph_id.0.to_string()
+        // });
+        // dbg!(self.graph_list.clone());
+    }
+
+    pub fn rename_graph(&mut self, graph_id: GraphId, new_name: String) {
+        // remove from db
+        let mut node = block_on(
+            self.db
+                .0
+                .execute(Action::Query(QueryKind::ReadNode(graph_id.0))),
+        )
+        .unwrap()
+        .into_node()
+        .unwrap();
+
+        node.properties
+            .insert("name".into(), JsonValue::String(new_name.clone()));
+
+        block_on(self.db.0.execute(Action::Mutate(
+            self.graph_id().0,
+            MutateKind::UpdateNode((graph_id.0, node.properties)),
+        )))
+        .unwrap();
+
+        // update in from model
+
+        {
+            let graph_entry = self
+                .graph_list
+                .iter_mut()
+                .find(|entry| entry.id == graph_id.0.to_string())
+                .unwrap();
+
+            *graph_entry = GraphEntry {
+                id: graph_id.0.to_string(),
+                name: new_name,
+            };
+        }
+    }
+
+    /// Remove node from model and db
+    pub fn remove_node(&mut self, node_id: NodeId) {
+        // Block > node_edge > Widget >
+        // if command, remove Flow edges
+        // Graph > node_edge > Block
+        // bookmarks
+
+        // bookmarks
+        let mut bookmarks_to_update = HashMap::new();
+        let mut bookmarks_to_remove = Vec::new();
+
+        // remove from bookmarks in model
+        let is_in_bookmark = self
+            .bookmarks
+            .borrow_mut()
+            .into_iter()
+            .filter(|(_, bookmark_model)| bookmark_model.nodes_ids.contains(&node_id));
+
+        // update in model
+        for (bookmark_id, bookmark_model) in is_in_bookmark {
+            match bookmark_model.nodes_ids.len() {
+                0 => panic!(),
+                // self is the only node, remove whole bookmark
+                1 => {
+                    bookmarks_to_remove.push(bookmark_id.clone());
+                }
+                // other nodes are bookmarked, only remove self
+                _ => {
+                    bookmark_model.nodes_ids.remove(&node_id);
+                    bookmarks_to_update.insert(bookmark_id.clone(), bookmark_model.clone());
+                }
+            }
+        }
+
+        // update in database
+        bookmarks_to_update
+            .into_iter()
+            .for_each(|(bookmark_id, bookmark_model)| {
+                self.update_bookmark_node_ids_in_db(bookmark_id, bookmark_model);
+            });
+
+        // remove from model and database
+        bookmarks_to_remove.into_iter().for_each(|bookmark_id| {
+            self.delete_bookmark(bookmark_id);
+        });
+
+        // nodes and edges
+        let mut node_edges_to_remove = Vec::new();
+        let mut flow_edges_to_remove = HashSet::new();
+        let mut inputs_to_remove = Vec::new();
+        let mut outputs_to_remove = Vec::new();
+        let mut children_to_remove = Vec::new();
+        //
+        for (edge_id, edge) in self.node_edges.iter() {
+            if edge.from != node_id {
+                continue;
+            }
+
+            let child_id = edge.to;
+            let child = self.nodes.get(&edge.to).unwrap();
+
+            children_to_remove.push(edge.to);
+
+            match child {
+                NodeModel::Widget(widget) => match widget.kind {
+                    WidgetKind::Basic(BasicWidgetKind::Block) => unreachable!(),
+                    WidgetKind::Basic(BasicWidgetKind::TextInput) => (),
+                    WidgetKind::Basic(BasicWidgetKind::Dummy) => unreachable!(),
+                    WidgetKind::Command(_) => {
+                        for (input_id, input) in self.inputs.iter() {
+                            if input.command_id != child_id {
+                                continue;
+                            }
+
+                            for (flow_edge_id, flow_edge) in self.flow_edges.iter() {
+                                if flow_edge.input_id == *input_id {
+                                    flow_edges_to_remove.insert(*flow_edge_id);
+                                }
+                            }
+
+                            inputs_to_remove.push(*input_id);
+                        }
+
+                        for (output_id, output) in self.outputs.iter() {
+                            if output.command_id != child_id {
+                                continue;
+                            }
+
+                            for (flow_edge_id, flow_edge) in self.flow_edges.iter() {
+                                if flow_edge.output_id == *output_id {
+                                    flow_edges_to_remove.insert(*flow_edge_id);
+                                }
+                            }
+
+                            outputs_to_remove.push(*output_id);
+                        }
+                    }
+                    WidgetKind::Context(_) => unreachable!(),
+                },
+            }
+
+            node_edges_to_remove.push(*edge_id);
+        }
+
+        // println!("Deleting node:{:#?}", node_id);
+        // println!("Deleting node_edges:{:#?}", node_edges_to_remove);
+        // println!("Deleting flow_edges:{:#?}", flow_edges_to_remove);
+        // println!("Deleting inputs:{:#?}", inputs_to_remove);
+        // println!("Deleting outputs:{:#?}", outputs_to_remove);
+        // println!("Deleting children nodes:{:#?}", children_to_remove);
+
+        for flow_edge_id in flow_edges_to_remove {
+            self.flow_edges.remove(&flow_edge_id).unwrap();
+        }
+
+        for node_edge_id in node_edges_to_remove {
+            self.node_edges.remove(&node_edge_id).unwrap();
+        }
+
+        for input_id in inputs_to_remove {
+            self.inputs.remove(&input_id).unwrap();
+        }
+
+        for output_id in outputs_to_remove {
+            self.outputs.remove(&output_id).unwrap();
+        }
+
+        for child_id in children_to_remove {
+            block_on(self.db.0.execute(Action::Mutate(
+                self.graph_id().0,
+                MutateKind::DeleteNode(child_id.0),
+            )))
+            .unwrap();
+            self.nodes.remove(&child_id).unwrap();
+        }
+
+=======
     // TODO correct for nested commands
     pub fn remove_node(&mut self, node_id: NodeId) {
         // DELETE FROM MODEL
@@ -1042,11 +1903,17 @@ impl Model {
         // DELETE FROM DB
 
         // node and all inbound/outbound edges
+>>>>>>> master
         block_on(self.db.0.execute(Action::Mutate(
             self.graph_id().0,
             MutateKind::DeleteNode(node_id.0),
         )))
         .unwrap();
+<<<<<<< HEAD
+
+        self.nodes.remove(&node_id).unwrap();
+=======
+>>>>>>> master
     }
 
     // ADD INPUT OUTPUT EDGE
@@ -1086,7 +1953,11 @@ impl Model {
             OUTPUT_ARG_NAME_MARKER.into(),
             serde_json::to_value(&output_model.label).unwrap(),
         );
+<<<<<<< HEAD
+        // dbg!(properties.clone());
+=======
         dbg!(properties.clone());
+>>>>>>> master
 
         let edge_id = block_on(self.db.0.execute(Action::Mutate(
             self.graph_id().0,
@@ -1142,7 +2013,11 @@ impl Model {
         let mut properties = Properties::new();
 
         properties.insert(BLOCK_TO_CMD_EDGE_MARKER.into(), JsonValue::Bool(true));
+<<<<<<< HEAD
+        // dbg!(edge.clone());
+=======
         dbg!(edge.clone());
+>>>>>>> master
         let edge_id = block_on(self.db.0.execute(Action::Mutate(
             self.graph_id().0,
             MutateKind::CreateEdge(CreateEdge {
@@ -1225,6 +2100,32 @@ impl Model {
             MutateKind::UpdateNode((node_id.0, properties)),
         )))
         .unwrap();
+<<<<<<< HEAD
+
+        //get block's outputs, and change their width
+        let outputs = self
+            .outputs
+            .borrow_mut()
+            .into_iter()
+            .filter(|(_id, output_model)| output_model.parent_node_id == *node_id);
+
+        for (_, output_model) in outputs {
+            *output_model = OutputModel {
+                parent_node_id: output_model.parent_node_id,
+                command_id: output_model.command_id,
+                local_coords: Coords {
+                    x: (dimensions.width - INPUT_OFFSET) as f64,
+                    y: output_model.local_coords.y,
+                },
+                label: output_model.label.clone(),
+                index: output_model.index,
+                passthrough: output_model.passthrough,
+                tooltip: output_model.tooltip.to_owned(),
+                type_bound: output_model.type_bound.to_owned(),
+            }
+        }
+=======
+>>>>>>> master
     }
 
     /// CREATE WIDGET NODE and DATA NODE
@@ -1312,6 +2213,15 @@ impl Model {
             }
 
             let rect = Rect {
+<<<<<<< HEAD
+                x1: node.coords.x as i64,
+                x2: node.coords.x as i64 + node.dimensions.width,
+                y1: node.coords.y as i64,
+                y2: node.coords.y as i64 + node.dimensions.height,
+            };
+
+            rect.contains(coords.x as i64, coords.y as i64)
+=======
                 x1: node.coords.x,
                 x2: node.coords.x + node.dimensions.width,
                 y1: node.coords.y,
@@ -1319,6 +2229,7 @@ impl Model {
             };
 
             rect.contains(coords.x, coords.y)
+>>>>>>> master
         })
     }
 
@@ -1357,6 +2268,15 @@ impl Model {
                 // NodeModel::Data(_) => panic!(),
             };
             let rect = Rect {
+<<<<<<< HEAD
+                x1: (data.coords.x + input.local_coords.x) as i64,
+                x2: (data.coords.x + input.local_coords.x) as i64 + INPUT_SIZE,
+                y1: (data.coords.y + input.local_coords.y) as i64,
+                y2: (data.coords.y + input.local_coords.y) as i64 + INPUT_SIZE,
+            };
+            // dbg!(rect.clone());
+            rect.contains(coords.x as i64, coords.y as i64)
+=======
                 x1: data.coords.x + input.local_coords.x,
                 x2: data.coords.x + input.local_coords.x + INPUT_SIZE,
                 y1: data.coords.y + input.local_coords.y,
@@ -1364,6 +2284,7 @@ impl Model {
             };
             // dbg!(rect.clone());
             rect.contains(coords.x, coords.y)
+>>>>>>> master
         })
     }
 
@@ -1378,6 +2299,15 @@ impl Model {
                 // NodeModel::Data(_) => panic!(),
             };
             let rect = Rect {
+<<<<<<< HEAD
+                x1: (data.coords.x + output.local_coords.x) as i64,
+                x2: (data.coords.x + output.local_coords.x) as i64 + INPUT_SIZE,
+                y1: (data.coords.y + output.local_coords.y) as i64,
+                y2: (data.coords.y + output.local_coords.y) as i64 + INPUT_SIZE,
+            };
+            // dbg!(rect.clone());
+            rect.contains(coords.x as i64, coords.y as i64)
+=======
                 x1: data.coords.x + output.local_coords.x,
                 x2: data.coords.x + output.local_coords.x + INPUT_SIZE,
                 y1: data.coords.y + output.local_coords.y,
@@ -1385,6 +2315,7 @@ impl Model {
             };
             // dbg!(rect.clone());
             rect.contains(coords.x, coords.y)
+>>>>>>> master
         })
     }
 
@@ -1501,9 +2432,14 @@ pub fn create_wallet_and_context(db: Db, graph_id: GraphId) -> ContextConfig {
         .unwrap();
 
     let solana_context_config = solana::Config {
+<<<<<<< HEAD
+        solana_net: BackendSolanaNet::Devnet,
+        wallet_graph: wallet_graph_id,
+=======
         solana_url: "https://api.devnet.solana.com".into(),
         wallet_graph: wallet_graph_id,
         solana_arweave_url: "https://arloader.io/".into(),
+>>>>>>> master
     };
 
     // create context node
@@ -1522,3 +2458,20 @@ pub fn create_wallet_and_context(db: Db, graph_id: GraphId) -> ContextConfig {
 
     solana_context_config
 }
+<<<<<<< HEAD
+
+impl NodeModel {
+    pub fn data(&self) -> &WidgetNodeData {
+        match self {
+            Self::Widget(data) => data,
+        }
+    }
+
+    pub fn data_mut(&mut self) -> &mut WidgetNodeData {
+        match self {
+            Self::Widget(data) => data,
+        }
+    }
+}
+=======
+>>>>>>> master

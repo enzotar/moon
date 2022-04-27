@@ -30,6 +30,10 @@ fn main() {
                 // Desktop
                 FlutterPlatform::macos(),
                 //FlutterPlatform::linux(),
+<<<<<<< HEAD
+                FlutterPlatform::windows()
+=======
+>>>>>>> master
             ],
         }),
         lib_name,

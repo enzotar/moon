@@ -1,5 +1,15 @@
 import 'dart:collection';
 
+<<<<<<< HEAD
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:plugin/generated/rid_api.dart' as rid;
+import 'package:moon/nodes/add_port.dart';
+import 'package:moon/providers/store_provider.dart';
+import 'package:moon/widget_chooser.dart';
+import 'package:moon/widgets/block.dart';
+import 'utils/logger.dart';
+
+=======
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:plugin/generated/rid_api.dart' as rid;
@@ -7,20 +17,37 @@ import 'package:moon/nodes/add_port.dart';
 import 'package:moon/widget_chooser.dart';
 import 'logger.dart';
 import 'package:flutter/material.dart';
+>>>>>>> master
 import 'package:tuple/tuple.dart';
 
 /// Serve Data Function
 /// Given a list of head nodes and filters
 /// returns a widget tree with all children
 ///
+<<<<<<< HEAD
+WidgetTreeContent returnWidgetTreeFunction(
+  HashMap<String, rid.NodeView> nodes,
+  HashMap<String, rid.NodeView> vertexNodes,
+  Ref _ref,
+=======
 List<dynamic> returnWidgetTreeFunction(
   HashMap<String, rid.NodeView> nodes,
   HashMap<String, rid.NodeView> vertexNodes,
   rid.View store,
+>>>>>>> master
 ) {
   /// Visited Elements
   HashMap<String, rid.EdgeView> visitedEdgeElements = HashMap();
   HashMap<String, rid.NodeView> visitedNodeViews = HashMap();
+<<<<<<< HEAD
+  List<SuperBlock> nodeWidgets = [];
+
+  /// Function to build widgets recursively if they have children
+  ///
+  List<SuperBlock> buildWidgetTree(
+      HashMap<String, rid.NodeView> inputNodes, String? parentId) {
+    List<SuperBlock> widgetList = [];
+=======
   List<HookConsumerWidget> nodeWidgets = [];
 
   /// Function to build widgets recursively if they have children
@@ -28,6 +55,7 @@ List<dynamic> returnWidgetTreeFunction(
   List<HookConsumerWidget> buildWidgetTree(
       HashMap<String, rid.NodeView> inputNodes) {
     List<HookConsumerWidget> widgetList = [];
+>>>>>>> master
 
     final List<String> nodeIds = inputNodes.keys.toList();
     nodeIds.sort();
@@ -70,16 +98,120 @@ List<dynamic> returnWidgetTreeFunction(
               toVisitNodes.putIfAbsent(edgeView.to, () => node_to);
             },
           );
+<<<<<<< HEAD
+
+          final treeNode = _ref.read(treeNodeProvider(Tuple3(
+            nodeEntry,
+            false,
+            buildWidgetTree(toVisitNodes, nodeId),
+          )));
+          //  TreeNode(
+          //       children: buildWidgetTree(toVisitNodes, nodeId),
+          //       node: nodeEntry,
+          //       selected: false);
+          _ref.read(treeNodeRepoProvider).add(treeNode);
+          final SuperBlock widget = WidgetChooser(
+            treeNode,
+            nodeView.widgetType.name,
+          );
+=======
           // Block
           final HookConsumerWidget widget = WidgetChooser(
               nodeView.widgetType.name,
               nodeEntry,
               buildWidgetTree(toVisitNodes),
               null);
+>>>>>>> master
 
           widgetList.add(widget);
           nodeWidgets.add(widget);
         } else {
+<<<<<<< HEAD
+          // Create tree node
+          final treeNode = _ref.read(treeNodeProvider(Tuple3(
+            nodeEntry,
+            false,
+            null,
+          )));
+          // TreeNode(children: null, node: nodeEntry, selected: false);
+          _ref.read(treeNodeRepoProvider).add(treeNode);
+
+          //
+
+          if (nodeEntry.value.widgetType.name == "WidgetTextInput") {
+            // IS A TEXT INPUT
+            final SuperBlock widget = WidgetChooser(
+                treeNode, nodeView.widgetType.name, null, null, parentId);
+
+            widgetList.add(widget);
+            nodeWidgets.add(widget);
+          } else {
+            // IS A COMMAND
+
+            // find inputs and outputs
+            // search through all nodes for the input/output widgets
+            final HashMap<String, rid.NodeView> portNodes = HashMap.fromEntries(
+              nodes.entries.where(
+                ((element) {
+                  return element.value.parentId == nodeId;
+                }),
+              ),
+            );
+
+            // print(nodeId);
+            // print(portNodes);
+
+            var inputMap = SplayTreeMap<int, Tuple2<String, rid.NodeView>>();
+
+            portNodes.entries.where(
+              ((element) {
+                return element.value.widgetType.name == "WidgetInput";
+              }),
+            ).forEach(
+              (element) => inputMap[element.value.index] =
+                  Tuple2(element.key, element.value),
+            );
+
+            // print(inputMap);
+
+            var outputMap = SplayTreeMap<int, Tuple2<String, rid.NodeView>>();
+
+            portNodes.entries.where(
+              ((element) {
+                return element.value.widgetType.name == "WidgetOutput";
+              }),
+            ).forEach(
+              (element) => outputMap[element.value.index] =
+                  Tuple2(element.key, element.value),
+            );
+
+            // print(outputMap);
+
+            //pass command name to inputs
+            final String command_name = nodeEntry.value.widgetType.name;
+            // print(command_name);
+
+            // build the widget
+            final inputs = addPort(inputMap, _ref, command_name);
+
+            final outputs = addPort(outputMap, _ref, command_name);
+
+            // pass it to the command
+
+            /// Command
+            final SuperBlock widget = WidgetChooser(
+                treeNode,
+                nodeView.widgetType.name,
+                inputs,
+                outputs,
+                parentId,
+                _ref //parent block id for convenience
+                );
+
+            widgetList.add(widget);
+            nodeWidgets.add(widget);
+          }
+=======
           // FocusNodeManager.instance.addNode(nodeId);
           // final selectedNode = FocusNodeManager.instance.getNode(nodeId);
 
@@ -138,6 +270,7 @@ List<dynamic> returnWidgetTreeFunction(
 
           widgetList.add(widget);
           nodeWidgets.add(widget);
+>>>>>>> master
         }
       },
     );
@@ -146,11 +279,30 @@ List<dynamic> returnWidgetTreeFunction(
     return widgetList;
   }
 
+<<<<<<< HEAD
+  _ref.read(treeNodeRepoProvider).clear();
+  List<SuperBlock> result = buildWidgetTree(vertexNodes, null);
+  // List<EdgeWidget> edges =
+  //     visitedEdgeElements.entries.map((e) => addEdgeWidget(e)).toList();
+=======
   List<HookConsumerWidget> result = buildWidgetTree(vertexNodes);
+>>>>>>> master
 
   /// reset visited edges
   final isVisitedEdgeElements = visitedEdgeElements;
   final isVisitedNodeElements = visitedNodeViews;
+<<<<<<< HEAD
+  final isWidgets = nodeWidgets; //NOT USED
+
+  final WidgetTreeContent widgetTree = WidgetTreeContent(
+    nodeWidgets: result,
+    // edgeWidgets: edges,
+    visitedEdgeElements: isVisitedEdgeElements,
+    visitedNodeViews: isVisitedNodeElements,
+  );
+
+  return widgetTree;
+=======
   final isWidgets = nodeWidgets;
 
   visitedEdgeElements = HashMap();
@@ -163,6 +315,7 @@ List<dynamic> returnWidgetTreeFunction(
     isVisitedNodeElements,
     isWidgets,
   ];
+>>>>>>> master
 }
 
 // rebuildAndUpdateVolume() {
@@ -380,7 +533,10 @@ List<dynamic> returnWidgetTreeFunction(
 //   return [visitedNodes, visitedEdges];
 // }
 
+<<<<<<< HEAD
+=======
 
+>>>>>>> master
 // // ///
 // // ///
 // // /// Filters
